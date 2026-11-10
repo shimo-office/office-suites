@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0 — 2026-11-10
+
+### 新增
+
+- Windows 10/11 支持：Chrome 路径、`%APPDATA%\shimo-net-cli` 状态目录、Windows Credential Manager 凭据存储。
+- `install.ps1`：Windows 安装脚本，有 Go 时构建，否则下载 `shimo-net_windows_<arch>.exe`。
+- Release 增加 Windows amd64 / arm64 资产；CI 增加 Windows 测试。
+- 图文教程入口：`docs/tutorials/`（P0 四款 × 安装授权到操作结果）。
+
 ## 0.8.0 — 2026-11-10
 
 ### 变更

@@ -18,8 +18,14 @@ else
   esac
   URL="https://github.com/shimo-office/office-suites/releases/latest/download/shimo-net_${OS}_${ARCH}"
   echo "未找到 Go，下载预编译二进制：$URL"
-  curl -fL "$URL" -o "$BIN"
-  chmod +x "$BIN"
+  TMP_BIN="$BIN.tmp.$$"
+  if ! curl -fL --retry 2 --connect-timeout 15 "$URL" -o "$TMP_BIN"; then
+    rm -f "$TMP_BIN"
+    echo "下载失败。请安装 Go 1.22+ 后重试，或手动从 release 页面下载 $URL"
+    exit 1
+  fi
+  chmod +x "$TMP_BIN"
+  mv "$TMP_BIN" "$BIN"
 fi
 
 if [ -d "$HOME/.dsh" ]; then
