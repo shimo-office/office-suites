@@ -1,0 +1,11 @@
+#!/bin/sh
+# 仓库内开发入口：优先用已构建的 bin/shimo-net，否则 go run
+DIR=$(cd "$(dirname "$0")" && pwd)
+if [ -x "$DIR/bin/shimo-net" ]; then
+  exec "$DIR/bin/shimo-net" "$@"
+fi
+if command -v go >/dev/null 2>&1; then
+  cd "$DIR" && exec go run ./cli "$@"
+fi
+echo "未找到 Go，也未构建 bin/shimo-net；请先运行 ./install.command" >&2
+exit 1
