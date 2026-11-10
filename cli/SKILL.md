@@ -6,7 +6,7 @@ whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉
 
 # shimo-net CLI
 
-仓库内用 `./cli/shimo`（或根目录 `./shimo`）；安装后用 PATH 里的 `shimo-net`。需要 Python 3.9+。
+仓库内用根目录 `./shimo`；安装后用 PATH 里的 `shimo-net`。
 
 ## 检查与登录
 

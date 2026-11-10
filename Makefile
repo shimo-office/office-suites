@@ -1,8 +1,17 @@
-.PHONY: test lint
+.PHONY: build test lint clean
 
-test:
-	./cli/tests/smoke.sh
+build:
+	go build -trimpath -ldflags "-s -w" -o bin/shimo-net ./cli
+
+test: build
+	go test ./cli
+	go vet ./cli
+	./bin/shimo-net version
+	./bin/shimo-net schema >/dev/null
+	./bin/shimo-net config show >/dev/null
 
 lint:
-	python3 -m py_compile cli/bin/shimo.py
-	@echo "py_compile ok"
+	go vet ./cli
+
+clean:
+	rm -rf bin
