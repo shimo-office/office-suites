@@ -1,5 +1,5 @@
 #!/bin/bash
-# shimo-net CLI（Python 版）安装：零 Node 依赖
+# shimo-net CLI 安装
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 DEST="$HOME/.shimo-net-py"

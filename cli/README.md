@@ -1,8 +1,8 @@
 # shimo-net CLI
 
-石墨 shimo.net（含客户私有部署）命令行，**15 个办公场景、零 Node 依赖**，只用 Python 3.9+ 标准库。
+石墨 shimo.net（含客户私有部署）命令行，**15 个办公场景**，Python 3.9+。当前版本 **0.7.0**。
 
-- 直连 `/api/v1`，不走 MCP、不开端口、不跑常驻服务。
+- 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain；过期就地重登。
 - 数据类命令支持 `--json`，适合 Agent / 脚本调用。
 
@@ -44,6 +44,25 @@ cd cli && ./install.command
 SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami
 ```
 
+## 第一次配置
+
+```bash
+shimo-net init                    # 默认 https://shimo.net
+shimo-net init --origin https://<客户域名>
+```
+
+`init` 会把网址写入 `~/.shimo-net-cli/config.json`，并请求 `GET /api/v1/users/me` 确认接口可达（返回 401 也算可达）。
+
+查看 / 修改：
+
+```bash
+shimo-net config show
+shimo-net config set https://<客户域名>
+shimo-net config clear
+```
+
+`SHIMO_NET_ORIGIN` 环境变量优先级最高，适合临时切换。
+
 ## 登录
 
 ```bash
@@ -53,7 +72,10 @@ shimo-net doctor
 ```
 
 - `login` 打开无地址栏的 Chrome 窗口，停在 `{origin}/login`；
+- 首次使用没有 `config.json` 时，会提示输入产品网址；
 - 登录成功后窗口关闭，会话写入 Keychain；
+- 登录过期：重新 `shimo-net login`，成功后重试原命令，网址不用重配；
+- 也可以在执行任意命令时加 `--relogin`，遇到 401 自动登录并重试；
 - 不要把密码 / cookie 贴进对话、Issue 或日志。
 
 退出并删除本机凭据：
@@ -83,7 +105,7 @@ shimo-net logout
 | 15 | 常用文件夹别名 | `shimo-net fav add <别名> <链接> --note 特征`，之后任意命令用 `@别名` |
 | — | 用已登录浏览器打开链接 | `shimo-net open <链接\|guid>`（复用 CLI 的 Chrome 配置，免重复登录） |
 
-通用命令：`login` / `logout` / `whoami` / `doctor` / `schema` / `version`；全局 `--json`。
+通用命令：`init` / `config` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version`；全局 `--json`、`--relogin`。
 
 ## 常用位置（@别名）
 

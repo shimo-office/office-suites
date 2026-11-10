@@ -1,12 +1,12 @@
 ---
 name: shimo-net-cli
-description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连（Python 版，零 Node），搜索文件与空间、上传/导入、拉取下载、权限、新建改名删除、读正文、常用文件夹别名。用户说“找一下 XX”“传上去”“导到 XX”“拉下来”“设成企业内可评论”时触发。
+description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限、新建改名删除、读正文、常用文件夹别名。用户说“找一下 XX”“传上去”“导到 XX”“拉下来”“设成企业内可评论”时触发。
 whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、改权限、新建/改名/删除、读文档、记常用文件夹时。
 ---
 
-# shimo-net CLI（Python 版，无 MCP）
+# shimo-net CLI
 
-仓库内用 `./cli/shimo`（或根目录 `./shimo`）；安装后用 PATH 里的 `shimo-net`。只依赖 Python 3.9+，**不需要 Node**。
+仓库内用 `./cli/shimo`（或根目录 `./shimo`）；安装后用 PATH 里的 `shimo-net`。需要 Python 3.9+。
 
 ## 检查与登录
 
@@ -16,7 +16,14 @@ shimo-net whoami        # 未登录或 401 -> shimo-net login（Chrome → Keych
 shimo-net doctor
 ```
 
-私有部署：`SHIMO_NET_ORIGIN=https://<客户域名> shimo-net ...`。不要把密码/cookie 粘进对话。
+私有部署：
+
+```bash
+shimo-net init --origin https://<客户域名>
+# 或临时：SHIMO_NET_ORIGIN=https://<客户域名> shimo-net ...
+```
+
+任意命令加 `--relogin`，遇 401 会自动打开登录并在成功后重试原命令。不要把密码 / cookie 粘进对话。
 
 ## 15 个场景
 
