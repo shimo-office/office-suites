@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -23,7 +24,14 @@ func homeDir() string {
 	return h
 }
 
-func stateDir() string    { return filepath.Join(homeDir(), ".shimo-net-cli") }
+func stateDir() string {
+	if runtime.GOOS == "windows" {
+		if d, err := os.UserConfigDir(); err == nil && d != "" {
+			return filepath.Join(d, "shimo-net-cli")
+		}
+	}
+	return filepath.Join(homeDir(), ".shimo-net-cli")
+}
 func configPath() string  { return filepath.Join(stateDir(), "config.json") }
 func credPath() string    { return filepath.Join(stateDir(), "credentials.json") }
 func favPath() string     { return filepath.Join(stateDir(), "favorites.json") }

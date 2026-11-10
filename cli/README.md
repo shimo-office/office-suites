@@ -1,6 +1,6 @@
 # shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **15 个办公场景**。当前版本 **0.8.0**，Go 单二进制。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **15 个办公场景**。当前版本 **0.9.0**，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain；过期就地重登。
@@ -10,10 +10,16 @@
 
 ## 安装
 
-从仓库根目录：
+**macOS / Linux**
 
 ```bash
 ./install.command
+```
+
+**Windows（PowerShell）**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 安装器会：

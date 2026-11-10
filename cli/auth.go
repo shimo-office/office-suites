@@ -92,30 +92,6 @@ func clearCred() {
 	}
 }
 
-func keychainAvailable() bool {
-	if runtime.GOOS != "darwin" {
-		return false
-	}
-	_, err := exec.LookPath("security")
-	return err == nil
-}
-
-func keychainSave(account, cookie string) error {
-	return exec.Command("security", "add-generic-password", "-U", "-s", keychainService, "-a", account, "-w", cookie).Run()
-}
-
-func keychainLoad() string {
-	out, err := exec.Command("security", "find-generic-password", "-s", keychainService, "-w").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func keychainClear() {
-	_ = exec.Command("security", "delete-generic-password", "-s", keychainService).Run()
-}
-
 func findChrome() (string, error) {
 	paths := []string{
 		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -123,6 +99,16 @@ func findChrome() (string, error) {
 		"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
 		"/usr/bin/google-chrome", "/usr/bin/google-chrome-stable",
 		"/usr/bin/chromium", "/usr/bin/chromium-browser", "/snap/bin/chromium",
+	}
+	if runtime.GOOS == "windows" {
+		for _, base := range []string{os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)"), os.Getenv("LOCALAPPDATA")} {
+			if base == "" {
+				continue
+			}
+			paths = append(paths,
+				filepath.Join(base, `Google\Chrome\Application\chrome.exe`),
+				filepath.Join(base, `Microsoft\Edge\Application\msedge.exe`))
+		}
 	}
 	for _, p := range paths {
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {

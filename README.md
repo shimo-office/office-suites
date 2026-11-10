@@ -8,7 +8,7 @@
 
 [![Release](https://img.shields.io/github/v/release/shimo-office/office-suites?label=release)](https://github.com/shimo-office/office-suites/releases)
 [![CI](https://github.com/shimo-office/office-suites/actions/workflows/ci.yml/badge.svg)](https://github.com/shimo-office/office-suites/actions/workflows/ci.yml)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](#环境要求)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](#环境要求)
 
 </div>
 
@@ -20,6 +20,8 @@
 
 ## 30 秒上手
 
+**macOS / Linux**
+
 ```bash
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
@@ -28,6 +30,16 @@ cd office-suites
 shimo-net init            # 第一次：确认产品网址（默认 shimo.net）
 shimo-net login           # 打开 Chrome 登录一次
 shimo-net search "报价政策"
+```
+
+**Windows（PowerShell）**
+
+```powershell
+git clone https://github.com/shimo-office/office-suites.git
+cd office-suites
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+shimo-net init
+shimo-net login
 ```
 
 > 安装器会把命令放到 `~/.local/bin/shimo-net`。有 Go 时本地构建；没有 Go 时自动下载 [release](https://github.com/shimo-office/office-suites/releases) 里的 macOS / Linux 二进制。如果提示找不到命令，把 `~/.local/bin` 加进 `PATH`。
@@ -138,6 +150,21 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 
 ---
 
+## 图文教程
+
+P0 四款 × 实际系统与入口，从安装授权到 15 个场景的操作结果：
+
+| 工具 | 入口 | 教程 |
+|---|---|---|
+| WorkBuddy | 技能 → 已安装 | [图文教程](docs/tutorials/workbuddy.md) |
+| 豆包工作 | 技能 | [图文教程](docs/tutorials/doubao.md) |
+| DeepSeek Harness | `~/.dsh/skills/` | [图文教程](docs/tutorials/dsh.md) |
+| Codex | `~/.codex/skills/` | [图文教程](docs/tutorials/codex.md) |
+
+完整目录与截图口径见 [docs/tutorials/](docs/tutorials/README.md)。
+
+---
+
 ## 常用命令
 
 <details>
@@ -226,7 +253,7 @@ flowchart LR
 
 | 项 | 要求 |
 |---|---|
-| 操作系统 | macOS 12+（主支持）；Linux（实验性，单二进制） |
+| 操作系统 | macOS 12+（主支持）；Linux（实验性）；Windows 10/11 |
 | 运行时 | 不需要 Python / Node；从源码构建需要 Go 1.22+ |
 | 浏览器 | Google Chrome / Chromium / Microsoft Edge（登录与 `open`） |
 | 网络 | 能访问 `shimo.net` 或客户私有部署域名 |
@@ -268,6 +295,7 @@ source ~/.zshrc
 
 ## 文档与开发
 
+- [图文教程（P0 四款）](docs/tutorials/README.md)
 - [CLI 详细用法](cli/README.md)
 - [安装与使用说明](cli/安装使用说明.md)
 - [15 个场景与自然语言示例](cli/scenarios.md)

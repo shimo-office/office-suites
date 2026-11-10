@@ -24,6 +24,12 @@ jobs:
           - os: ubuntu-latest
             goos: linux
             goarch: arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+          - os: windows-latest
+            goos: windows
+            goarch: arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -31,13 +37,16 @@ jobs:
         with:
           go-version: "1.22"
       - name: Build
+        shell: bash
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
           mkdir -p dist
-          go build -trimpath -ldflags "-s -w" -o "dist/shimo-net_${GOOS}_${GOARCH}" ./cli
+          EXT=""
+          if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
+          go build -trimpath -ldflags "-s -w" -o "dist/shimo-net_${GOOS}_${GOARCH}${EXT}" ./cli
       - uses: actions/upload-artifact@v4
         with:
           name: shimo-net_${{ matrix.goos }}_${{ matrix.goarch }}
