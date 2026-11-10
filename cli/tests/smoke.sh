@@ -5,33 +5,39 @@ set -euo pipefail
 CLI_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$CLI_DIR"
 
-echo "[1/6] py_compile"
+echo "[1/8] py_compile"
 python3 -m py_compile bin/shimo.py
 
-echo "[2/6] version"
-[ "$(./shimo version)" = "shimo-net 0.6.0" ]
-./shimo --version | grep -q "0.6.0"
+echo "[2/8] version"
+[ "$(./shimo version)" = "shimo-net 0.7.0" ]
+./shimo --version | grep -q "0.7.0"
 
-echo "[3/6] help"
+echo "[3/8] help"
 ./shimo help | grep -q "15 个场景"
 
-echo "[4/6] schema"
+echo "[4/8] schema"
 ./shimo schema | python3 -c '
 import json, sys
 d = json.load(sys.stdin)
-assert d["version"] == "0.6.0", d["version"]
-assert len(d["commands"]) == 20, len(d["commands"])
+assert d["version"] == "0.7.0", d["version"]
+assert len(d["commands"]) == 22, len(d["commands"])
 assert len(d["scenarios"]) == 15, len(d["scenarios"])
 assert len(d["shareModes"]) == 7, len(d["shareModes"])
 '
 
-echo "[5/6] --json"
+echo "[5/8] config"
+./shimo config show | grep -q "产品网址"
+
+echo "[6/8] --relogin help"
+./shimo help | grep -q -- "--relogin"
+
+echo "[7/8] --json"
 ./shimo version --json | python3 -c '
 import json, sys
-assert json.load(sys.stdin)["version"] == "0.6.0"
+assert json.load(sys.stdin)["version"] == "0.7.0"
 '
 
-echo "[6/6] unknown command exits 2"
+echo "[8/8] unknown command exits 2"
 set +e
 ./shimo definitely-not-a-command >/dev/null 2>&1
 code=$?

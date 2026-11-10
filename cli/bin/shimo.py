@@ -10,18 +10,93 @@ import urllib.request, urllib.error, urllib.parse
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
-VERSION = "0.6.0"
-ORIGIN = os.environ.get("SHIMO_NET_ORIGIN", "https://shimo.net").rstrip("/")
-API = ORIGIN + "/api/v1"
+VERSION = "0.7.0"
+
 HOME = os.path.join(os.path.expanduser("~"), ".shimo-net-cli")
+CONFIG_FILE = os.path.join(HOME, "config.json")
 CRED_FILE = os.path.join(HOME, "credentials.json")
 FAV_FILE = os.path.join(HOME, "favorites.json")
 PROFILE = os.path.join(HOME, "chrome-profile")
 SERVICE = "shimo-net-cli"
 
+
+def normalize_origin(value):
+    s = str(value or "").strip()
+    if not s:
+        raise ValueError("产品网址不能为空")
+    if not re.match(r"^https?://", s, re.I):
+        s = "https://" + s
+    p = urllib.parse.urlparse(s)
+    if not p.netloc:
+        raise ValueError("产品网址不合法：%s" % value)
+    path = p.path.rstrip("/")
+    return (p.scheme.lower() + "://" + p.netloc + path).rstrip("/")
+
+
+def read_config():
+    try:
+        with open(CONFIG_FILE, encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception:
+        return {}
+
+
+def save_config(origin, **extra):
+    os.makedirs(HOME, mode=0o700, exist_ok=True)
+    data = read_config()
+    data.update({"origin": normalize_origin(origin), "savedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+    data.update(extra)
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        os.chmod(HOME, 0o700); os.chmod(CONFIG_FILE, 0o600)
+    except Exception:
+        pass
+    return data
+
+
+def resolve_origin():
+    env = os.environ.get("SHIMO_NET_ORIGIN")
+    if env:
+        return normalize_origin(env), "env"
+    cfg = read_config().get("origin")
+    if cfg:
+        return normalize_origin(cfg), "config"
+    return "https://shimo.net", "default"
+
+
+ORIGIN, ORIGIN_SOURCE = resolve_origin()
+API = ORIGIN + "/api/v1"
+
+
+def set_origin(value):
+    global ORIGIN, API, ORIGIN_SOURCE
+    ORIGIN = normalize_origin(value)
+    API = ORIGIN + "/api/v1"
+    ORIGIN_SOURCE = "config"
+    save_config(ORIGIN)
+    return ORIGIN
+
+
+def ensure_origin(interactive=True):
+    global ORIGIN, API, ORIGIN_SOURCE
+    if os.environ.get("SHIMO_NET_ORIGIN"):
+        ORIGIN, ORIGIN_SOURCE = resolve_origin()
+        API = ORIGIN + "/api/v1"
+        return ORIGIN
+    if read_config().get("origin"):
+        ORIGIN, ORIGIN_SOURCE = resolve_origin()
+        API = ORIGIN + "/api/v1"
+        return ORIGIN
+    if interactive and sys.stdin.isatty() and not JSON_OUT:
+        value = input("首次使用，请输入产品网址（默认 https://shimo.net）：").strip()
+        return set_origin(value or "https://shimo.net")
+    return ORIGIN
+
 ARGS = sys.argv[1:]
 CMD = ARGS[0] if ARGS else "help"
 JSON_OUT = "--json" in ARGS
+RELOGIN = "--relogin" in ARGS
 POS = [a for a in ARGS[1:] if not a.startswith("--")]
 
 def opt(name, default=None):
@@ -716,12 +791,17 @@ def find_chrome():
     raise RuntimeError("没找到 Chrome/Chromium/Edge，请先安装 Google Chrome")
 
 def login():
+    if opt("--origin"):
+        set_origin(opt("--origin"))
+    ensure_origin(interactive=True)
+    save_config(ORIGIN)
     os.makedirs(PROFILE, mode=0o700, exist_ok=True)
     chrome = find_chrome()
     args = ["--no-first-run", "--no-default-browser-check", "--user-data-dir=" + PROFILE,
             "--remote-debugging-port=0", "--app=%s/login" % ORIGIN]
     if os.environ.get("SHIMO_NET_NO_SANDBOX"):
         args = ["--no-sandbox", "--disable-gpu"] + args
+    print("产品网址：%s" % ORIGIN, flush=True)
     print("正在打开 Chrome，请在窗口里用你自己的账号登录 %s…" % ORIGIN, flush=True)
     proc = subprocess.Popen([chrome] + args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     ws = None
@@ -898,11 +978,76 @@ def file_row(f, i):
 
 # ---------- 命令 ----------
 
+def probe_origin(origin):
+    url = normalize_origin(origin) + "/api/v1/users/me"
+    req = urllib.request.Request(url, headers={"x-requested-with": "XMLHttpRequest",
+                                               "user-agent": "shimo-net-cli/" + VERSION})
+    try:
+        with urllib.request.urlopen(req, timeout=12) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        return e.code
+    except Exception as e:
+        raise RuntimeError("连不上 %s：%s" % (origin, e))
+
+
+def cmd_init():
+    value = opt("--origin")
+    if value:
+        set_origin(value)
+    else:
+        ensure_origin(interactive=True)
+        if not read_config().get("origin"):
+            set_origin(ORIGIN)
+    status = probe_origin(ORIGIN)
+    if status not in (200, 401, 403):
+        raise RuntimeError("网址可达但接口返回 HTTP %s，请确认是石墨办公套件地址：%s" % (status, ORIGIN))
+    print("产品网址：%s" % ORIGIN)
+    print("配置已保存：%s" % CONFIG_FILE)
+    print("接口可达（HTTP %s）。下一步：shimo-net login" % status)
+    if has("--login"):
+        login()
+
+
+def cmd_config():
+    sub = POS[0] if POS else "show"
+    if sub in ("show", "get", "list"):
+        cfg = read_config()
+        o = {"origin": ORIGIN, "source": ORIGIN_SOURCE, "configFile": CONFIG_FILE,
+             "envOverride": "SHIMO_NET_ORIGIN" if os.environ.get("SHIMO_NET_ORIGIN") else None,
+             "savedAt": cfg.get("savedAt")}
+        if JSON_OUT:
+            return out(o)
+        print("产品网址：%s（来源：%s）" % (ORIGIN, ORIGIN_SOURCE))
+        print("配置文件：%s" % CONFIG_FILE)
+        if o["envOverride"]:
+            print("环境变量：SHIMO_NET_ORIGIN=%s（优先级最高）" % ORIGIN)
+        return
+    if sub in ("set", "use"):
+        value = POS[1] if len(POS) > 1 else opt("--origin")
+        if not value:
+            raise ValueError("用法：shimo-net config set <https://产品域名>")
+        set_origin(value)
+        status = probe_origin(ORIGIN)
+        print("已保存：%s（HTTP %s）" % (ORIGIN, status))
+        return
+    if sub in ("clear", "reset"):
+        cfg = read_config()
+        cfg.pop("origin", None)
+        os.makedirs(HOME, mode=0o700, exist_ok=True)
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        print("已清除 config.json 里的 origin；如设置了 SHIMO_NET_ORIGIN，仍以环境变量为准")
+        return
+    raise ValueError("用法：shimo-net config [show|set <url>|clear]")
+
+
 def cmd_doctor():
     chrome = next((p for p in CHROME_PATHS if os.path.exists(p)), "未找到")
     src = cred_source()
     o = {"version": VERSION, "runtime": "python " + sys.version.split()[0], "chrome": chrome, "home": HOME,
-         "origin": ORIGIN, "credentialsFile": CRED_FILE if os.path.exists(CRED_FILE) else None,
+         "origin": ORIGIN, "originSource": ORIGIN_SOURCE, "configFile": CONFIG_FILE if os.path.exists(CONFIG_FILE) else None,
+         "credentialsFile": CRED_FILE if os.path.exists(CRED_FILE) else None,
          "storage": {"keychain": "macOS Keychain", "file": "本机文件 0600", "env": "环境变量 SHIMO_NET_COOKIE"}.get(src, "未登录")}
     try:
         me = whoami()
@@ -911,7 +1056,7 @@ def cmd_doctor():
         o["account"] = str(e)
     if JSON_OUT:
         return out(o)
-    for k in ("version", "runtime", "chrome", "home", "origin", "credentialsFile", "storage", "account"):
+    for k in ("version", "runtime", "chrome", "home", "origin", "originSource", "configFile", "credentialsFile", "storage", "account"):
         if o.get(k) is not None:
             print("%s: %s" % (k, o[k]))
 
@@ -1327,9 +1472,12 @@ def schema():
     return {
         "name": "shimo-net", "version": VERSION, "transport": "cli", "runtime": "python3",
         "auth": {"login": "shimo-net login", "whoami": "shimo-net whoami", "storage": "macOS Keychain", "service": SERVICE, "envOverride": "SHIMO_NET_COOKIE"},
-        "origin": {"default": "https://shimo.net", "envOverride": "SHIMO_NET_ORIGIN"},
+        "origin": {"default": "https://shimo.net", "envOverride": "SHIMO_NET_ORIGIN",
+                   "configFile": CONFIG_FILE, "commands": ["init", "config show", "config set <url>"]},
         "favorites": {"file": FAV_FILE, "use": "@别名", "commands": ["fav list", "fav add", "fav rm", "fav show"]},
         "commands": [
+            {"name": "init", "usage": "shimo-net init [--origin https://域名] [--login]", "desc": "初始化产品网址并校验接口可达"},
+            {"name": "config", "usage": "shimo-net config [show|set <url>|clear]", "desc": "查看/修改产品网址（config.json）"},
             {"name": "search", "usage": "shimo-net search <keyword> [--limit 20]", "desc": "搜文件/文件夹/空间，返回地址"},
             {"name": "spaces", "usage": "shimo-net spaces [--limit 300]", "desc": "列出我参与的空间"},
             {"name": "ls", "usage": "shimo-net ls <链接|guid|@别名> [--since 7d] [--limit 200]", "desc": "列文件夹/空间里的文件"},
@@ -1358,10 +1506,12 @@ def schema():
         "errors": {"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
     }
 
-HELP = """shimo-net %s —— shimo.net 接口（15 个场景，Python 版 / 零 Node 依赖）
+HELP = """shimo-net %s —— shimo.net 接口（15 个场景）
 
 用法:
-  shimo-net login                                  登录（Chrome → Keychain）
+  shimo-net init [--origin URL]                    初始化产品网址并校验可达
+  shimo-net config [show|set URL]                  查看 / 修改产品网址
+  shimo-net login [--origin URL]                   登录（Chrome → Keychain）
   shimo-net logout                                 退出并删除本机凭据
   shimo-net whoami | doctor                        账号 / 自检
   shimo-net search <关键词> [--limit 20]            1 搜索
@@ -1385,10 +1535,11 @@ HELP = """shimo-net %s —— shimo.net 接口（15 个场景，Python 版 / 零
 权限: private | enterprise_readonly | enterprise_commentable | enterprise_editable
       readonly | commentable | editable
 
-全局: --json；SHIMO_NET_ORIGIN 指定私有部署域名
+全局: --json；SHIMO_NET_ORIGIN 指定私有部署域名；--relogin 遇 401 自动登录后重试
 """ % VERSION
 
 DISPATCH = {
+    "init": cmd_init, "config": cmd_config,
     "login": lambda: login(), "logout": lambda: logout(), "whoami": cmd_whoami, "doctor": cmd_doctor,
     "search": cmd_search, "spaces": cmd_spaces, "ls": cmd_ls, "info": cmd_info,
     "upload": cmd_upload, "import": cmd_import, "new": cmd_new, "rename": cmd_rename,
@@ -1408,7 +1559,15 @@ def main():
     if not fn:
         print(HELP, file=sys.stderr)
         sys.exit(2)
-    fn()
+    try:
+        fn()
+    except Exception as e:
+        msg = str(e)
+        if RELOGIN and any(x in msg for x in ("401", "未登录", "登录已过期", "登录不可用")):
+            login()
+            fn()
+        else:
+            raise
 
 if __name__ == "__main__":
     try:

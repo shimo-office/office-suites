@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.0 — 2026-11-10
+
+### 新增
+
+- `init`：首次配置产品网址，`GET /api/v1/users/me` 校验可达后写入 `config.json`。
+- `config show / set / clear`：查看、修改、清除产品网址；`SHIMO_NET_ORIGIN` 仍可临时覆盖。
+- `login --origin <url>`：首次登录可直接指定私有部署域名；无配置时也会提示输入。
+- `--relogin`：遇 401 / 未登录时自动打开 Chrome 登录，成功后重试原命令。
+- 根 README 重写为面向使用者的版本：30 秒上手、常见任务、Agent 接入、私有部署、排错。
+- `docs/design-notes.md`：CLI 语言选型与 Go 迁移判断。
+- 终端演示图 `docs/images/demo.png`。
+
+### 变更
+
+- 版本号 0.7.0；`doctor` 增加 `originSource` / `configFile`。
+- `schema` 增加 `init` / `config` 命令与 `configFile` 字段。
+- 未知命令退出码为 2；`--version` 可用。
+- 安装器 Python 版本检查统一为 3.9。
+
 ## 0.6.0 — 2026-11-10
 
 首个公开仓库版本。

@@ -4,7 +4,7 @@
 
 只保留本机实测通过、CLI 已能跑的场景。所有场景共用一套登录态：凭据在 macOS Keychain，过期就地重登再重试本条，不重输网址。
 
-**初始化（仅第一次）**：输入产品网址（客户私有部署域名）→ `GET /api/v1/users/me` 校验可达 → Chrome 登录 `{base}/login` → 保存 `config.json`（网址）+ Keychain（凭据）→ 就绪。网址默认 `shimo.net`，私有部署用 `SHIMO_NET_ORIGIN=https://客户域名`。
+**初始化（仅第一次）**：输入产品网址（客户私有部署域名）→ `GET /api/v1/users/me` 校验可达 → Chrome 登录 `{base}/login` → 保存 `config.json`（网址）+ Keychain（凭据）→ 就绪。网址默认 `shimo.net`；私有部署用 `shimo-net init --origin https://客户域名`，或临时用 `SHIMO_NET_ORIGIN`。
 
 ## 安全与资源说明（请 IT / 运维关注）
 
