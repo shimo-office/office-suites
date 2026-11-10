@@ -1,8 +1,8 @@
 <div align="center">
 
-# shimo-net
+# shimo.net CLI
 
-**在终端里，把石墨办公用起来。**
+**石墨办公套件的命令行工具：在终端里，把 shimo.net 用起来。**
 
 找文件 · 导入交付 · 拉取归档 · 权限巡检 · 周报 · 上传下载
 
@@ -12,7 +12,7 @@
 
 </div>
 
-![shimo-net 终端演示](docs/images/demo.png)
+![shimo.net CLI 终端演示](docs/images/demo.png)
 
 不用打开浏览器一层层翻文件夹，也不用记链接。找文件、导文档、拉取、改权限、出周报，都可以用一句命令完成；接进 Agent 后，直接说人话就行。
 
@@ -59,7 +59,7 @@ shimo-net login
 
 ## 在 Agent 里怎么用
 
-`shimo-net` 自带一份技能定义 [cli/SKILL.md](cli/SKILL.md)。把它装进 Agent 后，用户只需要说「找一下报价政策」「把这个 md 导到 AI 方案」，Agent 会自己调用命令。
+CLI 自带一份技能定义 [cli/SKILL.md](cli/SKILL.md)。把它装进 Agent 后，用户只需要说「找一下报价政策」「把这个 md 导到 AI 方案」，Agent 会自己调用命令。
 
 ### 1. 安装技能
 
@@ -212,13 +212,13 @@ SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami
 
 ```mermaid
 flowchart LR
-  U["你 / Agent"] -->|一句话或一条命令| C["shimo-net"]
+  U["你 / Agent"] -->|一句话或一条命令| C["shimo.net CLI"]
   C -->|登录一次| K[(Keychain)]
   C -->|HTTPS| S["shimo.net / 客户私有部署"]
   S -->|链接 · 文件 · 权限| C
 ```
 
-`shimo-net` 是石墨办公套件的命令行接入层：直连 `/api/v1`，把 15 个常用场景封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
+**shimo.net CLI** 是石墨办公套件的命令行接入层（命令名 `shimo-net`）：直连 `/api/v1`，把 15 个常用场景封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
 
 ---
 

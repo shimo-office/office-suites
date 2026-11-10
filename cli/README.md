@@ -1,6 +1,6 @@
-# shimo-net CLI
+# shimo.net CLI
 
-石墨 shimo.net（含客户私有部署）命令行，**15 个办公场景**，Python 3.9+。当前版本 **0.7.0**。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **15 个办公场景**，Python 3.9+。当前版本 **0.7.0**。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain；过期就地重登。
