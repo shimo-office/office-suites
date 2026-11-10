@@ -1,0 +1,4 @@
+#!/bin/sh
+# 仓库根目录开发入口：转调 cli/shimo
+DIR=$(cd "$(dirname "$0")" && pwd)
+exec "$DIR/cli/shimo" "$@"
