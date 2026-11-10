@@ -1,12 +1,12 @@
-# shimo.net CLI
+# shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **15 个办公场景**，Python 3.9+。当前版本 **0.7.0**。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **15 个办公场景**。当前版本 **0.8.0**，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain；过期就地重登。
 - 数据类命令支持 `--json`，适合 Agent / 脚本调用。
 
-> 仓库根目录的 [README](../README.md) 有完整的环境要求、安全设计与仓库结构；本文件聚焦 CLI 用法。
+> 仓库根目录的 [README](../README.md) 有完整的环境要求、Agent 接入和安全设计；本文件聚焦 CLI 用法。
 
 ## 安装
 
@@ -16,33 +16,23 @@
 ./install.command
 ```
 
-或只装 CLI：
-
-```bash
-cd cli && ./install.command
-```
-
 安装器会：
 
-1. 复制程序到 `~/.shimo-net-py/app`；
-2. 生成 `~/.local/bin/shimo-net`；
+1. 有 Go 时本地构建，否则下载最新 release 二进制；
+2. 安装到 `~/.local/bin/shimo-net`；
 3. 如存在 `~/.dsh`，把技能装到 `~/.dsh/skills/shimo-net-cli`；
 4. 跑一次 `doctor`。
 
-需要 Python 3.9+（macOS 通常自带 `/usr/bin/python3`；没有就 `xcode-select --install`）。如果提示 `command not found`，把 `~/.local/bin` 加入 `PATH`。
-
-不安装直接运行：
+从源码构建：
 
 ```bash
-./shimo version
-./shimo help
+go build -trimpath -o bin/shimo-net ./cli
+bin/shimo-net version
 ```
 
-私有部署：
+需要 Go 1.22+；运行二进制本身不需要 Go。
 
-```bash
-SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami
-```
+如果提示 `command not found`，把 `~/.local/bin` 加入 `PATH`。
 
 ## 第一次配置
 
@@ -75,7 +65,7 @@ shimo-net doctor
 - 首次使用没有 `config.json` 时，会提示输入产品网址；
 - 登录成功后窗口关闭，会话写入 Keychain；
 - 登录过期：重新 `shimo-net login`，成功后重试原命令，网址不用重配；
-- 也可以在执行任意命令时加 `--relogin`，遇到 401 自动登录并重试；
+- 任意命令加 `--relogin`，遇 401 自动登录并重试；
 - 不要把密码 / cookie 贴进对话、Issue 或日志。
 
 退出并删除本机凭据：

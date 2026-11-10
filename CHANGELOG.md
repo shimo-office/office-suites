@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.0 — 2026-11-10
+
+### 变更
+
+- CLI 重写为 **Go 单二进制**（Go 1.22+），运行时不再依赖 Python。
+- 15 个场景、`init` / `config` / `login --origin` / `--relogin` 行为与 0.7.0 对齐。
+- Chrome 登录改为 Go 实现的 CDP WebSocket 客户端；会话仍写 macOS Keychain。
+- docx / xlsx / pptx 正文解析改为 Go 标准库 zip + xml。
+- 安装器：有 Go 时本地构建，否则下载 release 二进制。
+- CI 改为 Go 测试；新增 tag 触发的 macOS / Linux 交叉编译与 release 资产。
+
+### 移除
+
+- Python 实现与 `~/.shimo-net-py` 安装目录（历史版本仍可从 git 记录获取）。
+
 ## 0.7.0 — 2026-11-10
 
 ### 新增
@@ -9,7 +24,6 @@
 - `login --origin <url>`：首次登录可直接指定私有部署域名；无配置时也会提示输入。
 - `--relogin`：遇 401 / 未登录时自动打开 Chrome 登录，成功后重试原命令。
 - 根 README 重写为面向使用者的版本：30 秒上手、常见任务、Agent 接入、私有部署、排错。
-- `docs/design-notes.md`：CLI 语言选型与 Go 迁移判断。
 - 终端演示图 `docs/images/demo.png`。
 
 ### 变更

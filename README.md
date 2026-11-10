@@ -1,8 +1,8 @@
 <div align="center">
 
-# shimo.net CLI
+# shimo-net
 
-**石墨办公套件的命令行工具：在终端里，把 shimo.net 用起来。**
+**石墨办公 CLI：在终端里，把 shimo.net 用起来。**
 
 找文件 · 导入交付 · 拉取归档 · 权限巡检 · 周报 · 上传下载
 
@@ -212,13 +212,13 @@ SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami
 
 ```mermaid
 flowchart LR
-  U["你 / Agent"] -->|一句话或一条命令| C["shimo.net CLI"]
+  U["你 / Agent"] -->|一句话或一条命令| C["shimo-net"]
   C -->|登录一次| K[(Keychain)]
   C -->|HTTPS| S["shimo.net / 客户私有部署"]
   S -->|链接 · 文件 · 权限| C
 ```
 
-**shimo.net CLI** 是石墨办公套件的命令行接入层（命令名 `shimo-net`）：直连 `/api/v1`，把 15 个常用场景封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
+`shimo-net` 是石墨办公 CLI：直连 `/api/v1`，把 15 个常用场景封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
 
 ---
 
@@ -226,8 +226,8 @@ flowchart LR
 
 | 项 | 要求 |
 |---|---|
-| 操作系统 | macOS 12+（主支持）；Linux（实验性） |
-| Python | 3.9+（macOS 通常自带 `/usr/bin/python3`） |
+| 操作系统 | macOS 12+（主支持）；Linux（实验性，单二进制） |
+| 运行时 | 不需要 Python / Node；从源码构建需要 Go 1.22+ |
 | 浏览器 | Google Chrome / Chromium / Microsoft Edge（登录与 `open`） |
 | 网络 | 能访问 `shimo.net` 或客户私有部署域名 |
 
@@ -272,12 +272,10 @@ source ~/.zshrc
 - [安装与使用说明](cli/安装使用说明.md)
 - [15 个场景与自然语言示例](cli/scenarios.md)
 - [Agent 技能定义](cli/SKILL.md)
-- [与 interaction-flow 的对照](docs/interaction-flow.md)
-- [技术选型与后续规划](docs/design-notes.md)
 - [安全策略](SECURITY.md) · [更新记录](CHANGELOG.md)
 
 ```bash
-make test        # 离线冒烟测试，不访问网络
+make test        # Go 单元测试 + 构建 + 冒烟检查
 ./shimo schema   # 查看完整命令 / 参数 / JSON 结构
 ```
 

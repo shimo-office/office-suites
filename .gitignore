@@ -6,3 +6,7 @@ venv/
 dist/
 build/
 *.zip
+
+# 内部资料，不上传
+internal/
+bin/
