@@ -30,7 +30,7 @@ shimo-net login           # 打开 Chrome 登录一次
 shimo-net search "报价政策"
 ```
 
-> 安装器会把命令放到 `~/.local/bin/shimo-net`。如果提示找不到命令，把 `~/.local/bin` 加进 `PATH`。
+> 安装器会把命令放到 `~/.local/bin/shimo-net`。有 Go 时本地构建；没有 Go 时自动下载 [release](https://github.com/shimo-office/office-suites/releases) 里的 macOS / Linux 二进制。如果提示找不到命令，把 `~/.local/bin` 加进 `PATH`。
 
 **客户私有部署**只改网址，不另装一套：
 
