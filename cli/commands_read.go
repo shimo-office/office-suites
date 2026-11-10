@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,7 +19,9 @@ func (a *App) probeOrigin(origin string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	req, _ := http.NewRequest("GET", o+"/api/v1/users/me", nil)
+	// /users/me 未登录时在 shimo.net 返回 404（找不到该用户），不能用来判断站点。
+	// 用无需登录的 auth/register/is_new 探测，避免把正常实例误判成官网。
+	req, _ := http.NewRequest("GET", o+"/api/v1/auth/register/is_new", nil)
 	req.Header.Set("x-requested-with", "XMLHttpRequest")
 	req.Header.Set("user-agent", "shimo-net/"+version)
 	resp, err := httpClient.Do(req)
@@ -26,6 +29,15 @@ func (a *App) probeOrigin(origin string) (int, error) {
 		return 0, fmt.Errorf("连不上 %s：%w", origin, err)
 	}
 	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode == http.StatusOK {
+		ct := strings.ToLower(resp.Header.Get("Content-Type"))
+		trimmed := strings.TrimSpace(string(body))
+		if strings.Contains(ct, "json") || strings.HasPrefix(trimmed, "{") {
+			return http.StatusOK, nil
+		}
+		return 0, fmt.Errorf("网址可达但接口返回 HTML，请确认是石墨办公套件地址：%s", origin)
+	}
 	return resp.StatusCode, nil
 }
 
@@ -144,31 +156,78 @@ func (a *App) usersMe() (map[string]any, error) {
 
 func (a *App) cmdDoctor() error {
 	chrome, _ := findChrome()
-	o := map[string]any{"version": version, "runtime": runtime.Version(), "chrome": chrome, "home": stateDir(),
-		"origin": a.Origin, "originSource": a.OriginSource, "configFile": nil, "credentialsFile": nil,
-		"storage": map[string]string{"keychain": "macOS Keychain", "file": "本机文件 0600", "env": "环境变量 SHIMO_NET_COOKIE"}[credSource()]}
-	if o["storage"] == "" {
-		o["storage"] = "未登录"
+	storageLabel := "macOS Keychain"
+	if runtime.GOOS == "windows" {
+		storageLabel = "Windows Credential Manager"
 	}
+	storage := map[string]string{"keychain": storageLabel, "file": "本机文件 0600", "env": "环境变量 SHIMO_NET_COOKIE"}[credSource()]
+	if storage == "" {
+		storage = "未登录"
+	}
+	o := map[string]any{"version": version, "runtime": runtime.Version(), "chrome": chrome, "home": stateDir(),
+		"origin": a.Origin, "originSource": a.OriginSource, "configFile": nil, "credentialsFile": nil, "storage": storage}
 	if _, err := os.Stat(configPath()); err == nil {
 		o["configFile"] = configPath()
 	}
 	if _, err := os.Stat(credPath()); err == nil {
 		o["credentialsFile"] = credPath()
 	}
-	if me, err := a.usersMe(); err == nil {
-		o["account"] = fmt.Sprintf("%s <%s>（id %s）", str(me, "name"), str(me, "email"), str(me, "id"))
-	} else {
-		o["account"] = err.Error()
+
+	checks := []map[string]any{}
+	add := func(name string, ok bool, detail string) {
+		checks = append(checks, map[string]any{"name": name, "ok": ok, "detail": detail})
 	}
+	add("runtime", runtime.Version() != "", runtime.Version())
+	add("chrome", chrome != "", chrome)
+	_, originErr := normalizeOrigin(a.Origin)
+	add("origin", originErr == nil, a.Origin)
+	add("credentials", credSource() != "", storage)
+	account := ""
+	if me, err := a.usersMe(); err == nil {
+		account = fmt.Sprintf("%s <%s>（id %s）", str(me, "name"), str(me, "email"), str(me, "id"))
+		add("account", true, account)
+	} else {
+		account = err.Error()
+		add("account", false, account)
+	}
+	o["account"] = account
+
+	ok := true
+	for _, c := range checks {
+		if !boolv(c, "ok") {
+			ok = false
+		}
+	}
+	o["ok"] = ok
+	o["checks"] = checks
+
 	if a.JSON {
-		return a.printJSON(o)
+		if err := a.printJSON(o); err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("doctor: 有检查项未通过")
+		}
+		return nil
 	}
 	for _, k := range []string{"version", "runtime", "chrome", "home", "origin", "originSource", "configFile", "credentialsFile", "storage", "account"} {
 		if v := o[k]; v != nil {
 			fmt.Printf("%s: %v\n", k, v)
 		}
 	}
+	fmt.Println("检查项：")
+	for _, c := range checks {
+		mark := "🟢"
+		if !boolv(c, "ok") {
+			mark = "🔴"
+		}
+		fmt.Printf("  %s   %-12s  %s\n", mark, str(c, "name"), str(c, "detail"))
+	}
+	if !ok {
+		fmt.Println("结果： 🔴 doctor: FAIL")
+		return errors.New("doctor: 有检查项未通过")
+	}
+	fmt.Println("结果： 🟢 doctor: OK")
 	return nil
 }
 
@@ -216,7 +275,7 @@ func (a *App) cmdSearch() error {
 func (a *App) listSpaces(limit int) ([]map[string]any, error) {
 	out := []map[string]any{}
 	path := "/files/spaces"
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		r, err := a.authRequest(path, "GET", nil, nil, nil)
 		if err != nil {
 			return nil, err
@@ -230,7 +289,7 @@ func (a *App) listSpaces(limit int) ([]map[string]any, error) {
 			out = append(out, map[string]any{"guid": str(s, "guid"), "name": str(s, "name"),
 				"url":     strings.TrimRight(a.Origin, "/") + "/space/" + str(s, "guid"),
 				"isSpace": true, "role": str(s, "role"), "updatedAt": s["updatedAt"], "fileSize": s["fileSize"]})
-			if len(out) >= limit {
+			if limit > 0 && len(out) >= limit {
 				return out, nil
 			}
 		}
@@ -316,7 +375,7 @@ func (a *App) listFolder(target string, limit int) ([]map[string]any, error) {
 	}
 	path := "/files?folder=" + url.QueryEscape(guid)
 	out := []map[string]any{}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		r, err := a.authRequest(path, "GET", nil, nil, nil)
 		if err != nil {
 			return nil, err
@@ -334,7 +393,7 @@ func (a *App) listFolder(target string, limit int) ([]map[string]any, error) {
 				"fileSize": f["fileSize"], "updatedAt": f["updatedAt"], "shareMode": str(f, "shareMode"),
 				"url": a.urlOf(withFolder(f, isFolder)),
 			})
-			if len(out) >= limit {
+			if limit > 0 && len(out) >= limit {
 				return out, nil
 			}
 		}
@@ -439,7 +498,8 @@ func (a *App) cmdAudit() error {
 	if len(a.Pos) == 0 {
 		return errors.New("用法：shimo-net audit <文件夹/空间链接|guid|@别名> [--limit 200]")
 	}
-	files, err := a.listFolder(a.Pos[0], intArg(a.opt("--limit"), 200))
+	limit := intArg(a.opt("--limit"), 200)
+	files, err := a.listFolder(a.Pos[0], limit)
 	if err != nil {
 		return err
 	}
@@ -481,11 +541,15 @@ func (a *App) cmdAudit() error {
 			groups["private"] = append(groups["private"], r)
 		}
 	}
-	o := map[string]any{"target": a.Pos[0], "count": len(results), "groups": groups, "results": results}
+	truncated := limit > 0 && len(files) >= limit
+	o := map[string]any{"target": a.Pos[0], "count": len(results), "limit": limit, "truncated": truncated, "groups": groups, "results": results}
 	if a.JSON {
 		return a.printJSON(o)
 	}
 	fmt.Printf("权限巡检：%d 个文件\n", len(results))
+	if truncated {
+		fmt.Printf("注意：已达到 --limit %d，结果可能被截断；需要完整巡检请调大 --limit。\n", limit)
+	}
 	fmt.Printf("  公开链接：%d   企业内：%d   私有：%d\n\n", len(groups["public"]), len(groups["enterprise"]), len(groups["private"]))
 	if len(groups["public"]) > 0 {
 		fmt.Println("公开可访问（建议收回或确认）：")

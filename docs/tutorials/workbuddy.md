@@ -1,897 +1,236 @@
-# WorkBuddy × 石墨办公：15 个协作场景图文教程
+# WorkBuddy × 石墨办公：从打开到第一个结果
 
-> 适用版本：WorkBuddy 5.9.3（桌面客户端）· shimo-net CLI 0.9.0
-> 入口：左侧边栏「专家 · 技能 · 连接器」→「技能」→「已安装」；新建任务后在对话里调用
-> 生成日期：2026-11-10 · 证据等级：已实测（本机 5.9.3）
+> 适用版本：WorkBuddy 5.9.3（桌面客户端）· shimo-net CLI 0.9.1  
+> 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 装 CLI → 登录授权 → 装技能 → 跑出第一个真实结果」。  
 
-## 0. 这套教程怎么用
+## 0. 开始前
 
-这是一套「从零到跑通」的教程，不需要写代码：
+你只需要准备：
 
-1. 按第 1 节装好客户端、CLI 和技能，`shimo-net doctor` 全绿。
-2. 从 15 个场景里挑一个，照着「步骤 → 命令 → 预期结果 → 验收」做一遍。
-3. 出错先看每个场景末尾的「出错怎么办」，再回到第 3 节常见问题。
+- 已经安装好的 WorkBuddy 桌面端（不需要重新下载）；
+- 一个能登录 shimo.net 的账号；
+- macOS 的「终端」，或 Windows 的 PowerShell；
+- 能访问 GitHub（安装 CLI 用）。
 
-> 教程里的输出是**示例数据**（域名、文件名、数量都做了脱敏）。你跑出来的链接和数量会不同，验收看的是「结构 + 可定位」，不是逐字一致。
+不需要会写代码；命令都可以直接复制。
 
-## 1. 安装与接入
+## 0.1 一句话让 Agent 自己配置（推荐）
 
-### 1.1 你会装哪几样东西
+把下面整段发给 WorkBuddy，不要自己开终端：
 
-| 组件 | 作用 | 版本 |
-|---|---|---|
-| WorkBuddy | 你日常对话的 Agent 入口 | 5.9.3 |
-| shimo-net CLI | 直连石墨 `/api/v1` 的命令行 | 0.9.0 |
-| shimo-net-cli 技能 | 让 Agent 知道什么时候用 CLI | 0.9.0 |
-| Chrome / Edge | 登录窗口与导出兜底 | 本机已装 |
+```text
+请帮我完成 shimo-net 的安装和配置：
+1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/download/v0.9.1/bootstrap.sh | bash -s -- workbuddy
+2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
+3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
+如果脚本失败，返回完整错误信息。
+```
 
-### 1.2 安装 WorkBuddy
+它会下载 CLI、写入技能目录、打开登录页。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
 
-1. 从 codebuddy.cn 下载 WorkBuddy（Mac / Windows / 鸿蒙），拖入「应用程序」
-2. 首次启动登录 WorkBuddy 账号
-3. 新建一个任务，确认对话框可用
+> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（release 镜像：v0.9.1 附件 bootstrap.sh）  
+> 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
-![图 1 · WorkBuddy 安装与入口](images/workbuddy/00-install.jpg)
+真实执行结果（WorkBuddy 5.9.3，38 秒）：
 
-### 1.3 安装 shimo-net CLI
+![WorkBuddy 一句话自配置](images/workbuddy/real-self-setup.jpg)
 
-在终端执行：
+## 1. 打开 WorkBuddy
+
+从「应用程序」打开 WorkBuddy，确认能看到任务输入框。看到「WorkBuddy，我帮你」和输入框就对了；这张空白首页不用截图，直接进入下一步。
+
+## 2. 安装 shimo-net CLI
+
+打开「终端」，复制整段执行：
 
 ```bash
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 ./install.command
+shimo-net version
 shimo-net doctor --json
 ```
 
-`doctor` 会检查四项：Go 二进制、Chrome、凭据、origin。四项全绿再往下。
+Windows 用 PowerShell：
 
-### 1.4 把技能装进 WorkBuddy
+```powershell
+git clone https://github.com/shimo-office/office-suites.git
+cd office-suites
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+shimo-net version
+shimo-net doctor --json
+```
 
-1. 准备 `cli/SKILL.md`（或把它打成技能包）
-2. 左侧栏「专家 · 技能 · 连接器」→「技能」→「添加技能」→「上传技能」
-3. 选择技能包，安装完成后在「已安装」确认 `shimo-net-cli` 为启用状态
+正常情况下会看到版本号和配置信息：
 
-![图 2 · 技能入口与启用状态](images/workbuddy/00-skill.jpg)
+![CLI 安装与配置验证](images/common/cli-version.jpg)
 
-### 1.5 授权与登录
+你要确认三件事：
 
-1. 首次任务允许 WorkBuddy 执行本地命令、读写工作目录
-2. 在终端执行 `shimo-net login`，用 Chrome 窗口登录石墨
-3. `shimo-net whoami --json` 返回账号即授权完成
+1. `shimo-net version` 输出 `shimo-net 0.9.1`；
+2. `shimo-net config show` 显示 `https://shimo.net`；
+3. `doctor --json` 的 `ok` 为 `true`，`checks` 五项都是 `ok`；终端最后一行显示 `结果：🟢 doctor: OK`。
+
+装完后如果提示 `shimo-net: command not found`，先执行：
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+想永久生效，把这一行加到 `~/.zshrc` 末尾，再执行 `source ~/.zshrc`。Windows 关掉 PowerShell 重新打开一次，安装脚本会写入用户 PATH。
+
+## 3. 登录授权
+
+在终端执行：
 
 ```bash
 shimo-net login
+```
+
+会弹出一个 Chrome 窗口：
+
+1. 用你的 shimo.net 账号登录；
+2. 看到登录成功提示后，Chrome 会自动关闭；
+3. 回到终端，执行：
+
+```bash
 shimo-net whoami --json
-shimo-net doctor --json
 ```
 
-> 不要把密码、cookie 粘进对话；凭据在 macOS Keychain，浏览器会话在 `~/.shimo-net-cli/chrome-profile`。
+返回账号信息就代表授权完成。CLI 会把会话存进 macOS Keychain（Windows 是凭据管理器），**下次不用再登录**。
 
-![图 3 · 授权、登录与自检](images/workbuddy/00-auth.jpg)
+> 登录页会显示你的账号，教程不截这张图；用 `whoami` 的返回结果作为授权验收即可。
 
-### 1.6 客户私有化环境
-
-如果客户用的是私有化地址，不改配置文件，只在命令前加环境变量：
+如果返回「未登录」：
 
 ```bash
-SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami --json
-SHIMO_NET_ORIGIN=https://<客户域名> shimo-net search "关键词" --json
+shimo-net logout
+shimo-net login
+shimo-net whoami --json
 ```
 
-切换后先 `whoami` 确认账号，再执行写操作；私有化环境与 shimo.net 数据不互通。
+## 4. 把技能装进 WorkBuddy
 
-### 1.7 连接自检清单
+WorkBuddy 需要知道「什么时候该用 shimo-net」。装一次技能即可。
 
-- [ ] `shimo-net doctor --json` 四项全绿
-- [ ] `shimo-net whoami --json` 返回账号
-- [ ] `shimo-net schema` 能列出 15 个场景
-- [ ] WorkBuddy 的「已安装」里能看到 `shimo-net-cli` 且为启用
-- [ ] 能跑通 `shimo-net search "AI Agent" --limit 3 --json`
+1. 左侧栏点「专家 · 技能 · 连接器」；
+2. 点「技能」；
+3. 点右上角「添加技能」；
+4. 选择仓库里的 `cli/SKILL.md` 上传；
+5. 安装完成后，在「已安装」里找 `shimo-net-cli`；如果没看到，按下面的 fallback 复制一份。
 
-## 2. 15 个场景
+装好后打开「已安装技能」，应该看到：
 
-每个场景都按同一结构：一句话 → 你会说 → 前置 → 步骤 → 命令 → 预期 → 验收 → 出错怎么办。
+![WorkBuddy 已安装技能](images/workbuddy/real-installed.jpg)
 
-<section class="scenario">
-<a id="s01"></a>
-## 场景 01 · 找文件 / 文件夹 / 空间
+判断标准不是「上传成功」，而是这里同时满足：
 
-![场景 01 · 步骤与预期输出](images/workbuddy/01.jpg)
+- 「用户自定义」下出现 `shimo-net-cli`；
+- 右侧开关是绿色（已启用）。
 
-**一句话**：不用记路径，描述即搜。用关键词找到目标文件、文件夹或空间，并拿到可点开的链接。
-
-**你可以这样说**：「找一下 AI Agent 相关的文档」；「有没有叫『报价政策』的那份表」
-
-**前置**：已登录；有一个关键词
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 01 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认关键词与范围（全部 / 某个空间）
-4. 执行搜索并读回命中列表
-5. 把前三条标题 + 链接发我，问要不要继续展开
-
-**命令**
+如果上传入口不可用，用终端复制到 WorkBuddy 实际扫描的目录：
 
 ```bash
-$ shimo-net search "AI Agent" --limit 20 --json
+mkdir -p ~/.workbuddy/skills/shimo-net-cli
+cp cli/SKILL.md ~/.workbuddy/skills/shimo-net-cli/SKILL.md
 ```
 
-**预期结果（示例）**
+然后退出 WorkBuddy 再打开一次，再回「已安装技能」确认。
+
+装好之后不需要每次手动挑技能：在任务里直接写「用 shimo-net …」，Agent 会按技能描述自动调用。后面的任务都是这种方式。
+
+## 5. 第一个任务：验证连通
+
+回到 WorkBuddy，点「新建任务」，在输入框里粘贴：
 
 ```text
-找到 8 个，前三个：
-1. AI Agent 三个场景 Mockup  https://shimo.net/docs/xxxx
-2. AI Agent 接入架构  https://shimo.net/docs/yyyy
-3. 报价政策（表格）  https://shimo.net/sheets/zzzz
+用 shimo-net 执行 whoami --json 验证连通；只回复「已连通，账号可用」，不要显示账号信息。
 ```
 
-**验收**
+点发送，等 10–20 秒。你应该看到：
 
-- [ ] 链接能在浏览器打开
-- [ ] 标题包含关键词或语义相关
-- [ ] 命中数量与 `--limit` 一致
+![WorkBuddy 执行 whoami](images/workbuddy/real-whoami.jpg)
 
-**出错怎么办**
+出现「已连通，账号可用」就说明：
 
-| 现象 | 处理 |
-|---|---|
-| 0 条结果 | 换同义词/更短关键词，或按「内容搜索」再试一次 |
-| 401 未登录 | 执行 `shimo-net login`，成功后重试本条 |
-| 结果太多 | 按类型/空间收窄，或先给前 3 条让我选 |
+- WorkBuddy 能执行本机命令；
+- `shimo-net` 在 PATH 里；
+- 登录态有效；
+- 技能已经被调用。
 
-</section>
+如果没有执行命令，先检查第 4 步的技能是否启用，再检查 WorkBuddy 是否允许「执行本地命令 / 访问工作目录」。
 
-<section class="scenario">
-<a id="s02"></a>
-## 场景 02 · 看空间 / 目录里有什么
+## 6. 第二个任务：跑一个真实操作
 
-![场景 02 · 步骤与预期输出](images/workbuddy/02.jpg)
+连通只说明「能调用」，再跑一个真实操作，确认结果能落地。
 
-**一句话**：先看全局，再看局部。列出我参与的空间，或某个空间/文件夹里的条目，支持按更新时间过滤。
-
-**你可以这样说**：「我都在哪些空间？」；「产品设计团队里有什么？」
-
-**前置**：已登录；知道空间或文件夹名字
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 02 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 先 `spaces` 列出空间；如果我给了目标就直接 `ls`
-4. 读回条目数量、类型分布、最近更新时间
-5. 问我要不要拉取、读其中某份，或按 7 天过滤
-
-**命令**
-
-```bash
-$ shimo-net spaces --json
-$ shimo-net ls "产品设计团队" --json
-```
-
-**预期结果（示例）**
+在 WorkBuddy 新任务里粘贴（把链接换成你有权限的文档）：
 
 ```text
-你有 158 个空间；「产品设计团队」16 项：
-- 项目汇总（文件夹）
-- Q4 规划（文档）
-- 预算表（表格）
-… 还有 13 项
+用 shimo-net info https://shimo.net/docs/MWn7L07R8jhPEm1p 返回名称、类型、链接；只回复这三项，不要显示账号信息。
 ```
 
-**验收**
+你应该看到文档名称、类型和链接：
 
-- [ ] 空间数与页面一致
-- [ ] 条目数、名称与石墨页面一致
-- [ ] 文件夹/文档/表格类型标注正确
+![WorkBuddy 执行 info](images/workbuddy/real-info.jpg)
 
-**出错怎么办**
+看到「名称 / 类型 / 链接」三项，并且链接能打开，就完成了从授权到操作结果的闭环。
 
-| 现象 | 处理 |
-|---|---|
-| 目标重名 | 列出候选空间让我选，不要猜 |
-| 目录为空 | 说明是空目录或无权限，并给出上级路径 |
-| 条目超过 200 | 分页读，先给前 50 条 |
+> 截图里的「（图文教程自检）」是演示文档；你实际使用时换成自己的文档链接。
 
-</section>
+## 7. 15 个场景怎么用
 
-<section class="scenario">
-<a id="s03"></a>
-## 场景 03 · 文件出处与权限
+流程和上面完全一样：在 WorkBuddy 里说人话，Agent 会调用 `shimo-net`。下面是可以直接复制的任务说法。
 
-![场景 03 · 步骤与预期输出](images/workbuddy/03.jpg)
+| # | 场景 | 在 WorkBuddy 里说 | 对应命令 |
+|---|---|---|---|
+| 01 | 找文件 | 帮我找一下「季度方案」，最多 5 条 | `shimo-net search "季度方案" --limit 5 --json` |
+| 02 | 看目录 | 看看这个文件夹里有什么：<链接> | `shimo-net ls <链接> --json` |
+| 03 | 文件出处 | 这份文档在哪个空间、谁有权限：<链接> | `shimo-net info <链接> --json` |
+| 04 | 导入并设权限 | 把这份 docx 导到「交付」文件夹，先私有 | `shimo-net import ./file.docx --to <文件夹> --share private --json` |
+| 05 | 拉取文件夹 | 把这个文件夹拉到本地 ./交付 | `shimo-net pull <链接> --out ./交付 --json` |
+| 06 | 新建文档 | 在桌面新建一个文档，叫「会议纪要」 | `shimo-net new "会议纪要" --type doc --to desktop --json` |
+| 07 | 改名 | 把「会议纪要」改名为「周会纪要」 | `shimo-net rename <链接> "周会纪要" --json` |
+| 08 | 删除/恢复 | 把这份文档移到回收站；再恢复 | `shimo-net delete <链接>` / `shimo-net restore <guid>` |
+| 09 | 权限巡检 | 看看这个文件夹里哪些是公开的 | `shimo-net audit <文件夹> --json` |
+| 10 | 批量改权限 | 把这个文件夹里的文档都改成「组织内可读」 | 先 `audit`，再逐条 `share <链接> enterprise_readonly` |
+| 11 | 读正文 | 读一下这份文档，给我 5 条摘要 | `shimo-net read <链接> --max-chars 12000` |
+| 12 | 周报 | 把这个文件夹最近 7 天的内容整理成一页纸 | `shimo-net ls <链接> --since 7d` + `shimo-net read` |
+| 13 | 下载附件 | 把这份文档的附件下载到 ./附件 | `shimo-net get <链接> --out ./附件` |
+| 14 | 上传 | 把这个 PDF 传到「资料」文件夹，先私有 | `shimo-net upload ./file.pdf --to <文件夹>` |
+| 15 | 常用别名 | 以后把「交付」文件夹叫「交付」 | `shimo-net fav add 交付 <链接> --note 交付目录` |
 
-**一句话**：类型、权限、完整路径一次说清。看清一个文件的类型、当前权限、所在文件夹与完整路径。
+> 写操作（导入、上传、分享、删除）执行前，Agent 会先确认位置和权限；删除只进回收站，不会彻底删除。
 
-**你可以这样说**：「它在哪个文件夹 / 空间？」；「把完整路径发我」
+## 8. 验收清单
 
-**前置**：已登录；有文件链接或 guid
+全部打勾，才算独立完成：
 
-**步骤**
+- [ ] WorkBuddy 能正常打开，能看到任务输入框；
+- [ ] `shimo-net version` 输出 `shimo-net 0.9.1`；
+- [ ] `shimo-net config show` 显示 `https://shimo.net`；
+- [ ] `shimo-net whoami --json` 返回账号；
+- [ ] WorkBuddy「已安装」里能看到 `shimo-net-cli`（或技能已复制到 `~/.workbuddy/skills/`）；
+- [ ] 第一个任务返回「已连通，账号可用」；
+- [ ] 第二个任务返回「名称 / 类型 / 链接」三项；
+- [ ] 15 个场景里至少完整跑通 1 个（建议 01 找文件、03 文件出处、11 读正文）。
 
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 03 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 解析链接或 @别名
-4. 读取元信息与 ancestors 路径
-5. 把权限用中文七档之一说清
+## 9. 常见问题
 
-**命令**
+**Q：WorkBuddy 说没有权限执行命令？**  
+在 WorkBuddy 的任务设置里允许「执行本地命令 / 读写工作目录」，然后重新发一次任务。
 
-```bash
-$ shimo-net info "https://shimo.net/docs/xxxx" --json
-```
+**Q：`shimo-net: command not found`？**  
+执行 `export PATH="$HOME/.local/bin:$PATH"`，或重新打开终端；Windows 重新打开 PowerShell。还不行就回到第 2 步重跑 `./install.command`。
 
-**预期结果（示例）**
+**Q：`whoami` 返回「未登录」？**  
+执行 `shimo-net login`，完成 Chrome 登录后重试。不要重复执行 `init`，网址已经记住。
 
-```text
-标题：Q4 规划
-类型：文档
-权限：企业内可评论
-路径：产品设计团队 / 项目汇总 / Q4 规划
-```
+**Q：技能装了但 Agent 不调用？**  
+确认 `~/.workbuddy/skills/shimo-net-cli/SKILL.md` 存在，退出 WorkBuddy 再打开；或者直接在任务里写「用 shimo-net 执行 …」，明确点名命令。
 
-**验收**
+**Q：Windows 上 Keychain 是什么？**  
+Windows 用「凭据管理器」，CLI 会自动存到 `shimo-net-cli` 这个目标下，不需要手动打开。
 
-- [ ] 路径层级与石墨页面一致
-- [ ] 权限文案对应七档之一
-- [ ] 链接可打开
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 无权限 | 如实说「当前账号无权限」，不编路径 |
-| 链接失效 | 请我重新给链接或关键词 |
-| 私有化域名 | 命令前加 `SHIMO_NET_ORIGIN=https://<客户域名>` |
-
-</section>
-
-<section class="scenario">
-<a id="s04"></a>
-## 场景 04 · 导入交付 + 问权限
-
-![场景 04 · 步骤与预期输出](images/workbuddy/04.jpg)
-
-**一句话**：本地文件转在线文档，链接出来再定权限。把本地 md/doc(x)/xls(x)/ppt(x) 转成在线文档，拿链接后和我确认权限再设置。
-
-**你可以这样说**：「把这个 md 导到 AI Solutions，给团队看」；「导入后发我链接」
-
-**前置**：已登录；本地有 md/doc(x)/xls(x)/ppt(x) 文件，知道目标位置
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 04 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认文件路径、目标位置、文件格式
-4. 执行 import，拿到链接
-5. 问权限（七档），确认后 share
-6. 读回 info，确认标题与权限
-
-**命令**
-
-```bash
-$ shimo-net import "方案.md" --to "AI Solutions" --json
-$ shimo-net share "<导入返回的链接>" enterprise_commentable --json
-$ shimo-net info "<导入返回的链接>" --json
-```
-
-**预期结果（示例）**
-
-```text
-导好了：方案  https://shimo.net/docs/xxxx
-当前权限：私有
-已设为：企业内可评论（链接不变）
-```
-
-**验收**
-
-- [ ] 链接可打开且标题正确
-- [ ] 权限等于所选七档之一
-- [ ] 原文件格式与在线类型匹配
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 格式不支持 | 只支持 md/doc(x)/xls(x)/ppt(x)，其他直说 |
-| 目标不存在/无权限 | 列出可选位置让我重选 |
-| 导入超时 | 给任务链接/进度，稍后重试 `info` |
-
-</section>
-
-<section class="scenario">
-<a id="s05"></a>
-## 场景 05 · 拉取文件夹到本地
-
-![场景 05 · 步骤与预期输出](images/workbuddy/05.jpg)
-
-**一句话**：目录 + 附件 + manifest，一次归档。把文件夹/空间里的在线文档按类型导出，附件原样下载，并生成 manifest。
-
-**你可以这样说**：「把这个文件夹的东西拉下来」；「归档一份到本地」
-
-**前置**：已登录；知道文件夹/空间，本地有可写目录
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 05 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认目标和本地目录，避免覆盖
-4. 执行 pull，读回进度
-5. 汇总成功/失败与 manifest
-6. 问要不要打开目录或补拉失败项
-
-**命令**
-
-```bash
-$ shimo-net pull "AI Solutions" --out "./下载" --since 7d --json
-```
-
-**预期结果（示例）**
-
-```text
-拉到 ./下载，共 6 个（5 成功 / 1 失败）
-manifest.json 已生成
-失败：设计稿.psd（无权限）
-```
-
-**验收**
-
-- [ ] manifest.json 存在且条目数一致
-- [ ] 文件能本地打开、大小非 0
-- [ ] 失败项有原因
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 目录已存在同名文件 | 先列冲突，让我选覆盖/跳过 |
-| 大量文件 | 先列目录再按需拉，避免整库导出 |
-| 导出超时 | 记录失败项，稍后重试单个 `get` |
-
-</section>
-
-<section class="scenario">
-<a id="s06"></a>
-## 场景 06 · 新建空白文档 / 表格 / 幻灯片
-
-![场景 06 · 步骤与预期输出](images/workbuddy/06.jpg)
-
-**一句话**：指定位置新建，默认私有。在指定空间/文件夹新建空白文档、表格或幻灯片，并给出链接。
-
-**你可以这样说**：「在 AI Solutions 新建一份空白文档，叫周报」；「建个表格放这周数据」
-
-**前置**：已登录；知道文件名、类型和目标位置
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 06 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认名称、类型、目标位置
-4. 执行 new，拿到链接
-5. 读回类型与位置
-6. 问是否调整权限
-
-**命令**
-
-```bash
-$ shimo-net new "周报" --type doc --to "AI Solutions" --json
-```
-
-**预期结果（示例）**
-
-```text
-建好了：周报  https://shimo.net/docs/xxxx
-类型：文档 · 当前位置：AI Solutions · 权限：私有
-要调权限吗？
-```
-
-**验收**
-
-- [ ] 链接可打开且类型正确
-- [ ] 位置与目标一致
-- [ ] 默认权限为私有
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 重名 | 自动加日期后缀或让我改名 |
-| 目标无权限 | 列出可写位置让我选 |
-| 类型不支持 | 支持 doc/sheet/slide（另含 table/form/mindmap/flowchart） |
-
-</section>
-
-<section class="scenario">
-<a id="s07"></a>
-## 场景 07 · 改名（单份 / 批量）
-
-![场景 07 · 步骤与预期输出](images/workbuddy/07.jpg)
-
-**一句话**：改标题不改链接。修改文件名/标题，单份或批量，逐条返回结果。
-
-**你可以这样说**：「把这份改名成『方案 v2』」；「这几个都去掉『草稿』」
-
-**前置**：已登录；有文件链接，知道新名字
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 07 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认目标与命名规则
-4. 单份直接 rename；批量先给清单预览
-5. 读回新标题与链接
-6. 汇总失败项（无权限/重名）
-
-**命令**
-
-```bash
-$ shimo-net rename "https://shimo.net/docs/xxxx" "方案 v2" --json
-```
-
-**预期结果（示例）**
-
-```text
-已改名：方案 v2
-链接不变：https://shimo.net/docs/xxxx
-```
-
-**验收**
-
-- [ ] 新标题正确
-- [ ] 链接与 guid 不变
-- [ ] 批量时逐条有结果
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 无权限 | 跳过并标注「无权限」，不重试 |
-| 重名 | 提示重名，让我决定加后缀还是覆盖 |
-| 批量规则歧义 | 先给前后对照表让我确认 |
-
-</section>
-
-<section class="scenario">
-<a id="s08"></a>
-## 场景 08 · 删除 → 回收站 → 恢复
-
-![场景 08 · 步骤与预期输出](images/workbuddy/08.jpg)
-
-**一句话**：删除只进回收站，不可逆操作留在网页。把文件移入回收站、查看回收站、恢复；不提供彻底删除。
-
-**你可以这样说**：「把刚才那份自检文档删了」；「算了，恢复回来」
-
-**前置**：已登录；有要删除的文件链接
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 08 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认目标与影响范围
-4. 执行 delete（只进回收站）
-5. 需要时 trash 列表 + restore
-6. 说明彻底删除只能网页手动
-
-**命令**
-
-```bash
-$ shimo-net delete "https://shimo.net/docs/xxxx" --json
-$ shimo-net trash --json
-$ shimo-net restore "abc123" --json
-```
-
-**预期结果（示例）**
-
-```text
-已进回收站，可恢复：https://shimo.net/docs/xxxx
-回收站 1 项：方案 v2（删除于 11-10 14:30）
-已恢复，链接不变
-```
-
-**验收**
-
-- [ ] 文件出现在回收站
-- [ ] 恢复后链接不变
-- [ ] 没有调用任何彻底删除接口
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 删除后想彻底删 | 说明 CLI 不提供，引导到网页回收站 |
-| 恢复 guid 错误 | 先 `trash` 列出候选让我选 |
-| 无权限删除 | 如实说无权限，不重试 |
-
-</section>
-
-<section class="scenario">
-<a id="s09"></a>
-## 场景 09 · 权限巡检：哪些是公开的
-
-![场景 09 · 步骤与预期输出](images/workbuddy/09.jpg)
-
-**一句话**：公开 / 企业内 / 私有一眼看穿。巡检一个文件夹/空间，按权限分组列出文件，指出公开项并给收回建议。
-
-**你可以这样说**：「看看这个空间里哪些文件是公开的」；「有没有外链」
-
-**前置**：已登录；知道要巡检的文件夹/空间
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 09 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认巡检范围
-4. 执行 audit，读回分组
-5. 列出公开项与链接
-6. 给收回建议，等我确认再 share
-
-**命令**
-
-```bash
-$ shimo-net audit "AI Solutions" --json
-```
-
-**预期结果（示例）**
-
-```text
-巡检 6 个：公开 1 / 企业内 3 / 私有 2
-公开：方案 v2（公开 · 可评论）  https://shimo.net/docs/xxxx
-建议：收回为「企业内只读」？
-```
-
-**验收**
-
-- [ ] 计数与目录条目一致
-- [ ] 公开项能在 info 里复核
-- [ ] 建议不自动执行
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 无权限读某项 | 单列为「未知」，不当作私有 |
-| 公开项很多 | 先给数量和前 5 条，问要不要全量 |
-| 误报 | 用 `info` 复核 shareMode 再下结论 |
-
-</section>
-
-<section class="scenario">
-<a id="s10"></a>
-## 场景 10 · 批量改权限
-
-![场景 10 · 步骤与预期输出](images/workbuddy/10.jpg)
-
-**一句话**：逐条成功/失败，不静默。一次给多个文件设置同一权限，逐条返回成功/失败与原因。
-
-**你可以这样说**：「把这些都改成企业内可编辑」；「全收回成私有」
-
-**前置**：已登录；有多个文件链接，知道目标权限
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 10 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 收集目标清单，去重
-4. 给「文件 × 当前权限 → 目标权限」预览
-5. 确认后执行 share
-6. 读回逐条结果与失败原因
-
-**命令**
-
-```bash
-$ shimo-net share "https://shimo.net/docs/xxxx" "https://shimo.net/docs/yyyy" enterprise_readonly --json
-```
-
-**预期结果（示例）**
-
-```text
-12 个已改，2 个失败
-失败：设计稿（无权限）、旧预算表（已删除）
-```
-
-**验收**
-
-- [ ] 每个文件权限等于目标值
-- [ ] 失败项有原因
-- [ ] 没有改动清单外文件
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 包含无权限文件 | 跳过并单列，不中断整批 |
-| 目标权限不是七档 | 列七档让我选 |
-| 公开权限风险 | 二次确认，提示外链风险 |
-
-</section>
-
-<section class="scenario">
-<a id="s11"></a>
-## 场景 11 · 读正文 / 出摘要
-
-![场景 11 · 步骤与预期输出](images/workbuddy/11.jpg)
-
-**一句话**：三条要点，带原文链接。读取文档/文稿/表格/幻灯片正文，输出三条要点并附原文链接。
-
-**你可以这样说**：「读一下这份文档，给我三条要点」；「这份 PPT 讲了什么」
-
-**前置**：已登录；有文档/PPT/表格链接
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 11 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 读取正文（超长时分段）
-4. 提炼三条要点，保留数字与结论
-5. 附原文链接，标注扫描件/无权限
-
-**命令**
-
-```bash
-$ shimo-net read "https://shimo.net/docs/xxxx" --max-chars 12000 --json
-```
-
-**预期结果（示例）**
-
-```text
-三条要点：
-① 本周完成 3 个接入工具联调
-② 私有化部署新增 2 个客户
-③ 风险：权限回收依赖人工巡检
-原文：https://shimo.net/docs/xxxx
-```
-
-**验收**
-
-- [ ] 要点能在原文找到对应
-- [ ] 链接可打开
-- [ ] 扫描件/空文档如实说明
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 扫描件读不出 | 说明是图片型，建议先转文字版 |
-| 超长文档 | 分段读，先给目录/结论 |
-| 无权限 | 如实说，不编内容 |
-
-</section>
-
-<section class="scenario">
-<a id="s12"></a>
-## 场景 12 · 跨文件夹周报 / 一页纸
-
-![场景 12 · 步骤与预期输出](images/workbuddy/12.jpg)
-
-**一句话**：按更新时间筛，读完再汇总。筛出最近 N 天更新的文档，逐份读取后输出一页纸周报，每条附原文。
-
-**你可以这样说**：「把这周更新的文档读一遍，出周报」；「给我一页纸重点」
-
-**前置**：已登录；知道范围，默认最近 7 天
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 12 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 按 since 筛出更新条目
-4. 逐份 read（控制并发）
-5. 按「完成/数字/风险/建议」汇总
-6. 每条挂原文链接
-
-**命令**
-
-```bash
-$ shimo-net ls "AI Solutions" --since 7d --json
-$ shimo-net read "<上一步选中的链接>" --max-chars 12000 --json
-```
-
-**预期结果（示例）**
-
-```text
-一页纸（7 天，3 份更新）
-完成：3 条
-数字：3 个
-风险：2 条
-建议：1 条
-每条附原文链接
-```
-
-**验收**
-
-- [ ] 时间窗内条目无遗漏
-- [ ] 每条能点回原文
-- [ ] 结论与原文一致
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 没有更新 | 如实说，问要不要放宽到 14 天 |
-| 文档太多 | 先汇总标题，按重要性读前 N 份 |
-| 读取失败 | 单列失败项，不省略 |
-
-</section>
-
-<section class="scenario">
-<a id="s13"></a>
-## 场景 13 · 附件 / 云文件下载
-
-![场景 13 · 步骤与预期输出](images/workbuddy/13.jpg)
-
-**一句话**：原样下载，不转格式。把附件或云文件原样下载到本地，给出路径与大小。
-
-**你可以这样说**：「把那个 HTML 附件下载下来」；「原图发我」
-
-**前置**：已登录；有附件/云文件链接
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 13 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认目标与目录
-4. 执行 get，校验大小/类型
-5. 给本地路径，问是否打开
-
-**命令**
-
-```bash
-$ shimo-net get "https://shimo.net/files/xxxx" --out "./下载" --json
-```
-
-**预期结果（示例）**
-
-```text
-已下载：./下载/mockup.html（26 KB）
-类型：text/html · 原样
-```
-
-**验收**
-
-- [ ] 文件存在且大小非 0
-- [ ] 扩展名/类型与原文件一致
-- [ ] 路径可定位
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 密码保护 | 说明需要先在网页验证 |
-| 无权限 | 如实说，不生成空文件 |
-| 文件名冲突 | 自动加序号，告诉我实际路径 |
-
-</section>
-
-<section class="scenario">
-<a id="s14"></a>
-## 场景 14 · 上传（先问传到哪里）
-
-![场景 14 · 步骤与预期输出](images/workbuddy/14.jpg)
-
-**一句话**：先定位置，再传原文件。上传本地文件为云文件，上传前先确认位置（桌面 / 空间 / 文件夹 / @别名）。
-
-**你可以这样说**：「把这个 pdf 传上去」；「传到哪里？」
-
-**前置**：已登录；本地有文件，知道传到哪里
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 14 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 先问位置（不给就列可选位置）
-4. 确认文件与目标
-5. 执行 upload，读回链接/大小
-6. 提醒原样上传，转文档用 import
-
-**命令**
-
-```bash
-$ shimo-net upload "报告.pdf" --to "@ai" --json
-```
-
-**预期结果（示例）**
-
-```text
-已上传：报告.pdf  https://shimo.net/files/xxxx
-位置：AI Solutions · 26 KB · 云文件（原样）
-要转在线文档请说「导入」
-```
-
-**验收**
-
-- [ ] 文件在目标位置可见
-- [ ] 大小与原文件一致
-- [ ] 类型为云文件而非在线文档
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 位置不明确 | 列出桌面/空间/文件夹/@别名让我选 |
-| 同名文件 | 先问覆盖还是改名 |
-| 网络失败 | 重试一次，仍失败给错误原因 |
-
-</section>
-
-<section class="scenario">
-<a id="s15"></a>
-## 场景 15 · 常用文件夹别名
-
-![场景 15 · 步骤与预期输出](images/workbuddy/15.jpg)
-
-**一句话**：记住一次，处处可用。给常用文件夹起短别名，之后任意命令用 @别名 引用。
-
-**你可以这样说**：「以后我说『AI 方案』就是那个文件夹」；「@ai 里有什么」
-
-**前置**：已登录；有一个常用文件夹链接
-
-**步骤**
-
-1. 在 WorkBuddy 新建任务，打开 [场景清单](../../cli/scenarios.md)，复制场景 15 的整段指令。
-2. 粘贴发送；缺参数时按 Agent 的提问补齐。
-3. 确认别名与链接
-4. fav add 写入本地 favorites.json
-5. 立即 `ls @别名` 验证
-6. 告诉我不需要再记链接
-
-**命令**
-
-```bash
-$ shimo-net fav add ai "https://shimo.net/folder/xxxx" --note "市场部常用 · AI 方案" --json
-$ shimo-net ls @ai --json
-```
-
-**预期结果（示例）**
-
-```text
-已记住 @ai → AI Solutions（市场部常用 · AI 方案）
-@ai 里有 6 项：…
-```
-
-**验收**
-
-- [ ] `fav list` 能看到
-- [ ] `ls @别名` 解析到正确文件夹
-- [ ] 其他命令可用 @别名
-
-**出错怎么办**
-
-| 现象 | 处理 |
-|---|---|
-| 别名冲突 | 列出现有别名，让我改名或覆盖 |
-| 链接不是文件夹 | 提示别名只对文件夹/空间生效 |
-| 换机器 | favorites.json 不跟随账号，需重新添加 |
-
-</section>
-
-## 3. 常见问题
-
-### 3.1 未登录 / 401
-
-执行 `shimo-net login`，Chrome 窗口登录后重试原命令。网址已记住，不用重新配置。
-
-### 3.2 命令找不到
-
-`shimo-net` 默认装到 `~/.local/bin`；确认它在 `PATH` 里，或直接用 `~/.local/bin/shimo-net`。
-
-### 3.3 导入失败
-
-只支持 `md / doc(x) / xls(x) / ppt(x)`；扫描版 PDF 需要先转文字，或改用 `upload` 原样上传。
-
-### 3.4 无权限
-
-Agent 会如实说「当前账号无权限」，不会编路径或内容。换有权限的账号，或让管理员加权限。
-
-### 3.5 客户私有化
-
-每条命令前加 `SHIMO_NET_ORIGIN=https://<客户域名>`；登录窗口也会用该域名。
-
-## 4. 安全边界
-
-- 删除只进回收站；CLI 不提供彻底删除，彻底删除到石墨网页回收站手动操作。
-- 上传/导入先确认位置；导入后先问权限，默认私有。
-- 批量读取/下载/改权限会消耗服务端资源，控制并发，避免全量扫描。
-- 凭据存 Keychain；不把密码、cookie 粘进对话。
-
-> 返回目录：[图文教程](README.md) · [CLI 用法](../../cli/README.md)
+**Q：截图里的链接打不开？**  
+那是演示文档，可能已被删除；换成你自己的文档链接即可，命令格式不变。

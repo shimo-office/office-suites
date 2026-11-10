@@ -140,7 +140,7 @@ func (a *App) downloadOne(f map[string]any, outDir string) (map[string]any, erro
 
 func (a *App) cmdGet() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net get <链接|guid|@别名> --out <目录>")
+		return errors.New("用法：shimo-net get <链接|guid|@别名> [--out <目录>]")
 	}
 	guid, err := a.resolveTarget(a.Pos[0])
 	if err != nil {
@@ -163,7 +163,7 @@ func (a *App) cmdGet() error {
 		return err
 	}
 	if boolv(got, "skipped") {
-		return errors.New("目标是目录：请用 shimo-net pull <目录> --out <本地目录>")
+		return errors.New("目标是目录：请用 shimo-net pull <目录> [--out <本地目录>]")
 	}
 	got["url"] = a.urlOf(withGUID(info, guid))
 	if a.JSON {
@@ -175,7 +175,7 @@ func (a *App) cmdGet() error {
 
 func (a *App) cmdPull() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net pull <文件夹/空间链接|guid|@别名> --out <目录> [--since 7d] [--limit 50]")
+		return errors.New("用法：shimo-net pull <文件夹/空间链接|guid|@别名> [--out <目录>] [--since 7d] [--limit N]")
 	}
 	outDir := a.opt("--out")
 	if outDir == "" {
@@ -189,7 +189,7 @@ func (a *App) cmdPull() error {
 	if err != nil {
 		return err
 	}
-	files, err := a.listFolder(a.Pos[0], intArg(a.opt("--limit"), 50))
+	files, err := a.listFolder(a.Pos[0], intArg(a.opt("--limit"), 0))
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func (a *App) cmdPull() error {
 			fmt.Printf("✓ %s → %s (%v bytes)\n", str(f, "name"), filepath.Base(str(got, "file")), got["bytes"])
 		}
 	}
-	b, _ := json.MarshalIndent(map[string]any{"source": a.Pos[0], "dir": outDir, "since": a.opt("--since"), "files": manifest}, "", "  ")
+	b, _ := json.MarshalIndent(map[string]any{"source": a.Pos[0], "dir": outDir, "since": a.opt("--since"), "count": len(manifest), "files": manifest}, "", "  ")
 	if err := os.WriteFile(filepath.Join(outDir, "manifest.json"), append(b, '\n'), 0o644); err != nil {
 		return err
 	}

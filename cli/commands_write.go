@@ -126,7 +126,7 @@ func (a *App) cmdImport() error {
 	}
 	to := a.opt("--to")
 	if to == "" {
-		to = "desktop"
+		return errors.New("必须指定导入位置：--to desktop|空间|文件夹链接|@别名")
 	}
 	parent, err := a.resolveTarget(to)
 	if err != nil {

@@ -2,9 +2,11 @@
 
 # shimo-net
 
-**石墨办公 CLI：在终端里，把 shimo.net 用起来。**
+**石墨办公套件 CLI：把 shimo.net 和客户私有化部署，接进终端和 Agent。**
 
 找文件 · 导入交付 · 拉取归档 · 权限巡检 · 周报 · 上传下载
+
+支持 shimo.net 公有云与客户自部署的「石墨办公套件」。产品介绍与私有化部署：[shimo.net/products/office-suites](https://shimo.net/products/office-suites)
 
 [![Release](https://img.shields.io/github/v/release/shimo-office/office-suites?label=release)](https://github.com/shimo-office/office-suites/releases)
 [![CI](https://github.com/shimo-office/office-suites/actions/workflows/ci.yml/badge.svg)](https://github.com/shimo-office/office-suites/actions/workflows/ci.yml)
@@ -42,7 +44,7 @@ shimo-net init
 shimo-net login
 ```
 
-> 安装器会把命令放到 `~/.local/bin/shimo-net`。有 Go 时本地构建；没有 Go 时自动下载 [release](https://github.com/shimo-office/office-suites/releases) 里的 macOS / Linux 二进制。如果提示找不到命令，把 `~/.local/bin` 加进 `PATH`。
+> 安装器会把命令放到 `~/.local/bin/shimo-net`（Windows 为 `%LOCALAPPDATA%\shimo-net\shimo-net.exe`）。有 Go 时本地构建；没有 Go 时自动下载 [release](https://github.com/shimo-office/office-suites/releases) 里的对应平台二进制。如果提示找不到命令，把安装目录加进 `PATH`。
 
 **客户私有部署**只改网址，不另装一套：
 
@@ -85,6 +87,8 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 
 新开一个会话，技能会按描述自动加载。
 </details>
+
+> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。它会运行 `bootstrap.sh`，下载 CLI、写入对应技能目录、打开登录页。手工步骤只作为兜底。
 
 <details>
 <summary><b>Codex</b></summary>
@@ -152,7 +156,7 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 
 ## 图文教程
 
-P0 四款 × 实际系统与入口，从安装授权到 15 个场景的操作结果：
+P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 15 个场景文字步骤：
 
 | 工具 | 入口 | 教程 |
 |---|---|---|
@@ -161,7 +165,11 @@ P0 四款 × 实际系统与入口，从安装授权到 15 个场景的操作结
 | DeepSeek Harness | `~/.dsh/skills/` | [图文教程](docs/tutorials/dsh.md) |
 | Codex | `~/.codex/skills/` | [图文教程](docs/tutorials/codex.md) |
 
-完整目录与截图口径见 [docs/tutorials/](docs/tutorials/README.md)。
+完整目录见 [docs/tutorials/](docs/tutorials/README.md)；四款连通验证结果见 [validation.md](docs/tutorials/validation.md)。
+
+> 15 个场景是功能范围；逐场景真实验收进度见 [validation.md](docs/tutorials/validation.md#15-个场景的验收状态)，目前不能宣称 15/15 已验收。
+
+> 实测注意：Codex 默认沙箱会拦截 macOS Keychain，需要放宽 sandbox 或显式授权。四款 Agent 的实测记录见 [validation.md](docs/tutorials/validation.md)。
 
 ---
 
@@ -176,15 +184,15 @@ P0 四款 × 实际系统与入口，从安装授权到 15 个场景的操作结
 | 空间 / 目录 | `shimo-net spaces [--limit 300]`、`shimo-net ls <链接\|@别名> [--since 7d]` |
 | 文件出处 | `shimo-net info <链接\|@别名>` |
 | 导入 + 权限 | `shimo-net import <文件> --to <位置>` + `shimo-net share <链接> <权限>` |
-| 拉取文件夹 | `shimo-net pull <链接\|@别名> --out <目录> [--since 7d]` |
+| 拉取文件夹 | `shimo-net pull <链接\|@别名> [--out <目录>] [--since 7d]`（省略 `--out` 时用 `./shimo-pull`） |
 | 新建 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>` |
 | 改名 | `shimo-net rename <链接> "<新名字>"` |
 | 删除 / 回收站 / 恢复 | `shimo-net delete`、`shimo-net trash`、`shimo-net restore <guid>` |
-| 权限巡检 | `shimo-net audit <文件夹\|@别名>` |
+| 权限巡检 | `shimo-net audit <文件夹\|@别名> [--limit 200]` |
 | 批量改权限 | `shimo-net share <链接1> <链接2> … <权限>` |
 | 读正文 | `shimo-net read <链接> [--max-chars 12000]` |
 | 周报 | `shimo-net ls <链接> --since 7d` + `shimo-net read` |
-| 附件下载 | `shimo-net get <链接> --out <目录>` |
+| 附件下载 | `shimo-net get <链接> [--out <目录>]`（省略时用 `./shimo-pull`） |
 | 上传 | `shimo-net upload <文件> [--to desktop\|空间\|文件夹\|@别名]` |
 | 常用文件夹 | `shimo-net fav add <别名> <链接> --note 特征` → `@别名` |
 
@@ -209,14 +217,14 @@ P0 四款 × 实际系统与入口，从安装授权到 15 个场景的操作结
 
 ## 登录、凭据与安全
 
-- `shimo-net login` 打开一个 Chrome 专用窗口，登录成功后关闭；会话存进 macOS Keychain，之后命令不再问密码。
+- `shimo-net login` 打开一个 Chrome 专用窗口，登录成功后关闭；会话存进 macOS Keychain（Windows 为 Credential Manager），之后命令不再问密码。
 - 登录过期时，重新执行 `shimo-net login`，**网址不用重配**，然后重试原命令。Agent 指令里已经包含这个重试逻辑。
 - `shimo-net logout` 删除本机凭据。
 - 不要把密码、cookie 粘进对话、Issue 或截图。
 - 删除只进回收站；CLI 不提供彻底删除，需要到石墨网页回收站手动操作。
 - 批量读取 / 导出 / 改权限会消耗服务端资源，建议控制并发和批量大小。
 
-非 macOS 或 Keychain 不可用时，会回退到 `~/.shimo-net-cli/credentials.json`（目录 `0700`、文件 `0600`）。CI 可用 `SHIMO_NET_COOKIE`，但不要写进日志。详见 [SECURITY.md](SECURITY.md)。
+Windows 使用 Credential Manager。非 macOS 或 Keychain 不可用时，会回退到 `~/.shimo-net-cli/credentials.json`（目录 `0700`、文件 `0600`）。CI 可用 `SHIMO_NET_COOKIE`，但不要写进日志。详见 [SECURITY.md](SECURITY.md)。
 
 ---
 
@@ -240,7 +248,7 @@ SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami
 ```mermaid
 flowchart LR
   U["你 / Agent"] -->|一句话或一条命令| C["shimo-net"]
-  C -->|登录一次| K[(Keychain)]
+  C -->|登录一次| K[(Keychain / Credential Manager)]
   C -->|HTTPS| S["shimo.net / 客户私有部署"]
   S -->|链接 · 文件 · 权限| C
 ```
@@ -253,7 +261,7 @@ flowchart LR
 
 | 项 | 要求 |
 |---|---|
-| 操作系统 | macOS 12+（主支持）；Linux（实验性）；Windows 10/11 |
+| 操作系统 | macOS 12+；Linux；Windows 10/11 |
 | 运行时 | 不需要 Python / Node；从源码构建需要 Go 1.22+ |
 | 浏览器 | Google Chrome / Chromium / Microsoft Edge（登录与 `open`） |
 | 网络 | 能访问 `shimo.net` 或客户私有部署域名 |

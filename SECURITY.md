@@ -21,8 +21,8 @@
 `shimo-net` 支持三种凭据来源，按优先级：
 
 1. `SHIMO_NET_COOKIE` 环境变量（CI / 临时环境，不落盘）；
-2. macOS Keychain（`security` 的 generic password，service = `shimo-net-cli`）；
-3. `~/.shimo-net-cli/credentials.json`（仅非 macOS 或 Keychain 不可用时回退；目录 `0700`、文件 `0600`）。
+2. macOS Keychain（`security` 的 generic password，service = `shimo-net-cli`）；Windows 使用 Credential Manager（target = `shimo-net-cli`）；
+3. `~/.shimo-net-cli/credentials.json`（仅 Keychain / Credential Manager 不可用时回退；目录 `0700`、文件 `0600`）。
 
 注意：
 

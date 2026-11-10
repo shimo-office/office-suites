@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1 — 2026-11-11
+
+- 修复 `init` 对 `shimo.net` 的误判：改用无需登录的公开接口探测，不再把正常实例判成官网。
+- 修复 `bootstrap.sh` 未先初始化网址，导致 `login` 在无 stdin 环境下等待输入、后台挂起。
+- `import` 强制要求 `--to`；`pull` 默认拉取全部分页。
+- `doctor` 增加 `checks` / `ok` 与 🟢/🔴 输出，未通过返回非 0。
+- `schema` 补 `login` / `logout`；`audit` 增加 `--limit` 与截断提示。
+- 文档与实现对齐：Windows 路径/凭据、`GET /files/create`、删除与彻底删除边界、`pull/get --out` 可选。
+
 ## 0.9.0 — 2026-11-10
 
 ### 新增
@@ -69,4 +78,4 @@
 ### 兼容性
 
 - macOS 为主支持平台。
-- Linux 实验性支持：新增 Chrome / Chromium 常见路径；Keychain 不可用时回退到 0600 文件。
+- Linux 支持：新增 Chrome / Chromium 常见路径；Keychain 不可用时回退到 0600 文件。
