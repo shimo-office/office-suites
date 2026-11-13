@@ -44,6 +44,10 @@ func newApp(args []string) *App {
 			a.Relogin = true
 			continue
 		}
+		if arg == "--default" {
+			a.Bool[arg] = true
+			continue
+		}
 		if strings.HasPrefix(arg, "--") {
 			name := arg
 			val := ""
@@ -64,7 +68,12 @@ func newApp(args []string) *App {
 }
 
 func (a *App) opt(name string) string { return a.Flags[name] }
-func (a *App) has(name string) bool   { _, ok := a.Flags[name]; return ok }
+func (a *App) has(name string) bool {
+	if _, ok := a.Flags[name]; ok {
+		return true
+	}
+	return a.Bool[name]
+}
 
 func (a *App) Run() error {
 	switch a.Cmd {
@@ -104,7 +113,7 @@ func dispatch(a *App) map[string]func() error {
 		"upload": a.cmdUpload, "import": a.cmdImport, "new": a.cmdNew, "rename": a.cmdRename,
 		"share": a.cmdShare, "audit": a.cmdAudit, "delete": a.cmdDelete, "trash": a.cmdTrash,
 		"restore": a.cmdRestore, "purge": a.cmdPurge, "read": a.cmdRead, "pull": a.cmdPull,
-		"get": a.cmdGet, "fav": a.cmdFav, "open": a.cmdOpen,
+		"get": a.cmdGet, "fav": a.cmdFav, "open": a.cmdOpen, "phase2": a.cmdPhase2, "subscriptions": a.cmdSubscriptions,
 	}
 }
 

@@ -178,7 +178,7 @@ cp cli/SKILL.md ~/.workbuddy/skills/shimo-net-cli/SKILL.md
 
 > 截图里的「（图文教程自检）」是演示文档；你实际使用时换成自己的文档链接。
 
-## 7. 15 个场景怎么用
+## 7. 当前场景怎么用
 
 流程和上面完全一样：在 WorkBuddy 里说人话，Agent 会调用 `shimo-net`。下面是可以直接复制的任务说法。
 
@@ -213,7 +213,7 @@ cp cli/SKILL.md ~/.workbuddy/skills/shimo-net-cli/SKILL.md
 - [ ] WorkBuddy「已安装」里能看到 `shimo-net-cli`（或技能已复制到 `~/.workbuddy/skills/`）；
 - [ ] 第一个任务返回「已连通，账号可用」；
 - [ ] 第二个任务返回「名称 / 类型 / 链接」三项；
-- [ ] 15 个场景里至少完整跑通 1 个（建议 01 找文件、03 文件出处、11 读正文）。
+- [ ] 当前场景里至少完整跑通 1 个（建议 01 找文件、03 文件出处、11 读正文）。
 
 ## 9. 常见问题
 

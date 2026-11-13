@@ -67,7 +67,7 @@ shimo-net login
 | 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
 | 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
 
-完整 15 个场景见 [cli/scenarios.md](cli/scenarios.md)。
+当前可用的 28 个场景（覆盖 45 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
 
 ---
 
@@ -156,7 +156,7 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 
 ## 图文教程
 
-P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 15 个场景文字步骤：
+P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当前场景文字步骤：
 
 | 工具 | 入口 | 教程 |
 |---|---|---|
@@ -167,7 +167,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 15 �
 
 完整目录见 [docs/tutorials/](docs/tutorials/README.md)；四款连通验证结果见 [validation.md](docs/tutorials/validation.md)。
 
-> 15 个场景是功能范围；逐场景真实验收进度见 [validation.md](docs/tutorials/validation.md#15-个场景的验收状态)，目前不能宣称 15/15 已验收。
+> 当前场景是功能范围；逐场景真实验收进度见 [validation.md](docs/tutorials/validation.md#当前场景的验收状态)，不能据此宣称全部能力已验收。
 
 > 实测注意：Codex 默认沙箱会拦截 macOS Keychain，需要放宽 sandbox 或显式授权。四款 Agent 的实测记录见 [validation.md](docs/tutorials/validation.md)。
 
@@ -176,7 +176,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 15 �
 ## 常用命令
 
 <details>
-<summary><b>展开完整命令表（15 个场景）</b></summary>
+<summary><b>展开完整命令表（28 个场景，45 项能力）</b></summary>
 
 | 场景 | 命令 |
 |---|---|
@@ -195,8 +195,21 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 15 �
 | 附件下载 | `shimo-net get <链接> [--out <目录>]`（省略时用 `./shimo-pull`） |
 | 上传 | `shimo-net upload <文件> [--to desktop\|空间\|文件夹\|@别名]` |
 | 常用文件夹 | `shimo-net fav add <别名> <链接> --note 特征` → `@别名` |
+| 只看与我相关的内容 | `shimo-net phase2 <链接> --action mentions-list\|comments-list`；订阅用 `shimo-net subscriptions --json` |
+| 留痕与版本 | `shimo-net open <链接> --default` 后用 computer-use 操作历史面板 |
+| 文字与段落 | `shimo-net open <链接> --default` 后用 computer-use 操作菜单和选区 |
+| 文内表格与图片 | `shimo-net open <链接> --default` 后由 computer-use 插入、调整并截图 |
+| 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面操作 |
+| 预览与打印 | `shimo-net open <链接> --default` 后用 computer-use 操作预览/打印 |
+| 文档重排全文 | `shimo-net open <链接> --default` 后由 computer-use 调整标题、段落和页面样式 |
+| 表格写入 | `shimo-net open <链接> --default` 后用 computer-use 操作表格 |
+| 表格整理 | `shimo-net open <链接> --default` 后用 computer-use 操作冻结、排序、筛选 |
+| 表格清洗 | `shimo-net open <链接> --default` 后由 computer-use 操作 |
+| 表格算与看数 | `shimo-net open <链接> --default` 后由 computer-use 操作公式、定义名称和透视表 |
+| 表格校验与格式 | `shimo-net open <链接> --default` 后用 computer-use 操作 |
+| 表格输出 | 导出使用异步导出 API，打印使用编辑器 API 或页面操作 |
 
-通用：`init` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version` / `open`。
+通用：`init` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version` / `open` / `phase2` / `subscriptions`。
 </details>
 
 ### 权限（7 档）
@@ -253,7 +266,7 @@ flowchart LR
   S -->|链接 · 文件 · 权限| C
 ```
 
-`shimo-net` 是石墨办公 CLI：直连 `/api/v1`，把 15 个常用场景封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
+`shimo-net` 是石墨办公 CLI：直连 `/api/v1`，把 28 个常用场景和 45 项能力封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
 
 ---
 
@@ -306,7 +319,7 @@ source ~/.zshrc
 - [图文教程（P0 四款）](docs/tutorials/README.md)
 - [CLI 详细用法](cli/README.md)
 - [安装与使用说明](cli/安装使用说明.md)
-- [15 个场景与自然语言示例](cli/scenarios.md)
+- [场景与自然语言示例](cli/scenarios.md)
 - [Agent 技能定义](cli/SKILL.md)
 - [安全策略](SECURITY.md) · [更新记录](CHANGELOG.md)
 

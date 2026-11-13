@@ -129,7 +129,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 
 > 截图里的「（图文教程自检）」是演示文档；实际使用时换成自己的链接。
 
-## 7. 15 个场景怎么用
+## 7. 当前场景怎么用
 
 流程和上面一样：在 DSH 里说人话，Agent 调用 `shimo-net`。
 
@@ -161,7 +161,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 - [ ] `~/.dsh/skills/shimo-net-cli/SKILL.md` 存在；
 - [ ] 第一个任务返回「已连通，账号可用」；
 - [ ] 第二个任务返回「名称 / 类型 / 链接」；
-- [ ] 15 个场景里至少完整跑通 1 个。
+- [ ] 当前场景里至少完整跑通 1 个。
 
 ## 9. 常见问题
 

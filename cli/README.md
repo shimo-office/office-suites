@@ -1,6 +1,6 @@
 # shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **15 个办公场景**。当前版本 **0.9.1**，Go 单二进制。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、45 项能力**。当前版本 **0.9.1**，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain（Windows 为 Credential Manager）；过期就地重登。
@@ -80,7 +80,7 @@ shimo-net doctor
 shimo-net logout
 ```
 
-## 15 个场景
+## 当前能力（28 个场景）
 
 | # | 场景 | 命令 |
 |---|---|---|
@@ -99,7 +99,32 @@ shimo-net logout
 | 13 | 附件 / 云文件下载 | `shimo-net get <链接> [--out <目录>]`（省略时 `./shimo-pull`） |
 | 14 | 上传（问传到哪里） | `shimo-net upload <文件> [--to desktop\|空间\|文件夹\|@别名]`；不给 `--to` 会列出可选位置 |
 | 15 | 常用文件夹别名 | `shimo-net fav add <别名> <链接> --note 特征`，之后任意命令用 `@别名` |
+| 16 | 只看与我相关的内容 | `shimo-net phase2 <链接> --action mentions-list\|comments-list`；跨文件订阅用 `subscriptions` |
+| 17 | 留痕与版本 | `shimo-net open <链接> --default` 后用 computer-use 操作历史面板 |
+| 18 | 文字与段落 | `shimo-net open <链接> --default` 后用 computer-use 操作菜单和选区 |
+| 19 | 文内表格与图片 | `shimo-net open <链接> --default` 后由 computer-use 插入、调整并截图 |
+| 20 | 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面操作 |
+| 21 | 预览与打印 | `shimo-net open <链接> --default` 后用 computer-use 操作预览/打印 |
+| 22 | 文档重排全文 | `shimo-net open <链接> --default` 后由 computer-use 调整标题、段落和页面样式 |
+| 23 | 表格写入 | `shimo-net open <链接> --default` 后用 computer-use 操作表格 |
+| 24 | 表格整理 | `shimo-net open <链接> --default` 后用 computer-use 操作冻结、排序、筛选 |
+| 25 | 表格清洗 | 删除重复项、分列、填充等通过表格页面操作 |
+| 26 | 表格算与看数 | `shimo-net open <链接> --default` 后由 computer-use 操作公式、定义名称和透视表 |
+| 27 | 表格校验与格式 | `shimo-net open <链接> --default` 后用 computer-use 操作 |
+| 28 | 表格输出 | 导出使用异步导出 API；打印用 `open --default` + computer-use |
 | — | 用已登录浏览器打开链接 | `shimo-net open <链接\|guid>`（复用 CLI 的 Chrome 配置，免重复登录） |
+
+## 编辑器与协作能力
+
+当前可直接使用的编辑器能力包括 @人/评论列表 API、异步文件导出、订阅文件扫描；历史、格式、评论添加、表格编辑、预览打印等页面操作统一使用 `open --default` 配合 computer-use：
+
+```bash
+shimo-net phase2 <链接> --action mentions-list --json
+```
+
+`phase2` 是兼容入口：当前已验证可用的是 `mentions-list` / `comments-list` API 读取；其他动作如果返回“页面未暴露 editor SDK”，立即改用 `shimo-net open <链接> --default`，由 computer-use 按页面菜单、工具栏和选区完成操作并返回截图。隔离浏览器仍通过 Keychain 恢复会话，不输出 sid/cookie。
+
+订阅更新文件：`shimo-net subscriptions --json` 会扫描逐文件订阅状态；用户选定序号后用 `shimo-net subscriptions --open <序号> --default` 打开对应文件。
 
 通用命令：`init` / `config` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version`；全局 `--json`、`--relogin`。
 

@@ -1,6 +1,10 @@
 package main
 
 func schema() map[string]any {
+	scenarios := []string{"搜索", "空间/目录", "文件出处", "导入+权限", "拉取", "新建", "改名", "删除/回收站/恢复",
+		"权限巡检", "批量改权限", "读正文摘要", "周报", "附件下载", "上传（问位置）", "常用文件夹别名",
+		"只看与我相关的", "留痕与版本", "文字与段落", "文内表格与图片", "评论与提及", "预览与打印",
+		"文档·重排全文", "表格·写入", "表格·整理成能用的表", "表格·清洗", "表格·算与看数", "表格·校验与格式", "表格·输出"}
 	cmds := []map[string]any{
 		{"name": "init", "usage": "shimo-net init [--origin https://域名] [--login]", "desc": "初始化产品网址并校验接口可达"},
 		{"name": "config", "usage": "shimo-net config [show|set <url>|clear]", "desc": "查看/修改产品网址（config.json）"},
@@ -23,7 +27,9 @@ func schema() map[string]any {
 		{"name": "pull", "usage": "shimo-net pull <链接|@别名> [--out <dir>] [--since 7d] [--limit N]", "desc": "下载整个文件夹（默认全部）"},
 		{"name": "get", "usage": "shimo-net get <链接|guid|@别名> [--out <dir>]", "desc": "下载单个文件"},
 		{"name": "fav", "usage": "shimo-net fav <list|add|rm|show> …", "desc": "常用文件夹别名（下次直接说 @别名）"},
-		{"name": "open", "usage": "shimo-net open <链接|guid|@别名>", "desc": "用 CLI 已登录的 Chrome 配置打开链接（免重复登录）"},
+		{"name": "open", "usage": "shimo-net open <链接|guid|@别名> [--default]", "desc": "打开链接；默认使用 CLI 已登录的 Chrome 配置，--default 使用操作系统默认浏览器"},
+		{"name": "phase2", "usage": "shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH]", "desc": "调用已验证的同源 API；页面 SDK 不可用时返回 computer-use 网页操作提示"},
+		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "扫描逐文件订阅状态，列出最近更新文件并可打开浏览器"},
 		{"name": "whoami", "usage": "shimo-net whoami [--json]", "desc": "当前账号"},
 		{"name": "doctor", "usage": "shimo-net doctor [--json]", "desc": "自检（运行时/Chrome/凭据/origin）"},
 	}
@@ -35,9 +41,10 @@ func schema() map[string]any {
 		"commands":   cmds,
 		"shareModes": keys(shareModes), "shareModeLabels": shareModes,
 		"importTypes": importTypes, "createTypes": createTypes,
-		"scenarios": []string{"搜索", "空间/目录", "文件出处", "导入+权限", "拉取", "新建", "改名", "删除/回收站/恢复",
-			"权限巡检", "批量改权限", "读正文摘要", "周报", "附件下载", "上传（问位置）", "常用文件夹别名"},
-		"errors": map[string]any{"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
+		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 45,
+		"phase2":        map[string]any{"status": "api-read-verified", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list"}, "transport": "same-origin-api-over-cdp", "fallback": "shimo-net open --default <链接> 后由 computer-use 按网页操作并截图"},
+		"subscriptions": map[string]any{"status": "supported", "endpoint": "GET /api/v1/files/{fileGuid}/update_subscription", "mode": "scan accessible files; no server-side all-subscriptions endpoint"},
+		"errors":        map[string]any{"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
 	}
 }
 
@@ -50,7 +57,7 @@ func keys(m map[string]string) []string {
 }
 
 func helpText() string {
-	return `shimo-net ` + version + ` —— shimo.net 接口（15 个场景）
+	return `shimo-net ` + version + ` —— shimo.net 接口（28 个场景，覆盖 45 项能力）
 
 用法:
   shimo-net init [--origin URL]                    初始化产品网址并校验可达
@@ -73,7 +80,22 @@ func helpText() string {
   shimo-net read <链接> [--max-chars N]              11 读正文
   shimo-net get <链接> [--out <目录>]                13 下载单个文件
   shimo-net fav <list|add|rm|show> …                15 常用文件夹别名（下次直接 @别名）
-  shimo-net open <链接|guid>                        用已登录的浏览器打开（免重复登录）
+  shimo-net open <链接|guid> [--default]            用已登录的浏览器打开；--default 使用系统默认浏览器
+  shimo-net phase2 <链接> --action mentions-list|comments-list  已验证的 API 读取；其他编辑操作用 open --default + computer-use
+  shimo-net subscriptions [--limit 200] [--depth 3]   列已订阅文件；--open 序号|guid 后打开
+  16 只看与我相关的                              mentions-list / comments-list / subscriptions
+  17 留痕与版本                                  history / save-version
+  18 文字与段落                                  find / replace-all / 浏览器操作
+  19 文内表格与图片                              editor SDK / 浏览器操作
+  20 评论与提及                                  comments-list / 浏览器操作
+  21 预览与打印                                  print / 浏览器操作
+  22 文档重排全文                                页面样式 / 浏览器操作
+  23 表格写入                                    sheet-append / sheet-insert / sheet-delete
+  24 表格整理                                    sheet-freeze / sheet-sort / sheet-filter
+  25 表格清洗                                    浏览器操作
+  26 表格算与看数                                SDK / 浏览器操作
+  27 表格校验与格式                              sheet-validation / 浏览器操作
+  28 表格输出                                    异步导出 API / print / 浏览器操作
   shimo-net schema                                  命令/参数/JSON 结构
 
 权限: private | enterprise_readonly | enterprise_commentable | enterprise_editable

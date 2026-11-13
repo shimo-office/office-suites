@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -152,7 +153,7 @@ func (a *App) cmdFav() error {
 
 func (a *App) cmdOpen() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net open <链接|guid|@别名>")
+		return errors.New("用法：shimo-net open <链接|guid|@别名> [--default]")
 	}
 	raw := a.Pos[0]
 	target := raw
@@ -170,6 +171,25 @@ func (a *App) cmdOpen() error {
 		}
 		target = a.urlOf(withGUID(info, guid))
 	}
+	if a.has("--default") {
+		cmd, launcher, err := defaultBrowserCommand(target)
+		if err != nil {
+			return err
+		}
+		cmd.Stdout, cmd.Stderr = nil, nil
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("启动默认浏览器失败：%w", err)
+		}
+		if a.JSON {
+			return a.printJSON(map[string]any{
+				"ok": true, "url": target, "mode": "default", "launcher": launcher,
+				"note": "用操作系统默认浏览器打开",
+			})
+		}
+		fmt.Printf("已用系统默认浏览器打开：%s\n", target)
+		return nil
+	}
+
 	chrome, err := findChrome()
 	if err != nil {
 		return err
@@ -188,6 +208,19 @@ func (a *App) cmdOpen() error {
 	}
 	fmt.Printf("已用登录态浏览器打开：%s\n", target)
 	return nil
+}
+
+func defaultBrowserCommand(target string) (*exec.Cmd, string, error) {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", target), "open", nil
+	case "linux":
+		return exec.Command("xdg-open", target), "xdg-open", nil
+	case "windows":
+		return exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", target), "rundll32.exe", nil
+	default:
+		return nil, "", fmt.Errorf("当前操作系统不支持默认浏览器打开：%s", runtime.GOOS)
+	}
 }
 
 func (a *App) cmdPurge() error {
