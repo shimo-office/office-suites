@@ -14,7 +14,7 @@ func TestSchema(t *testing.T) {
 	if len(s["scenarios"].([]string)) != 28 {
 		t.Errorf("scenarios = %d, want 28", len(s["scenarios"].([]string)))
 	}
-	if s["scenarioCount"] != 28 || s["capabilityCount"] != 45 {
+	if s["scenarioCount"] != 28 || s["capabilityCount"] != 49 {
 		t.Error("scenario metadata changed")
 	}
 	names := map[string]bool{}

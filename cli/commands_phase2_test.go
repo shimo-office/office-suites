@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 )
@@ -43,6 +46,75 @@ func TestPhase2ExpressionUsesDocumentAPIs(t *testing.T) {
 		if !contains(expr, want) {
 			t.Errorf("API expression missing %q: %s", want, expr)
 		}
+	}
+}
+
+func TestPhase2ObjectArg(t *testing.T) {
+	payload, err := phase2ObjectArg([]any{map[string]any{"range": "A1:C1"}})
+	if err != nil || payload["range"] != "A1:C1" {
+		t.Fatalf("payload = %#v, err = %v", payload, err)
+	}
+	for _, args := range [][]any{{}, {"A1"}, {map[string]any{}, map[string]any{}}} {
+		if _, err := phase2ObjectArg(args); err == nil {
+			t.Fatalf("expected object validation error for %#v", args)
+		}
+	}
+}
+
+func TestPhase2ActionNamesIncludeSpreadsheetAPIs(t *testing.T) {
+	got := phase2ActionNames()
+	for _, want := range []string{"sheet-format", "sheet-merge", "sheet-values", "sheet-update"} {
+		found := false
+		for _, name := range got {
+			if name == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("missing action %q", want)
+		}
+	}
+}
+
+func TestRunPhase2HTTPFormatsCells(t *testing.T) {
+	t.Setenv("SHIMO_NET_COOKIE", "sid=test")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/lizard-api/files/demo/sheets/attrs" {
+			t.Fatalf("request = %s %s", r.Method, r.URL.Path)
+		}
+		if r.Header.Get("cookie") != "sid=test" {
+			t.Fatalf("cookie leaked or missing: %q", r.Header.Get("cookie"))
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body["range"] != "A1:C1" {
+			t.Fatalf("range = %#v", body["range"])
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	a := &App{Origin: srv.URL}
+	value, err := a.runPhase2HTTP("demo", phase2Actions["sheet-format"], []any{map[string]any{
+		"range": "A1:C1",
+		"attrs": map[string]any{"background": "#D32F2F", "bold": true},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if str(value.(map[string]any), "status") != "204" {
+		t.Fatalf("result = %#v", value)
+	}
+}
+
+func TestPhase2RowActionDescriptor(t *testing.T) {
+	if phase2Actions["sheet-insert"] != "http:POSTROW:/lizard-api/files/%s/sheets" {
+		t.Fatalf("sheet-insert descriptor = %q", phase2Actions["sheet-insert"])
+	}
+	if phase2Actions["sheet-delete"] != "http:DELETEROW:/lizard-api/files/%s/sheets" {
+		t.Fatalf("sheet-delete descriptor = %q", phase2Actions["sheet-delete"])
 	}
 }
 

@@ -31,3 +31,25 @@ func TestSearchAndURL(t *testing.T) {
 		t.Errorf("urlOf = %s", got)
 	}
 }
+
+func TestRequestPathKeepsLizardAPIPath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/lizard-api/files/demo/sheets/attrs" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost || r.Header.Get("cookie") != "sid=test" {
+			t.Fatalf("method/cookie = %s/%q", r.Method, r.Header.Get("cookie"))
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	a := &App{Origin: srv.URL}
+	r, err := a.requestPath("/lizard-api/files/demo/sheets/attrs", http.MethodPost,
+		map[string]any{"range": "A1", "attrs": map[string]any{"bold": true}}, nil, nil, "sid=test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Status != http.StatusNoContent {
+		t.Fatalf("status = %d", r.Status)
+	}
+}

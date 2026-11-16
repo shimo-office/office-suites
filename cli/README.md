@@ -1,6 +1,6 @@
 # shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、45 项能力**。当前版本 **0.9.1**，Go 单二进制。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、49 项能力**。当前版本 **0.9.2**，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain（Windows 为 Credential Manager）；过期就地重登。
@@ -106,23 +106,24 @@ shimo-net logout
 | 20 | 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面操作 |
 | 21 | 预览与打印 | `shimo-net open <链接>` 后用 computer-use 操作预览/打印 |
 | 22 | 文档重排全文 | `shimo-net open <链接>` 后由 computer-use 调整标题、段落和页面样式 |
-| 23 | 表格写入 | `shimo-net open <链接>` 后用 computer-use 操作表格 |
+| 23 | 表格写入 | `phase2 --action sheet-update|sheet-append|sheet-insert|sheet-delete` 直接调用表格 API |
 | 24 | 表格整理 | `shimo-net open <链接>` 后用 computer-use 操作冻结、排序、筛选和单元格底色 |
 | 25 | 表格清洗 | 删除重复项、分列、填充等通过表格页面操作 |
 | 26 | 表格算与看数 | `shimo-net open <链接>` 后由 computer-use 操作公式、定义名称和透视表 |
-| 27 | 表格校验与格式 | `shimo-net open <链接>` 后用 computer-use 操作 |
+| 27 | 表格校验与格式 | `phase2 --action sheet-format|sheet-merge` 直接调用表格 API；数据验证仍用页面 |
 | 28 | 表格输出 | 导出使用异步导出 API；打印用 `open` + computer-use |
 | — | 用已登录浏览器打开链接 | `shimo-net open <链接\|guid>`（复用 CLI 的 Chrome 配置，免重复登录） |
 
 ## 编辑器与协作能力
 
-当前可直接使用的编辑器能力包括 @人/评论列表 API、异步文件导出、订阅文件扫描；历史、格式、评论添加、表格编辑（包括单元格底色）、预览打印等页面操作统一使用 `open` 配合 computer-use。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除的操作禁止由 CLI 处理，必须由人工在石墨网页完成：
+当前可直接使用的编辑器能力包括 @人/评论列表 API、异步文件导出、订阅文件扫描，以及表格内容/样式/合并 API；历史、文字与段落格式、评论添加、预览打印等页面操作使用 `open` 配合 computer-use。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除的操作禁止由 CLI 处理，必须由人工在石墨网页完成：
 
 ```bash
-shimo-net phase2 <链接> --action mentions-list --json
+shimo-net phase2 <链接> --action sheet-format --payload '{"range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}' --json
+shimo-net phase2 <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
 ```
 
-`phase2` 是兼容入口：当前已验证可用的是 `mentions-list` / `comments-list` API 读取；其他动作如果返回“页面未暴露 editor SDK”，立即改用 `shimo-net open <链接>`，由 computer-use 按页面菜单、工具栏和选区完成操作并返回截图。CLI 专用浏览器会从 Keychain 注入会话，不输出 sid/cookie；只有无法使用内联浏览器和 CLI 专用浏览器时才使用 `open --default`。
+`phase2` 是兼容入口：`sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源表格 API，因此不会因为页面未暴露 `globalThis.sdk` 而退回本地 XLSX；其他动作如果没有对应 API，立即改用 `shimo-net open <链接>`，由 computer-use 按页面菜单、工具栏和选区完成操作并返回截图。CLI 专用浏览器会从 Keychain 注入会话，不输出 sid/cookie；只有无法使用内联浏览器和 CLI 专用浏览器时才使用 `open --default`。
 
 订阅更新文件：`shimo-net subscriptions --json` 会扫描逐文件订阅状态；用户选定序号后用 `shimo-net subscriptions --open <序号>` 打开对应文件（优先使用内联浏览器，其次使用会注入 Keychain 会话的 CLI 专用浏览器）。
 

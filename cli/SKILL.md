@@ -2,7 +2,7 @@
 name: shimo-net-cli
 description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
 whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
-version: 0.9.1
+version: 0.9.2
 agent_created: true
 ---
 
@@ -27,7 +27,7 @@ shimo-net init --origin https://<客户域名>
 
 任意命令加 `--relogin`，遇 401 会自动打开登录并在成功后重试原命令。不要把密码 / cookie 粘进对话。
 
-## 当前能力（28 个场景、45 项能力）
+## 当前能力（28 个场景、49 项能力）
 
 | 场景 | 命令 |
 |---|---|
@@ -53,11 +53,11 @@ shimo-net init --origin https://<客户域名>
 | 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面 |
 | 预览与打印 | `shimo-net open <链接>` 后由 computer-use 操作 |
 | 文档重排全文 | `shimo-net open <链接>` 后由 computer-use 调整 |
-| 表格写入 | `shimo-net open <链接>` 后用 computer-use 操作表格 |
+| 表格写入 | `phase2 --action sheet-update|sheet-append|sheet-insert|sheet-delete` 直接调用表格 API |
 | 表格整理 | `shimo-net open <链接>` 后用 computer-use 操作冻结、排序、筛选和单元格底色 |
 | 表格清洗 | `shimo-net open <链接>` 后由 computer-use 操作 |
 | 表格算与看数 | `shimo-net open <链接>` 后由 computer-use 操作 |
-| 表格校验与格式 | `shimo-net open <链接>` 后用 computer-use 操作 |
+| 表格校验与格式 | `phase2 --action sheet-format|sheet-merge` 直接调用表格 API；数据验证仍用页面 |
 | 表格输出 | 导出使用异步导出 API；打印由 computer-use 操作 |
 | 打开链接（免登录） | `shimo-net open <链接>`：用 CLI 已登录的 Chrome 配置打开 |
 
@@ -72,13 +72,15 @@ shimo-net init --origin https://<客户域名>
 
 ## 编辑器与协作能力
 
-当前直接可用的是 @人/评论列表 API、异步文件导出和订阅文件扫描；历史、格式、评论添加、表格编辑（包括单元格底色）、预览打印等操作使用内联浏览器配合 computer-use。文件锁定、限制编辑、高级权限、成员级授权和彻底删除严格禁止 CLI 处理，必须由人工进入石墨网页操作：
+当前直接可用的是 @人/评论列表 API、异步文件导出、订阅文件扫描，以及表格内容/样式/合并 API。历史、评论添加、文字与段落格式、预览打印等操作使用内联浏览器配合 computer-use。文件锁定、限制编辑、高级权限、成员级授权和彻底删除严格禁止 CLI 处理，必须由人工进入石墨网页操作：
 
 ```bash
-shimo-net phase2 <链接|guid|@别名> --action mentions-list|comments-list --json
+shimo-net phase2 <链接|guid|@别名> --action sheet-format --payload '{"range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}' --json
+shimo-net phase2 <链接|guid|@别名> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
+shimo-net phase2 <链接|guid|@别名> --action mentions-list --json
 ```
 
-`phase2` 是兼容入口。CLI 会在隔离 Chrome 中打开页面，通过 CDP 注入 Keychain 会话并调用同源 API，把 sid/cookie 从输出中排除；API 读取成功后返回截图绝对路径。页面 SDK 未暴露或动作没有可用 API 时，优先在 agent 内联浏览器中打开目标页面并由 computer-use 操作；没有内联浏览器时使用 `shimo-net open <链接>`，CLI 会从 Keychain 注入会话；只有这两种方式都不可用时才使用 `shimo-net open <链接> --default`。
+`phase2` 是兼容入口。表格 `sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源 `/lizard-api` 接口，不依赖页面 `globalThis.sdk`，因此不会再退回本地生成 XLSX。页面 SDK 未暴露或动作没有可用 API 时，优先在 agent 内联浏览器中打开目标页面并由 computer-use 操作；没有内联浏览器时使用 `shimo-net open <链接>`，CLI 会从 Keychain 注入会话；只有这两种方式都不可用时才使用 `shimo-net open <链接> --default`。
 
 订阅更新：
 

@@ -185,8 +185,32 @@ WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制�
 | 13 | 下载附件 | 把这份文档的附件下载到 ./附件 | `shimo-net get <链接> --out ./附件` |
 | 14 | 上传 | 把这个 PDF 传到「资料」文件夹，先私有 | `shimo-net upload ./file.pdf --to <文件夹>` |
 | 15 | 常用别名 | 以后把「交付」文件夹叫「交付」 | `shimo-net fav add 交付 <链接> --note 交付目录` |
+| 16 | 只看与我相关 | 看看谁 @ 了我、有哪些评论 | `shimo-net phase2 <链接> --action mentions-list|comments-list --json` |
+| 17 | 留痕与版本 | 查看历史、保存版本 | `shimo-net open <链接>` 后由 computer-use 操作历史面板 |
+| 18 | 文字与段落 | 查找替换、调整文字和段落格式 | `shimo-net open <链接>` 后由 computer-use 操作菜单和选区 |
+| 19 | 文内表格与图片 | 插入或调整文内表格、图片 | `shimo-net open <链接>` 后由 computer-use 操作 |
+| 20 | 评论与提及 | 读取评论或在页面添加评论/@ | `comments-list` 读取；添加由页面操作 |
+| 21 | 预览与打印 | 打开预览或打印 | `shimo-net open <链接>` 后由 computer-use 操作 |
+| 22 | 文档重排 | 调整标题层级、页面宽度 | `shimo-net open <链接>` 后由 computer-use 操作 |
+| 23 | 表格写入 | 写入或追加单元格区域 | `shimo-net phase2 <链接> --action sheet-update|sheet-append --payload … --json` |
+| 24 | 表格整理 | 冻结、排序、筛选 | `shimo-net open <链接>` 后由 computer-use 操作 |
+| 25 | 表格清洗 | 去重、分列、填充 | `shimo-net open <链接>` 后由 computer-use 操作 |
+| 26 | 表格算与看数 | 公式、名称、透视表 | `shimo-net open <链接>` 后由 computer-use 操作 |
+| 27 | 表格校验与格式 | 设置底色、字体、边框、合并 | `shimo-net phase2 <链接> --action sheet-format|sheet-merge --payload … --json` |
+| 28 | 表格输出 | 导出文件 | `shimo-net get <链接> --out <目录> --json` |
 
 > 导入、上传等 CLI 写操作执行前，Agent 会先确认位置；文件锁定、限制编辑、高级权限、成员级授权和彻底删除必须打开石墨网页人工处理，删除命令只进回收站。
+
+表格样式示例（直接修改在线表格，不生成本地 XLSX）：
+
+```bash
+shimo-net phase2 <表格链接> --action sheet-format \
+  --payload '{"range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}' --json
+shimo-net phase2 <表格链接> --action sheet-merge \
+  --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
+```
+
+如果某项页面功能没有对应 API，Agent 应打开内联浏览器并用 computer-use 操作页面；没有内联浏览器时使用 `shimo-net open <链接>`，CLI 会复用 Keychain 会话。
 
 ## 8. 验收清单
 

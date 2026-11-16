@@ -67,7 +67,7 @@ shimo-net login
 | 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
 | 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
 
-当前可用的 28 个场景（覆盖 45 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
+当前可用的 28 个场景（覆盖 49 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
 
 ---
 
@@ -176,7 +176,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 ## 常用命令
 
 <details>
-<summary><b>展开完整命令表（28 个场景，45 项能力）</b></summary>
+<summary><b>展开完整命令表（28 个场景，49 项能力）</b></summary>
 
 | 场景 | 命令 |
 |---|---|
@@ -202,11 +202,11 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 | 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面操作 |
 | 预览与打印 | `shimo-net open <链接>` 后用 computer-use 操作预览/打印 |
 | 文档重排全文 | `shimo-net open <链接>` 后由 computer-use 调整标题、段落和页面样式 |
-| 表格写入 | `shimo-net open <链接>` 后用 computer-use 操作表格 |
+| 表格写入 | `shimo-net phase2 <链接> --action sheet-update|sheet-append|sheet-insert|sheet-delete --payload …` 直接调用表格 API |
 | 表格整理 | `shimo-net open <链接>` 后用 computer-use 操作冻结、排序、筛选和单元格底色 |
 | 表格清洗 | `shimo-net open <链接>` 后由 computer-use 操作 |
 | 表格算与看数 | `shimo-net open <链接>` 后由 computer-use 操作公式、定义名称和透视表 |
-| 表格校验与格式 | `shimo-net open <链接>` 后用 computer-use 操作 |
+| 表格校验与格式 | `shimo-net phase2 <链接> --action sheet-format|sheet-merge --payload …` 直接调用表格 API；数据验证仍用页面 |
 | 表格输出 | 导出使用异步导出 API，打印用 `open` + computer-use |
 
 通用：`init` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version` / `open` / `phase2` / `subscriptions`。
@@ -266,7 +266,7 @@ flowchart LR
   S -->|链接 · 文件 · 权限| C
 ```
 
-`shimo-net` 是石墨办公 CLI：直连 `/api/v1`，把 28 个常用场景和 45 项能力封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
+`shimo-net` 是石墨办公 CLI：直连 `/api/v1`，把 28 个常用场景和 49 项能力封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
 
 ---
 

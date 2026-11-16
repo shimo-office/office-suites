@@ -28,7 +28,7 @@ func schema() map[string]any {
 		{"name": "get", "usage": "shimo-net get <链接|guid|@别名> [--out <dir>]", "desc": "下载单个文件"},
 		{"name": "fav", "usage": "shimo-net fav <list|add|rm|show> …", "desc": "常用文件夹别名（下次直接说 @别名）"},
 		{"name": "open", "usage": "shimo-net open <链接|guid|@别名> [--default]", "desc": "打开链接；默认使用 CLI 已登录的 Chrome 配置，--default 使用操作系统默认浏览器"},
-		{"name": "phase2", "usage": "shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH]", "desc": "调用已验证的同源 API；页面 SDK 不可用时返回 computer-use 网页操作提示"},
+		{"name": "phase2", "usage": "shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH]", "desc": "调用同源 API；表格格式/合并/读写直接走稳定接口，其他编辑动作按需使用页面操作"},
 		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "扫描逐文件订阅状态，列出最近更新文件并可打开浏览器"},
 		{"name": "whoami", "usage": "shimo-net whoami [--json]", "desc": "当前账号"},
 		{"name": "doctor", "usage": "shimo-net doctor [--json]", "desc": "自检（运行时/Chrome/凭据/origin）"},
@@ -41,8 +41,8 @@ func schema() map[string]any {
 		"commands":   cmds,
 		"shareModes": keys(shareModes), "shareModeLabels": shareModes,
 		"importTypes": importTypes, "createTypes": createTypes,
-		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 45, "manualOnly": manualOnlyOperations,
-		"phase2":        map[string]any{"status": "api-read-verified", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list"}, "transport": "same-origin-api-over-cdp", "fallback": "优先使用 agent 内联浏览器；没有内联浏览器时用 shimo-net open <链接> 注入 Keychain 会话，再由 computer-use 操作"},
+		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 49, "manualOnly": manualOnlyOperations,
+		"phase2":        map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list", "sheet-format", "sheet-merge", "sheet-values", "sheet-update"}, "transport": "same-origin-api", "fallback": "没有对应 API 的操作优先使用 agent 内联浏览器；没有内联浏览器时用 shimo-net open <链接> 注入 Keychain 会话，再由 computer-use 操作"},
 		"subscriptions": map[string]any{"status": "supported", "endpoint": "GET /api/v1/files/{fileGuid}/update_subscription", "mode": "scan accessible files; no server-side all-subscriptions endpoint"},
 		"errors":        map[string]any{"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
 	}
@@ -57,7 +57,7 @@ func keys(m map[string]string) []string {
 }
 
 func helpText() string {
-	return `shimo-net ` + version + ` —— shimo.net 接口（28 个场景，覆盖 45 项能力）
+	return `shimo-net ` + version + ` —— shimo.net 接口（28 个场景，覆盖 49 项能力）
 
 用法:
   shimo-net init [--origin URL]                    初始化产品网址并校验可达
@@ -81,7 +81,12 @@ func helpText() string {
   shimo-net get <链接> [--out <目录>]                13 下载单个文件
   shimo-net fav <list|add|rm|show> …                15 常用文件夹别名（下次直接 @别名）
   shimo-net open <链接|guid> [--default]            用已登录的浏览器打开；--default 使用系统默认浏览器
-  shimo-net phase2 <链接> --action mentions-list|comments-list  已验证的 API 读取；其他编辑操作用 open + computer-use
+  shimo-net phase2 <链接> --action sheet-format --payload '{"range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}'
+  shimo-net phase2 <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}'
+  shimo-net phase2 <链接> --action sheet-values --payload '{"range":"工作表1!A1:C5"}'
+  shimo-net phase2 <链接> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
+  shimo-net phase2 <链接> --action sheet-append --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
+  shimo-net phase2 <链接> --action mentions-list|comments-list  同源 API；无 API 的编辑操作用 open + computer-use
   shimo-net subscriptions [--limit 200] [--depth 3]   列已订阅文件；--open 序号|guid 后打开
   16 只看与我相关的                              mentions-list / comments-list / subscriptions
   17 留痕与版本                                  history / save-version
@@ -90,11 +95,11 @@ func helpText() string {
   20 评论与提及                                  comments-list / 浏览器操作
   21 预览与打印                                  print / 浏览器操作
   22 文档重排全文                                页面样式 / 浏览器操作
-  23 表格写入                                    sheet-append / sheet-insert / sheet-delete
+  23 表格写入                                    sheet-append / sheet-update / sheet-insert / sheet-delete
   24 表格整理                                    sheet-freeze / sheet-sort / sheet-filter
   25 表格清洗                                    浏览器操作
   26 表格算与看数                                SDK / 浏览器操作
-  27 表格校验与格式                              sheet-validation / 浏览器操作
+  27 表格校验与格式                              sheet-validation / sheet-format / sheet-merge
   28 表格输出                                    异步导出 API / print / 浏览器操作
   shimo-net schema                                  命令/参数/JSON 结构
 

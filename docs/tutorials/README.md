@@ -1,6 +1,6 @@
 # P0 四款 × 石墨办公 · 图文教程
 
-从打开 Agent、接入 CLI、授权到当前 28 个场景、45 项能力的操作结果。每套教程包含：
+从打开 Agent、接入 CLI、授权到当前 28 个场景、49 项能力的操作结果。每套教程包含：
 
 - 实际系统与入口（WorkBuddy / 豆包工作 / DeepSeek Harness / Codex）
 - 打开 Agent、安装 shimo-net CLI 与首次配置

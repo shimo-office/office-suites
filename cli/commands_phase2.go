@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,15 +26,21 @@ var phase2Actions = map[string]string{
 	"replace-all":      "search.replaceAll",
 	"page-width":       "settings.setPageWidth",
 	"print":            "print",
-	"sheet-append":     "activeSheet.appendData",
-	"sheet-insert":     "activeSheet.insertRows",
-	"sheet-delete":     "activeSheet.deleteRows",
+	"sheet-append":     "http:PUT:/lizard-api/files/%s/sheets/values",
+	"sheet-insert":     "http:POSTROW:/lizard-api/files/%s/sheets",
+	"sheet-delete":     "http:DELETEROW:/lizard-api/files/%s/sheets",
 	"sheet-freeze":     "activeSheet.freeze",
 	"sheet-sort":       "activeSheet.sort",
 	"sheet-filter":     "activeSheet.filter",
 	"sheet-validation": "activeSheet.setDataValidation",
-	"mentions-list":    "api:mention-at-list",
-	"comments-list":    "api:comment-list",
+	// Stable same-origin spreadsheet APIs. These do not depend on a
+	// page-global editor SDK, so agents can call them directly from the CLI.
+	"sheet-format":  "http:POST:/lizard-api/files/%s/sheets/attrs",
+	"sheet-merge":   "http:POST:/lizard-api/files/%s/sheets/mergeCells",
+	"sheet-values":  "http:GET:/lizard-api/files/%s/sheets/values",
+	"sheet-update":  "http:POST:/lizard-api/files/%s/sheets/values",
+	"mentions-list": "api:mention-at-list",
+	"comments-list": "api:comment-list",
 }
 
 var phase2ManualOnlyActions = map[string]string{
@@ -70,15 +77,29 @@ func (a *App) cmdPhase2() error {
 	if shot == "" {
 		shot = filepath.Join(stateDir(), "screenshots", fmt.Sprintf("phase2-%s.png", time.Now().Format("20060102-150405.000")))
 	}
-	value, err := runPhase2Browser(target, method, args, shot)
+	var value any
+	if strings.HasPrefix(method, "http:") {
+		// API-backed spreadsheet mutations are complete once the server returns
+		// success; do not launch a second browser only to claim an SDK screenshot.
+		shot = ""
+		value, err = a.runPhase2HTTP(guidFromURL(target), method, args)
+	} else {
+		value, err = runPhase2Browser(target, method, args, shot)
+	}
 	if err != nil {
 		return err
 	}
-	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "screenshot": shot, "result": value}
+	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value}
+	if shot != "" {
+		out["screenshot"] = shot
+	}
 	if a.JSON {
 		return a.printJSON(out)
 	}
-	fmt.Printf("扩展动作已完成：%s\n截图：%s\n", action, shot)
+	fmt.Printf("扩展动作已完成：%s\n", action)
+	if shot != "" {
+		fmt.Printf("截图：%s\n", shot)
+	}
 	if value != nil {
 		b, _ := json.Marshal(value)
 		fmt.Printf("返回：%s\n", b)
@@ -88,7 +109,71 @@ func (a *App) cmdPhase2() error {
 
 func phase2ActionNames() []string {
 	// Keep schema/help deterministic even though the map is intentionally simple.
-	return []string{"history-show", "history-hide", "save-version", "comments-show", "comments-hide", "find", "replace-all", "page-width", "print", "sheet-append", "sheet-insert", "sheet-delete", "sheet-freeze", "sheet-sort", "sheet-filter", "sheet-validation", "mentions-list", "comments-list"}
+	return []string{"history-show", "history-hide", "save-version", "comments-show", "comments-hide", "find", "replace-all", "page-width", "print", "sheet-append", "sheet-insert", "sheet-delete", "sheet-freeze", "sheet-sort", "sheet-filter", "sheet-validation", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "mentions-list", "comments-list"}
+}
+
+func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
+	parts := strings.SplitN(method, ":", 3)
+	if len(parts) != 3 || parts[0] != "http" {
+		return nil, fmt.Errorf("无效的 phase2 API 动作：%s", method)
+	}
+	httpMethod, pathTemplate := parts[1], parts[2]
+	path := fmt.Sprintf(pathTemplate, url.PathEscape(guid))
+	payload, err := phase2ObjectArg(args)
+	if err != nil {
+		return nil, err
+	}
+	if httpMethod == "POSTROW" || httpMethod == "DELETEROW" {
+		sheetName := strings.TrimSpace(str(payload, "sheetName"))
+		index := strings.TrimSpace(str(payload, "index"))
+		if sheetName == "" || index == "" {
+			return nil, errors.New("sheet-insert/sheet-delete 必须提供 sheetName 和 index")
+		}
+		count := strings.TrimSpace(str(payload, "count"))
+		if count == "" {
+			count = "1"
+		}
+		path += "/" + url.PathEscape(sheetName) + "/rows/" + url.PathEscape(index) + "?count=" + url.QueryEscape(count)
+		if httpMethod == "POSTROW" {
+			httpMethod = "POST"
+		} else {
+			httpMethod = "DELETE"
+		}
+		payload = nil
+	}
+	if httpMethod == "GET" {
+		rangeValue := strings.TrimSpace(str(payload, "range"))
+		if rangeValue == "" {
+			return nil, errors.New("sheet-values 必须在 payload 中提供 range")
+		}
+		path += "?range=" + url.QueryEscape(rangeValue)
+		payload = nil
+	}
+	r, err := a.authRequestPath(path, httpMethod, payload, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if r.Status < 200 || r.Status >= 300 {
+		return nil, fmt.Errorf("表格 API 失败：HTTP %d %s", r.Status, snippet(r.Raw))
+	}
+	if len(r.Raw) == 0 || r.Status == 204 {
+		return map[string]any{"status": r.Status}, nil
+	}
+	if r.Data != nil {
+		return r.Data, nil
+	}
+	return map[string]any{"status": r.Status}, nil
+}
+
+func phase2ObjectArg(args []any) (map[string]any, error) {
+	if len(args) != 1 {
+		return nil, errors.New("表格 API 动作的 --payload 必须是一个 JSON 对象")
+	}
+	payload, ok := args[0].(map[string]any)
+	if !ok {
+		return nil, errors.New("表格 API 动作的 --payload 必须是一个 JSON 对象")
+	}
+	return payload, nil
 }
 
 func phase2Args(raw string) ([]any, error) {
