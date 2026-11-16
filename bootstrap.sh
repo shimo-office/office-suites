@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shimo-net 一键配置：下载 CLI、写入 Agent 技能目录、登录并验证。
+# shimo-net 一键配置：下载 CLI、初始化、登录并验证。
 # 用法：bash bootstrap.sh workbuddy|dsh|codex|doubao
 set -euo pipefail
 
@@ -54,7 +54,9 @@ fi
 
 SKILL_DIR=""
 case "$AGENT" in
-  workbuddy) SKILL_DIR="$HOME/.workbuddy/skills/shimo-net-cli" ;;
+  # WorkBuddy has an official market skill. Do not install the repository
+  # custom skill into its private skills directory.
+  workbuddy) SKILL_DIR="" ;;
   dsh)       SKILL_DIR="$HOME/.dsh/skills/shimo-net-cli" ;;
   codex)     SKILL_DIR="$HOME/.codex/skills/shimo-net-cli" ;;
   doubao)    SKILL_DIR="" ;;
@@ -91,7 +93,7 @@ fi
 
 echo "已配置完成，账号可用"
 case "$AGENT" in
-  workbuddy) echo "如果 WorkBuddy 的「已安装技能」没刷新，退出 WorkBuddy 再打开一次。" ;;
+  workbuddy) echo "请在 WorkBuddy 市场安装官方 shimo-net 技能；本脚本不会安装仓库自定义技能。" ;;
   dsh)       echo "新建一个 DSH 会话即可使用技能。" ;;
   codex)     echo "新开一个 Codex 任务即可使用技能。" ;;
   doubao)    echo "在豆包「工作」里选择「本地电脑」，直接发任务即可。" ;;

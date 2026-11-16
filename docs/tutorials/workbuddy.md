@@ -1,13 +1,14 @@
 # WorkBuddy × 石墨办公：从打开到第一个结果
 
 > 适用版本：WorkBuddy 5.9.3（桌面客户端）· shimo-net CLI 0.9.1  
-> 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 装 CLI → 登录授权 → 装技能 → 跑出第一个真实结果」。  
+> 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 安装市场技能 → 装 CLI → 登录授权 → 跑出第一个真实结果」。
 
 ## 0. 开始前
 
 你只需要准备：
 
 - 已经安装好的 WorkBuddy 桌面端（不需要重新下载）；
+- WorkBuddy 市场中的 [shimo-net 技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)；
 - 一个能登录 shimo.net 的账号；
 - macOS 的「终端」，或 Windows 的 PowerShell；
 - 能访问 GitHub（安装 CLI 用）。
@@ -19,14 +20,14 @@
 把下面整段发给 WorkBuddy，不要自己开终端：
 
 ```text
-请帮我完成 shimo-net 的安装和配置：
+请帮我完成 shimo-net 的安装和配置。WorkBuddy 的 shimo-net 技能使用官方市场版本，不要上传或复制仓库里的 cli/SKILL.md：
 1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/download/v0.9.1/bootstrap.sh | bash -s -- workbuddy
 2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
 3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
 如果脚本失败，返回完整错误信息。
 ```
 
-它会下载 CLI、写入技能目录、打开登录页。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
+它会下载 CLI、初始化并打开登录页；技能由 WorkBuddy 官方市场提供，不会写入仓库自定义技能。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
 
 > 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（release 镜像：v0.9.1 附件 bootstrap.sh）  
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
@@ -109,33 +110,20 @@ shimo-net login
 shimo-net whoami --json
 ```
 
-## 4. 把技能装进 WorkBuddy
+## 4. 安装 WorkBuddy 市场技能
 
-WorkBuddy 需要知道「什么时候该用 shimo-net」。装一次技能即可。
+WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制仓库里的 `cli/SKILL.md`。
 
-1. 左侧栏点「专家 · 技能 · 连接器」；
-2. 点「技能」；
-3. 点右上角「添加技能」；
-4. 选择仓库里的 `cli/SKILL.md` 上传；
-5. 安装完成后，在「已安装」里找 `shimo-net-cli`；如果没看到，按下面的 fallback 复制一份。
+1. 打开 [WorkBuddy 市场技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)；
+2. 点击「安装」或「添加到 WorkBuddy」；
+3. 回到左侧栏「专家 · 技能 · 连接器」→「技能」→「已安装」；
+4. 确认市场版 shimo-net 技能已启用。
 
 装好后打开「已安装技能」，应该看到：
 
 ![WorkBuddy 已安装技能](images/workbuddy/real-installed.jpg)
 
-判断标准不是「上传成功」，而是这里同时满足：
-
-- 「用户自定义」下出现 `shimo-net-cli`；
-- 右侧开关是绿色（已启用）。
-
-如果上传入口不可用，用终端复制到 WorkBuddy 实际扫描的目录：
-
-```bash
-mkdir -p ~/.workbuddy/skills/shimo-net-cli
-cp cli/SKILL.md ~/.workbuddy/skills/shimo-net-cli/SKILL.md
-```
-
-然后退出 WorkBuddy 再打开一次，再回「已安装技能」确认。
+判断标准是市场版 shimo-net 技能出现在「已安装」并处于启用状态；不需要检查 `~/.workbuddy/skills/`，也不要安装仓库自定义技能。
 
 装好之后不需要每次手动挑技能：在任务里直接写「用 shimo-net …」，Agent 会按技能描述自动调用。后面的任务都是这种方式。
 
@@ -210,7 +198,7 @@ cp cli/SKILL.md ~/.workbuddy/skills/shimo-net-cli/SKILL.md
 - [ ] `shimo-net version` 输出 `shimo-net 0.9.1`；
 - [ ] `shimo-net config show` 显示 `https://shimo.net`；
 - [ ] `shimo-net whoami --json` 返回账号；
-- [ ] WorkBuddy「已安装」里能看到 `shimo-net-cli`（或技能已复制到 `~/.workbuddy/skills/`）；
+- [ ] WorkBuddy「已安装」里能看到并启用官方市场版 shimo-net 技能；
 - [ ] 第一个任务返回「已连通，账号可用」；
 - [ ] 第二个任务返回「名称 / 类型 / 链接」三项；
 - [ ] 当前场景里至少完整跑通 1 个（建议 01 找文件、03 文件出处、11 读正文）。
@@ -227,7 +215,7 @@ cp cli/SKILL.md ~/.workbuddy/skills/shimo-net-cli/SKILL.md
 执行 `shimo-net login`，完成 Chrome 登录后重试。不要重复执行 `init`，网址已经记住。
 
 **Q：技能装了但 Agent 不调用？**  
-确认 `~/.workbuddy/skills/shimo-net-cli/SKILL.md` 存在，退出 WorkBuddy 再打开；或者直接在任务里写「用 shimo-net 执行 …」，明确点名命令。
+确认官方市场版 shimo-net 技能已安装并启用，退出 WorkBuddy 再打开；或者直接在任务里写「用 shimo-net 执行 …」，明确点名命令。
 
 **Q：Windows 上 Keychain 是什么？**  
 Windows 用「凭据管理器」，CLI 会自动存到 `shimo-net-cli` 这个目标下，不需要手动打开。

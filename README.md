@@ -73,7 +73,7 @@ shimo-net login
 
 ## 在 Agent 里怎么用
 
-CLI 自带一份技能定义 [cli/SKILL.md](cli/SKILL.md)。把它装进 Agent 后，用户只需要说「找一下报价政策」「把这个 md 导到 AI 方案」，Agent 会自己调用命令。
+CLI 仓库提供通用技能定义 [cli/SKILL.md](cli/SKILL.md)，供没有官方市场技能的 Agent 使用。WorkBuddy 已上线官方市场技能，直接安装市场版本即可，不需要上传或复制仓库里的自定义技能。
 
 ### 1. 安装技能
 
@@ -88,7 +88,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 新开一个会话，技能会按描述自动加载。
 </details>
 
-> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。它会运行 `bootstrap.sh`，下载 CLI、写入对应技能目录、打开登录页。手工步骤只作为兜底。
+> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。它会运行 `bootstrap.sh`，下载 CLI、完成初始化和登录。WorkBuddy 的技能请直接从官方市场安装；其他 Agent 才写入对应技能目录。手工步骤只作为兜底。
 
 <details>
 <summary><b>Codex</b></summary>
@@ -108,7 +108,7 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 <details>
 <summary><b>WorkBuddy</b></summary>
 
-在左侧栏「专家 · 技能 · 连接器」→「技能」→「添加技能」→「上传技能」，选择 `cli/SKILL.md`（或包含它的技能包）。安装后在「已安装」里确认已启用。
+打开 [WorkBuddy 市场技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)，点击安装；也可以在 WorkBuddy 左侧栏「专家 · 技能 · 连接器」→「技能」中打开该市场链接安装。安装后在「已安装」里确认市场技能已启用，不需要上传 `cli/SKILL.md`。
 </details>
 
 <details>

@@ -18,7 +18,7 @@
 
 ## 一句话让 Agent 自己配置
 
-每篇教程开头都有一段可直接复制给 Agent 的 prompt；Agent 会运行 `bootstrap.sh`，下载 CLI、写入技能目录、打开登录页。手工步骤只作为兜底。
+每篇教程开头都有一段可直接复制给 Agent 的 prompt；Agent 会运行 `bootstrap.sh`，下载 CLI、初始化并打开登录页。WorkBuddy 使用官方市场技能，其他 Agent 才写入对应技能目录。手工步骤只作为兜底。
 
 ## 客户独立验收路径
 
