@@ -1,6 +1,6 @@
 # Codex × 石墨办公：从打开到第一个结果
 
-> 适用版本：Codex CLI 0.144.0-alpha.4 · shimo-net CLI 0.9.1  
+> 适用版本：Codex CLI 0.144.0-alpha.4 · shimo-net CLI 最新 release
 > 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开 Codex → 装 CLI → 登录 → 装技能 → 跑出真实结果」。  
 
 ## 0. 开始前
@@ -16,7 +16,7 @@
 
 ```text
 请帮我完成 shimo-net 的安装和配置：
-1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/download/v0.9.1/bootstrap.sh | bash -s -- codex
+1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- codex
 2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
 3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
 如果脚本失败，返回完整错误信息。
@@ -24,7 +24,7 @@
 
 它会下载 CLI、写入技能目录、打开登录页。Codex 默认沙箱可能拦截 Keychain；如果脚本报未登录，按第 5 步放宽沙箱后重试。
 
-> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（release 镜像：v0.9.1 附件 bootstrap.sh）  
+> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（默认下载 latest release）
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
 ## 1. 打开 Codex
@@ -153,7 +153,7 @@ codex exec --dangerously-bypass-approvals-and-sandbox \
 ## 8. 验收清单
 
 - [ ] `codex --version` 能输出版本；
-- [ ] `shimo-net version` 输出 `0.9.1`；
+- [ ] `shimo-net version` 输出当前 latest release 版本；
 - [ ] `shimo-net whoami --json` 返回账号；
 - [ ] `~/.codex/skills/shimo-net-cli/SKILL.md` 存在；
 - [ ] 第一个任务返回「已连通，账号可用」；

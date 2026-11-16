@@ -88,7 +88,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 新开一个会话，技能会按描述自动加载。
 </details>
 
-> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。它会运行 `bootstrap.sh`，下载 CLI、完成初始化和登录。WorkBuddy 的技能请直接从官方市场安装；其他 Agent 才写入对应技能目录。手工步骤只作为兜底。
+> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。WorkBuddy 直接使用已安装的官方市场技能；其他 Agent 可运行 `bootstrap.sh`，从 Releases latest 下载 CLI、完成初始化和登录。手工步骤只作为兜底。
 
 <details>
 <summary><b>Codex</b></summary>

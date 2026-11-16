@@ -22,13 +22,19 @@ case "$ARCH" in
   *) echo "暂不支持架构 $ARCH" >&2; exit 2 ;;
 esac
 
-VERSION="${SHIMO_NET_VERSION:-v0.9.1}"
+VERSION="${SHIMO_NET_VERSION:-latest}"
 DEST="${SHIMO_NET_BIN:-$HOME/.local/bin/shimo-net}"
 ASSET="shimo-net_${PLATFORM}_${CPU}"
-BIN_URL="${SHIMO_NET_BIN_URL:-https://github.com/shimo-office/office-suites/releases/download/${VERSION}/${ASSET}}"
+if [ -n "${SHIMO_NET_BIN_URL:-}" ]; then
+  BIN_URL="$SHIMO_NET_BIN_URL"
+elif [ "$VERSION" = "latest" ]; then
+  BIN_URL="https://github.com/shimo-office/office-suites/releases/latest/download/${ASSET}"
+else
+  BIN_URL="https://github.com/shimo-office/office-suites/releases/download/${VERSION}/${ASSET}"
+fi
 
 NEED_DOWNLOAD=0
-if [ ! -x "$DEST" ]; then
+if [ ! -x "$DEST" ] || [ "$VERSION" = "latest" ]; then
   NEED_DOWNLOAD=1
 else
   CURRENT="$("$DEST" version 2>/dev/null | awk '{print $2}')"
@@ -65,7 +71,13 @@ esac
 if [ -n "$SKILL_DIR" ]; then
   echo "== 安装技能到 ${SKILL_DIR} =="
   mkdir -p "$SKILL_DIR"
-  SKILL_URL="${SHIMO_NET_SKILL_URL:-https://github.com/shimo-office/office-suites/releases/download/${VERSION}/SKILL.md}"
+  if [ -n "${SHIMO_NET_SKILL_URL:-}" ]; then
+    SKILL_URL="$SHIMO_NET_SKILL_URL"
+  elif [ "$VERSION" = "latest" ]; then
+    SKILL_URL="https://github.com/shimo-office/office-suites/releases/latest/download/SKILL.md"
+  else
+    SKILL_URL="https://github.com/shimo-office/office-suites/releases/download/${VERSION}/SKILL.md"
+  fi
   if ! curl -fsSL --retry 2 --connect-timeout 20 "$SKILL_URL" -o "$SKILL_DIR/SKILL.md"; then
     echo "技能下载失败：$SKILL_URL" >&2
     exit 1

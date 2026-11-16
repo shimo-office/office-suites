@@ -1,6 +1,6 @@
 # WorkBuddy × 石墨办公：从打开到第一个结果
 
-> 适用版本：WorkBuddy 5.9.3（桌面客户端）· shimo-net CLI 0.9.1  
+> 适用版本：WorkBuddy 5.9.3（桌面客户端）· shimo-net CLI 最新 release
 > 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 安装市场技能 → 装 CLI → 登录授权 → 跑出第一个真实结果」。
 
 ## 0. 开始前
@@ -20,16 +20,16 @@
 把下面整段发给 WorkBuddy，不要自己开终端：
 
 ```text
-请帮我完成 shimo-net 的安装和配置。WorkBuddy 的 shimo-net 技能使用官方市场版本，不要上传或复制仓库里的 cli/SKILL.md：
-1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/download/v0.9.1/bootstrap.sh | bash -s -- workbuddy
-2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
+请直接使用已经安装的 WorkBuddy 官方市场版 shimo-net 技能完成配置，不要上传或复制仓库里的 cli/SKILL.md，也不要重复安装技能：
+1. 先检查本机 shimo-net CLI 是否可用；如果没有，再从 GitHub Releases 的 latest 版本安装，不要固定旧版本号。
+2. 如果需要登录，打开 Chrome 登录页；我会完成登录，登录成功后继续。
 3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
-如果脚本失败，返回完整错误信息。
+如果配置失败，返回完整错误信息。
 ```
 
-它会下载 CLI、初始化并打开登录页；技能由 WorkBuddy 官方市场提供，不会写入仓库自定义技能。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
+市场技能安装后可以直接使用；只有本机没有 CLI 时才下载 latest 版本并初始化。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
 
-> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（release 镜像：v0.9.1 附件 bootstrap.sh）  
+> CLI 安装脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh；脚本默认从 GitHub Releases latest 下载。
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
 真实执行结果（WorkBuddy 5.9.3，38 秒）：
@@ -40,19 +40,17 @@
 
 从「应用程序」打开 WorkBuddy，确认能看到任务输入框。看到「WorkBuddy，我帮你」和输入框就对了；这张空白首页不用截图，直接进入下一步。
 
-## 2. 安装 shimo-net CLI
+## 2. 检查 shimo-net CLI（已安装可跳过）
 
-打开「终端」，复制整段执行：
+市场技能安装后先直接使用。如果 WorkBuddy 提示本机没有 `shimo-net`，再打开「终端」安装 GitHub Releases 的 latest 版本：
 
 ```bash
-git clone https://github.com/shimo-office/office-suites.git
-cd office-suites
-./install.command
+curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- workbuddy
 shimo-net version
 shimo-net doctor --json
 ```
 
-Windows 用 PowerShell：
+Windows 用 PowerShell 时，下载仓库后执行安装器，或直接安装当前 release 二进制：
 
 ```powershell
 git clone https://github.com/shimo-office/office-suites.git
@@ -66,9 +64,9 @@ shimo-net doctor --json
 
 ![CLI 安装与配置验证](images/common/cli-version.jpg)
 
-你要确认三件事：
+你要确认三件事（如果 CLI 已存在，只需确认版本和 doctor）：
 
-1. `shimo-net version` 输出 `shimo-net 0.9.1`；
+1. `shimo-net version` 输出当前安装的 latest release 版本；
 2. `shimo-net config show` 显示 `https://shimo.net`；
 3. `doctor --json` 的 `ok` 为 `true`，`checks` 五项都是 `ok`；终端最后一行显示 `结果：🟢 doctor: OK`。
 
@@ -195,7 +193,7 @@ WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制�
 全部打勾，才算独立完成：
 
 - [ ] WorkBuddy 能正常打开，能看到任务输入框；
-- [ ] `shimo-net version` 输出 `shimo-net 0.9.1`；
+- [ ] `shimo-net version` 输出当前安装的 latest release 版本；
 - [ ] `shimo-net config show` 显示 `https://shimo.net`；
 - [ ] `shimo-net whoami --json` 返回账号；
 - [ ] WorkBuddy「已安装」里能看到并启用官方市场版 shimo-net 技能；

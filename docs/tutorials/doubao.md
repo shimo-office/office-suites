@@ -1,6 +1,6 @@
 # 豆包工作 × 石墨办公：从打开到第一个结果
 
-> 适用版本：豆包 2.35.8「工作」模式 · shimo-net CLI 0.9.1  
+> 适用版本：豆包 2.35.8「工作」模式 · shimo-net CLI 最新 release
 > 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开豆包工作 → 装 CLI → 登录 → 跑出真实结果」。  
 
 ## 0. 开始前
@@ -16,7 +16,7 @@
 
 ```text
 请帮我完成 shimo-net 的安装和配置：
-1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/download/v0.9.1/bootstrap.sh | bash -s -- doubao
+1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- doubao
 2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
 3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
 如果脚本失败，返回完整错误信息。
@@ -24,7 +24,7 @@
 
 它会下载 CLI、写入技能目录、打开登录页。豆包工作不需要技能目录；脚本只装 CLI。完成后在「工作」里选「本地电脑」再发任务。
 
-> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（release 镜像：v0.9.1 附件 bootstrap.sh）  
+> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（默认下载 latest release）
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
 ## 1. 打开豆包工作
@@ -147,7 +147,7 @@ shimo-net whoami --json
 ## 8. 验收清单
 
 - [ ] 豆包能切到「工作」，输入框下方是「本地电脑」；
-- [ ] `shimo-net version` 输出 `0.9.1`；
+- [ ] `shimo-net version` 输出当前 latest release 版本；
 - [ ] `shimo-net whoami --json` 返回账号；
 - [ ] 第一个任务返回「已连通，账号身份正常」；
 - [ ] 第二个任务返回「名称 / 类型 / 链接」；
