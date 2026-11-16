@@ -81,8 +81,12 @@ func (a *App) cmdPhase2() error {
 	if strings.HasPrefix(method, "http:") {
 		// API-backed spreadsheet mutations are complete once the server returns
 		// success; do not launch a second browser only to claim an SDK screenshot.
+		guid := guidFromURL(target)
+		if guid == "" {
+			return errors.New("表格 API 动作需要包含文件 guid 的石墨链接")
+		}
 		shot = ""
-		value, err = a.runPhase2HTTP(guidFromURL(target), method, args)
+		value, err = a.runPhase2HTTP(guid, method, args)
 	} else {
 		value, err = runPhase2Browser(target, method, args, shot)
 	}
