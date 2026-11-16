@@ -41,7 +41,7 @@ func (a *App) cmdSubscriptions() error {
 	for i, f := range files {
 		fmt.Printf("%d. %s [%s]\n   %s\n   最近更新：%s\n", i+1, str(f, "name"), typeLabel(f), str(f, "url"), fmtTime(f["updatedAt"]))
 	}
-	fmt.Println("查看某个文件：shimo-net subscriptions --open <序号|guid> [--default]")
+	fmt.Println("查看某个文件：shimo-net subscriptions --open <序号|guid>")
 	return nil
 }
 

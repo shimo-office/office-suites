@@ -8,7 +8,7 @@
 
 - REST/API 能力可用：登录态、@人列表、评论列表、订阅扫描、在线文件导出、默认浏览器唤起均已验证。
 - 当前页面没有暴露 `globalThis.sdk`。`phase2` 中依赖页面 SDK 的动作全部快速失败，并返回网页操作提示；不会伪造成功。
-- 无 SDK 的操作应直接使用 `shimo-net open <链接> --default`，再由 computer-use 按页面菜单、工具栏和选区操作。
+- 无 SDK 的操作优先在 agent 内联浏览器中由 computer-use 完成；没有内联浏览器时使用 `shimo-net open <链接>`，由 CLI 专用浏览器注入 Keychain 会话后操作。
 - 失败重试已改为遇到明确的“页面未暴露 editor SDK”立即返回，单次约 5 秒完成浏览器启动和诊断，不再等待约 30 秒重试。
 
 ## CLI 与 API

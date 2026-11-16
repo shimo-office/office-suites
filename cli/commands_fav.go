@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -197,17 +198,58 @@ func (a *App) cmdOpen() error {
 	if err := os.MkdirAll(profilePath(), 0o700); err != nil {
 		return err
 	}
-	cmd := exec.Command(chrome, "--user-data-dir="+profilePath(), target)
+	portFile := filepath.Join(profilePath(), "DevToolsActivePort")
+	_ = os.Remove(portFile)
+	cmd := exec.Command(chrome, "--no-first-run", "--no-default-browser-check", "--user-data-dir="+profilePath(), "--remote-debugging-port=0", target)
 	cmd.Stdout, cmd.Stderr = nil, nil
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	o := map[string]any{"ok": true, "url": target, "profile": profilePath(), "note": "用已登录的专用 Chrome 配置打开；如未登录会跳到登录页"}
+	injected := injectManagedCookie(target, portFile)
+	o := map[string]any{"ok": true, "url": target, "profile": profilePath(), "sessionInjected": injected,
+		"note": "用 CLI 专用浏览器打开；已从 Keychain 注入会话时无需重新登录"}
 	if a.JSON {
 		return a.printJSON(o)
 	}
 	fmt.Printf("已用登录态浏览器打开：%s\n", target)
 	return nil
+}
+
+// injectManagedCookie upgrades the CLI-managed browser launch into an
+// authenticated page when a Keychain/file session is available. The browser
+// process is intentionally left running for the user or agent to operate.
+// A failure to attach CDP is non-fatal: the page remains open and the caller
+// can use its own browser login flow.
+func injectManagedCookie(target, portFile string) bool {
+	cookie, err := readCookie()
+	if err != nil || !sameCookieHost(target) {
+		return false
+	}
+	port, err := waitDevToolsPort(portFile, 5*time.Second)
+	if err != nil {
+		return false
+	}
+	wsURL, err := waitPageTarget(port, target)
+	if err != nil {
+		return false
+	}
+	ws, err := dialWS(wsURL)
+	if err != nil {
+		return false
+	}
+	defer ws.Close()
+	if _, err := ws.Call(1, "Network.enable", nil, 5*time.Second); err != nil {
+		return false
+	}
+	if _, err := ws.Call(2, "Page.enable", nil, 5*time.Second); err != nil {
+		return false
+	}
+	if err := setCookies(ws, target, cookie); err != nil {
+		return false
+	}
+	_, _ = ws.Call(3, "Page.reload", map[string]any{"ignoreCache": true}, 10*time.Second)
+	time.Sleep(1200 * time.Millisecond)
+	return true
 }
 
 func defaultBrowserCommand(target string) (*exec.Cmd, string, error) {

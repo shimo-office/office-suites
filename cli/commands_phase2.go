@@ -190,7 +190,7 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 		time.Sleep(1500 * time.Millisecond)
 	}
 	if lastErr != nil {
-		return nil, fmt.Errorf("页面 editor SDK/API 不可用（可改用 shimo-net open --default 后按网页操作）：%w", lastErr)
+		return nil, fmt.Errorf("页面 editor SDK/API 不可用（可改用 shimo-net open 后由 computer-use 按网页操作）：%w", lastErr)
 	}
 	if screenshot != "" {
 		if err := capturePhase2Screenshot(ws, screenshot); err != nil {

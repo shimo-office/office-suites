@@ -196,18 +196,18 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 | 上传 | `shimo-net upload <文件> [--to desktop\|空间\|文件夹\|@别名]` |
 | 常用文件夹 | `shimo-net fav add <别名> <链接> --note 特征` → `@别名` |
 | 只看与我相关的内容 | `shimo-net phase2 <链接> --action mentions-list\|comments-list`；订阅用 `shimo-net subscriptions --json` |
-| 留痕与版本 | `shimo-net open <链接> --default` 后用 computer-use 操作历史面板 |
-| 文字与段落 | `shimo-net open <链接> --default` 后用 computer-use 操作菜单和选区 |
-| 文内表格与图片 | `shimo-net open <链接> --default` 后由 computer-use 插入、调整并截图 |
+| 留痕与版本 | `shimo-net open <链接>` 后用 computer-use 操作历史面板 |
+| 文字与段落 | `shimo-net open <链接>` 后用 computer-use 操作菜单和选区 |
+| 文内表格与图片 | `shimo-net open <链接>` 后由 computer-use 插入、调整并截图 |
 | 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面操作 |
-| 预览与打印 | `shimo-net open <链接> --default` 后用 computer-use 操作预览/打印 |
-| 文档重排全文 | `shimo-net open <链接> --default` 后由 computer-use 调整标题、段落和页面样式 |
-| 表格写入 | `shimo-net open <链接> --default` 后用 computer-use 操作表格 |
-| 表格整理 | `shimo-net open <链接> --default` 后用 computer-use 操作冻结、排序、筛选 |
-| 表格清洗 | `shimo-net open <链接> --default` 后由 computer-use 操作 |
-| 表格算与看数 | `shimo-net open <链接> --default` 后由 computer-use 操作公式、定义名称和透视表 |
-| 表格校验与格式 | `shimo-net open <链接> --default` 后用 computer-use 操作 |
-| 表格输出 | 导出使用异步导出 API，打印使用编辑器 API 或页面操作 |
+| 预览与打印 | `shimo-net open <链接>` 后用 computer-use 操作预览/打印 |
+| 文档重排全文 | `shimo-net open <链接>` 后由 computer-use 调整标题、段落和页面样式 |
+| 表格写入 | `shimo-net open <链接>` 后用 computer-use 操作表格 |
+| 表格整理 | `shimo-net open <链接>` 后用 computer-use 操作冻结、排序、筛选和单元格底色 |
+| 表格清洗 | `shimo-net open <链接>` 后由 computer-use 操作 |
+| 表格算与看数 | `shimo-net open <链接>` 后由 computer-use 操作公式、定义名称和透视表 |
+| 表格校验与格式 | `shimo-net open <链接>` 后用 computer-use 操作 |
+| 表格输出 | 导出使用异步导出 API，打印用 `open` + computer-use |
 
 通用：`init` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version` / `open` / `phase2` / `subscriptions`。
 </details>

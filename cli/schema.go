@@ -42,7 +42,7 @@ func schema() map[string]any {
 		"shareModes": keys(shareModes), "shareModeLabels": shareModes,
 		"importTypes": importTypes, "createTypes": createTypes,
 		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 45,
-		"phase2":        map[string]any{"status": "api-read-verified", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list"}, "transport": "same-origin-api-over-cdp", "fallback": "shimo-net open --default <链接> 后由 computer-use 按网页操作并截图"},
+		"phase2":        map[string]any{"status": "api-read-verified", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list"}, "transport": "same-origin-api-over-cdp", "fallback": "优先使用 agent 内联浏览器；没有内联浏览器时用 shimo-net open <链接> 注入 Keychain 会话，再由 computer-use 操作"},
 		"subscriptions": map[string]any{"status": "supported", "endpoint": "GET /api/v1/files/{fileGuid}/update_subscription", "mode": "scan accessible files; no server-side all-subscriptions endpoint"},
 		"errors":        map[string]any{"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
 	}
@@ -81,7 +81,7 @@ func helpText() string {
   shimo-net get <链接> [--out <目录>]                13 下载单个文件
   shimo-net fav <list|add|rm|show> …                15 常用文件夹别名（下次直接 @别名）
   shimo-net open <链接|guid> [--default]            用已登录的浏览器打开；--default 使用系统默认浏览器
-  shimo-net phase2 <链接> --action mentions-list|comments-list  已验证的 API 读取；其他编辑操作用 open --default + computer-use
+  shimo-net phase2 <链接> --action mentions-list|comments-list  已验证的 API 读取；其他编辑操作用 open + computer-use
   shimo-net subscriptions [--limit 200] [--depth 3]   列已订阅文件；--open 序号|guid 后打开
   16 只看与我相关的                              mentions-list / comments-list / subscriptions
   17 留痕与版本                                  history / save-version
