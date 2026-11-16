@@ -113,7 +113,10 @@ func (a *App) importProgress(taskID string, timeout time.Duration) (map[string]a
 
 func (a *App) cmdImport() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net import <本地文件> --to <桌面|文件夹链接|@别名> [--title 名称] [--share 权限]")
+		return errors.New("用法：shimo-net import <本地文件> --to <桌面|文件夹链接|@别名> [--title 名称]")
+	}
+	if a.opt("--share") != "" {
+		return manualOnlyError("导入后的权限设置（限制编辑/高级权限/成员级授权）")
 	}
 	local := expandHome(a.Pos[0])
 	if _, err := os.Stat(local); err != nil {
@@ -159,13 +162,6 @@ func (a *App) cmdImport() error {
 	result := map[string]any{"ok": true, "name": str(info, "name"), "guid": guid, "type": str(info, "type"),
 		"typeLabel": typeLabel(info), "url": a.urlOf(withGUID(info, guid)), "shareMode": str(info, "shareMode"),
 		"folder": a.describeTarget(parent)}
-	if mode := a.opt("--share"); mode != "" {
-		applied, err := a.setShareMode(guid, mode)
-		if err != nil {
-			return err
-		}
-		result["shareMode"] = applied
-	}
 	if a.JSON {
 		return a.printJSON(result)
 	}
@@ -173,9 +169,7 @@ func (a *App) cmdImport() error {
 	fmt.Printf("类型：%s（%s）\n", str(result, "typeLabel"), str(result, "type"))
 	fmt.Printf("链接：%s\n", str(result, "url"))
 	fmt.Printf("当前权限：%s（%s）\n", str(result, "shareMode"), shareModes[str(result, "shareMode")])
-	if a.opt("--share") == "" {
-		fmt.Printf("\n设置权限：shimo-net share %s <%s>\n", str(result, "url"), strings.Join(keys(shareModes), "|"))
-	}
+	fmt.Printf("\n权限变更（限制编辑、高级权限、成员级授权）必须由人工在石墨网页完成。\n")
 	return nil
 }
 
@@ -260,69 +254,8 @@ func (a *App) cmdRename() error {
 	return nil
 }
 
-func (a *App) setShareMode(guid, mode string) (string, error) {
-	if _, ok := shareModes[mode]; !ok {
-		return "", fmt.Errorf("不支持的权限：%s，可选：%s", mode, strings.Join(keys(shareModes), ", "))
-	}
-	r, err := a.authRequest("/files/"+url.PathEscape(guid), "PATCH", map[string]any{"shareMode": mode}, nil, nil)
-	if err != nil {
-		return "", err
-	}
-	if r.Status != 200 {
-		return "", fmt.Errorf("设置权限失败：HTTP %d %s", r.Status, snippet(r.Raw))
-	}
-	m := asMap(r.Data)
-	if str(m, "shareMode") == "unknown_share_mode" {
-		return "", errors.New("服务端拒绝了这个权限值")
-	}
-	return str(m, "shareMode"), nil
-}
-
 func (a *App) cmdShare() error {
-	if len(a.Pos) < 2 {
-		return fmt.Errorf("用法：shimo-net share <链接|guid|@别名> [更多…] <权限：%s>", strings.Join(keys(shareModes), "|"))
-	}
-	mode := a.Pos[len(a.Pos)-1]
-	if _, ok := shareModes[mode]; !ok {
-		return fmt.Errorf("不支持的权限：%s，可选：%s", mode, strings.Join(keys(shareModes), ", "))
-	}
-	targets := a.Pos[:len(a.Pos)-1]
-	results := []map[string]any{}
-	okCount := 0
-	for _, t := range targets {
-		guid, err := a.resolveTarget(t)
-		if err != nil {
-			results = append(results, map[string]any{"ok": false, "target": t, "error": err.Error()})
-			continue
-		}
-		info, err := a.fileInfo(guid)
-		if err != nil {
-			results = append(results, map[string]any{"ok": false, "target": t, "error": err.Error()})
-			continue
-		}
-		applied, err := a.setShareMode(guid, mode)
-		if err != nil {
-			results = append(results, map[string]any{"ok": false, "target": t, "error": err.Error()})
-			continue
-		}
-		okCount++
-		results = append(results, map[string]any{"ok": true, "guid": guid, "name": str(info, "name"),
-			"shareMode": applied, "shareModeLabel": shareModes[applied], "url": a.urlOf(withGUID(info, guid))})
-	}
-	payload := map[string]any{"ok": okCount == len(targets), "mode": mode, "modeLabel": shareModes[mode],
-		"total": len(targets), "changed": okCount, "results": results}
-	if a.JSON {
-		return a.printJSON(payload)
-	}
-	fmt.Printf("权限设为「%s」：%d/%d 成功\n", shareModes[mode], okCount, len(targets))
-	for _, r := range results {
-		if boolv(r, "ok") {
-			fmt.Printf("✓ %s  %s\n", str(r, "name"), str(r, "url"))
-		} else {
-			fmt.Printf("✗ %s：%s\n", str(r, "target"), str(r, "error"))
-		}
-	}
-	return nil
+	return manualOnlyError("权限变更（限制编辑/高级权限/成员级授权）")
 }
 
 func (a *App) cmdDelete() error {

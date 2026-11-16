@@ -36,11 +36,24 @@ var phase2Actions = map[string]string{
 	"comments-list":    "api:comment-list",
 }
 
+var phase2ManualOnlyActions = map[string]string{
+	"lock":                 "文件锁定",
+	"file-lock":            "文件锁定",
+	"restrict-editing":     "限制编辑",
+	"advanced-permissions": "高级权限",
+	"member-authorization": "成员级授权",
+	"permanent-delete":     "彻底删除",
+	"purge":                "彻底删除",
+}
+
 func (a *App) cmdPhase2() error {
 	if len(a.Pos) == 0 {
 		return errors.New("用法：shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH]")
 	}
 	action := strings.TrimSpace(a.opt("--action"))
+	if operation, manualOnly := phase2ManualOnlyActions[action]; manualOnly {
+		return manualOnlyError(operation)
+	}
 	method, ok := phase2Actions[action]
 	if !ok {
 		return fmt.Errorf("未知扩展动作 %q；可用动作：%s", action, strings.Join(phase2ActionNames(), ", "))

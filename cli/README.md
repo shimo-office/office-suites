@@ -87,13 +87,13 @@ shimo-net logout
 | 1 | 搜索文件 / 文件夹 / 空间 | `shimo-net search "<关键词>" [--limit 20]` |
 | 2 | 我的空间 / 空间里有什么 | `shimo-net spaces [--limit 300]`、`shimo-net ls <空间\|文件夹\|@别名> [--since 7d]` |
 | 3 | 文件出处（类型 / 权限 / 路径） | `shimo-net info <链接\|@别名>` |
-| 4 | 导入 + 权限 | `shimo-net import <文件> --to <位置>` + `shimo-net share <链接> <权限>` |
+| 4 | 导入 + 权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
 | 5 | 拉取文件夹 | `shimo-net pull <链接\|@别名> [--out <目录>] [--since 7d]`（省略时 `./shimo-pull`） |
 | 6 | 新建空白文档 / 表格 / 幻灯片 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>` |
 | 7 | 改名 | `shimo-net rename <链接> "<新名字>"` |
 | 8 | 删除 / 回收站 / 恢复 | `shimo-net delete`（只进回收站）、`trash`、`restore`；彻底删除到石墨网页手动操作 |
 | 9 | 权限巡检 | `shimo-net audit <文件夹\|@别名> [--limit 200]` |
-| 10 | 批量改权限 | `shimo-net share <链接1> <链接2> … <权限>` |
+| 10 | 批量改权限 | CLI 禁止处理；打开石墨网页逐项人工确认和设置 |
 | 11 | 读正文 / 摘要 | `shimo-net read <链接> [--max-chars 12000]` |
 | 12 | 周报 | `shimo-net ls <链接> --since 7d` + `shimo-net read` |
 | 13 | 附件 / 云文件下载 | `shimo-net get <链接> [--out <目录>]`（省略时 `./shimo-pull`） |
@@ -116,7 +116,7 @@ shimo-net logout
 
 ## 编辑器与协作能力
 
-当前可直接使用的编辑器能力包括 @人/评论列表 API、异步文件导出、订阅文件扫描；历史、格式、评论添加、表格编辑（包括单元格底色）、预览打印等页面操作统一使用 `open` 配合 computer-use：
+当前可直接使用的编辑器能力包括 @人/评论列表 API、异步文件导出、订阅文件扫描；历史、格式、评论添加、表格编辑（包括单元格底色）、预览打印等页面操作统一使用 `open` 配合 computer-use。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除的操作禁止由 CLI 处理，必须由人工在石墨网页完成：
 
 ```bash
 shimo-net phase2 <链接> --action mentions-list --json
@@ -141,7 +141,7 @@ shimo-net fav rm ai
 
 别名存在 `~/.shimo-net-cli/favorites.json`，只有别名和链接，不含账号信息。任何接受 `链接|guid` 的参数都可以用 `@别名`。
 
-## 权限（7 档）
+## 权限（仅查看；变更必须人工页面操作）
 
 | 值 | 含义 |
 |---|---|
@@ -153,10 +153,7 @@ shimo-net fav rm ai
 | `commentable` | 公开链接 · 可评论 |
 | `editable` | 公开链接 · 可编辑 |
 
-```bash
-shimo-net share <链接> enterprise_commentable
-shimo-net share <链接1> <链接2> readonly     # 批量
-```
+CLI 不提供权限变更命令。`share` 仅保留为兼容入口，调用时会明确拒绝并提示转到石墨网页。
 
 后三档是公开链接，任何拿到链接的人都能访问；导入后先确认再设置。
 
@@ -175,8 +172,9 @@ shimo-net doctor --json
 ## 行为约定
 
 - `upload` = 原样上传云文件；`import` = 转成在线文档 / 文稿 / 表格 / 幻灯片。
-- `upload` 不给 `--to` 会先列出位置；`import` 必须给 `--to`；导入后先问权限。
+- `upload` 不给 `--to` 会先列出位置；`import` 必须给 `--to`；权限变更转到石墨网页人工操作。
 - **删除只进回收站；CLI 不提供彻底删除**，要彻底删请在石墨网页回收站手动操作。
+- 文件锁定、限制编辑、高级权限、成员级授权均禁止由 CLI 处理，必须在石墨网页人工确认和操作。
 - 只支持 `md / doc(x) / xls(x) / ppt(x)`；其他格式直说。
 - 无权限如实说；大目录先 `ls` 再 `pull`；批量操作控制并发。
 - 凭据：macOS 走 Keychain，Windows 走 Credential Manager；不可用时回退到 `~/.shimo-net-cli/credentials.json`（`0600`），需自行评估风险。CI 可用 `SHIMO_NET_COOKIE`。

@@ -15,10 +15,10 @@ func schema() map[string]any {
 		{"name": "ls", "usage": "shimo-net ls <链接|guid|@别名> [--since 7d] [--limit 200]", "desc": "列文件夹/空间里的文件"},
 		{"name": "info", "usage": "shimo-net info <链接|guid|@别名>", "desc": "文件类型/权限/所在路径"},
 		{"name": "upload", "usage": "shimo-net upload <本地文件> [--to desktop|空间|文件夹|@别名]", "desc": "原样上传云文件；不给 --to 会列出可选位置"},
-		{"name": "import", "usage": "shimo-net import <本地文件> --to <位置> [--title NAME] [--share MODE]", "desc": "md→文档, doc→文稿, xlsx→表格, pptx→幻灯片"},
+		{"name": "import", "usage": "shimo-net import <本地文件> --to <位置> [--title NAME]", "desc": "md→文档, doc→文稿, xlsx→表格, pptx→幻灯片；权限需人工页面操作"},
 		{"name": "new", "usage": "shimo-net new <name> [--type doc|sheet|slide] [--to <位置>]", "desc": "新建空白文件"},
 		{"name": "rename", "usage": "shimo-net rename <链接|guid|@别名> <新名字>", "desc": "改名"},
-		{"name": "share", "usage": "shimo-net share <链接|guid|@别名> [更多…] <MODE>", "desc": "设置权限（可批量）"},
+		{"name": "share", "usage": "shimo-net share …", "desc": "已禁用；限制编辑、高级权限、成员级授权必须人工页面操作"},
 		{"name": "audit", "usage": "shimo-net audit <文件夹|@别名> [--limit 200]", "desc": "权限巡检"},
 		{"name": "delete", "usage": "shimo-net delete <链接|guid|@别名>", "desc": "删除到回收站"},
 		{"name": "trash", "usage": "shimo-net trash", "desc": "回收站列表"},
@@ -41,7 +41,7 @@ func schema() map[string]any {
 		"commands":   cmds,
 		"shareModes": keys(shareModes), "shareModeLabels": shareModes,
 		"importTypes": importTypes, "createTypes": createTypes,
-		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 45,
+		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 45, "manualOnly": manualOnlyOperations,
 		"phase2":        map[string]any{"status": "api-read-verified", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list"}, "transport": "same-origin-api-over-cdp", "fallback": "优先使用 agent 内联浏览器；没有内联浏览器时用 shimo-net open <链接> 注入 Keychain 会话，再由 computer-use 操作"},
 		"subscriptions": map[string]any{"status": "supported", "endpoint": "GET /api/v1/files/{fileGuid}/update_subscription", "mode": "scan accessible files; no server-side all-subscriptions endpoint"},
 		"errors":        map[string]any{"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
@@ -70,13 +70,13 @@ func helpText() string {
   shimo-net ls <链接|@别名> [--since 7d]             2/12 列目录
   shimo-net info <链接|@别名>                       3 文件类型/权限/路径
   shimo-net upload <本地文件> [--to <位置>]          14 上传（不给 --to 会问：桌面/空间/文件夹）
-  shimo-net import <本地文件> --to <位置>            4 导入并转在线文档
+  shimo-net import <本地文件> --to <位置>            4 导入并转在线文档；权限需页面人工操作
   shimo-net pull <文件夹|空间> [--out <目录>]          5 拉取（默认全部；--limit N 可限制）
   shimo-net new <名称> [--type doc|sheet|slide]      6 新建
   shimo-net rename <链接> <新名字>                   7 改名
   shimo-net delete / trash / restore                 8 删除（只进回收站）/ 回收站 / 恢复
   shimo-net audit <文件夹|@别名> [--limit 200]        9 权限巡检（默认 200，可能截断）
-  shimo-net share <链接> [更多…] <权限>              10 设置权限（可批量）
+  shimo-net share …                                  权限变更已禁用，必须页面人工操作
   shimo-net read <链接> [--max-chars N]              11 读正文
   shimo-net get <链接> [--out <目录>]                13 下载单个文件
   shimo-net fav <list|add|rm|show> …                15 常用文件夹别名（下次直接 @别名）
@@ -98,7 +98,9 @@ func helpText() string {
   28 表格输出                                    异步导出 API / print / 浏览器操作
   shimo-net schema                                  命令/参数/JSON 结构
 
-权限: private | enterprise_readonly | enterprise_commentable | enterprise_editable
+人工页面操作（CLI 禁止）: 文件锁定 / 限制编辑 / 高级权限 / 成员级授权 / 彻底删除
+
+权限（仅用于读取当前值）: private | enterprise_readonly | enterprise_commentable | enterprise_editable
       readonly | commentable | editable
 
 全局: --json；SHIMO_NET_ORIGIN 指定私有部署域名；--relogin 遇 401 自动登录后重试

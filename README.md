@@ -16,7 +16,7 @@
 
 ![shimo.net CLI 终端演示](docs/images/demo.png)
 
-不用打开浏览器一层层翻文件夹，也不用记链接。找文件、导文档、拉取、改权限、出周报，都可以用一句命令完成；接进 Agent 后，直接说人话就行。
+不用打开浏览器一层层翻文件夹，也不用记链接。找文件、导文档、拉取、权限巡检、出周报，都可以用一句命令完成；涉及人员、权限变更和不可逆动作时，必须转到石墨网页由人工确认和操作。
 
 ---
 
@@ -60,7 +60,7 @@ shimo-net login
 | 以前 | 现在 |
 |---|---|
 | 在石墨里翻好几层文件夹找一份表 | `shimo-net search "报价政策"`，直接给链接 |
-| 把 md 导成在线文档，再手动设权限 | `shimo-net import 方案.md --to @team`，导入后问你权限 |
+| 把 md 导成在线文档 | `shimo-net import 方案.md --to @team`，权限变更转到石墨网页人工操作 |
 | 把整个文件夹下载下来归档 | `shimo-net pull @project --out ./归档`，附 `manifest.json` |
 | 检查空间里谁开了公开链接 | `shimo-net audit @team`，列出公开项并给收回建议 |
 | 周五翻文档手写周报 | `shimo-net ls @team --since 7d` + `shimo-net read`，出一页纸 |
@@ -125,7 +125,7 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 ```text
 涉及石墨时用 shimo-net 命令，全部加 --json。
 先跑 whoami；401 就执行 login 后重试原命令。
-写操作先给目标链接和影响范围，确认后再执行。
+写操作先给目标链接和影响范围，确认后再执行；涉及人员、权限变更和不可逆动作必须转网页人工处理。
 删除只进回收站；不要尝试彻底删除。
 ```
 </details>
@@ -135,7 +135,7 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 | 你说 | Agent 会做 |
 |---|---|
 | 找一下「Q4 规划」，把链接发我 | `search` → 返回标题 + 链接 + 路径 |
-| 把这个 md 导到 AI 方案，给团队看 | `import` → 出链接 → 问权限 → `share` |
+| 把这个 md 导到 AI 方案，给团队看 | `import` → 出链接 → 打开石墨网页人工设置权限 |
 | 把 @project 里的东西拉下来归档 | `pull` → 本地目录 + `manifest.json` |
 | 看看这个空间里哪些文件是公开的 | `audit` → 公开清单 + 收回建议 |
 | 把这周更新的文档读一遍，出一页纸 | `ls --since 7d` + `read` → 周报 + 原文链接 |
@@ -148,7 +148,7 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 1. 先跑 `shimo-net whoami --json`；如果返回 401 / 未登录，执行 `shimo-net login`，成功后重试原命令。
 2. 缺参数先问我，不要猜文件名、位置或权限。
 3. 写操作先给我目标链接和影响范围，我确认后再执行。
-4. 删除只进回收站；不要尝试彻底删除。
+4. 涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时，禁止使用 CLI，必须打开石墨网页人工确认和操作。
 5. 结果给我可点开的链接或本地路径，并用 `info` / `ls` / `audit` 读回验证。
 ```
 
@@ -183,13 +183,13 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 | 搜索 | `shimo-net search "<关键词>" [--limit 20]` |
 | 空间 / 目录 | `shimo-net spaces [--limit 300]`、`shimo-net ls <链接\|@别名> [--since 7d]` |
 | 文件出处 | `shimo-net info <链接\|@别名>` |
-| 导入 + 权限 | `shimo-net import <文件> --to <位置>` + `shimo-net share <链接> <权限>` |
+| 导入 + 权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
 | 拉取文件夹 | `shimo-net pull <链接\|@别名> [--out <目录>] [--since 7d]`（省略 `--out` 时用 `./shimo-pull`） |
 | 新建 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>` |
 | 改名 | `shimo-net rename <链接> "<新名字>"` |
 | 删除 / 回收站 / 恢复 | `shimo-net delete`、`shimo-net trash`、`shimo-net restore <guid>` |
 | 权限巡检 | `shimo-net audit <文件夹\|@别名> [--limit 200]` |
-| 批量改权限 | `shimo-net share <链接1> <链接2> … <权限>` |
+| 批量改权限 | CLI 禁止处理；打开石墨网页逐项人工确认和设置 |
 | 读正文 | `shimo-net read <链接> [--max-chars 12000]` |
 | 周报 | `shimo-net ls <链接> --since 7d` + `shimo-net read` |
 | 附件下载 | `shimo-net get <链接> [--out <目录>]`（省略时用 `./shimo-pull`） |
@@ -212,11 +212,11 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 通用：`init` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version` / `open` / `phase2` / `subscriptions`。
 </details>
 
-### 权限（7 档）
+### 权限（仅查看；变更必须人工页面操作）
 
 `private` · `enterprise_readonly` · `enterprise_commentable` · `enterprise_editable` · `readonly` · `commentable` · `editable`
 
-后三档是**公开链接**，任何拿到链接的人都能访问。导入后 CLI 会先问，不会替你设公开。
+后三档是**公开链接**，任何拿到链接的人都能访问。CLI 可以读取当前权限，但不执行限制编辑、高级权限、成员级授权或其他权限变更。
 
 ### 上传和导入不一样
 
@@ -224,7 +224,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 |---|---|---|
 | 结果 | 原样云文件 | 转在线文档 / 文稿 / 表格 / 幻灯片 |
 | 适合 | 附件、压缩包、图片 | md、doc(x)、xls(x)、ppt(x) |
-| 位置 | 不给 `--to` 会先列出可选位置 | 必须给 `--to`，导入后问权限 |
+| 位置 | 不给 `--to` 会先列出可选位置 | 必须给 `--to`，权限改动到石墨网页人工操作 |
 
 ---
 
@@ -235,7 +235,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 - `shimo-net logout` 删除本机凭据。
 - 不要把密码、cookie 粘进对话、Issue 或截图。
 - 删除只进回收站；CLI 不提供彻底删除，需要到石墨网页回收站手动操作。
-- 批量读取 / 导出 / 改权限会消耗服务端资源，建议控制并发和批量大小。
+- 批量读取 / 导出会消耗服务端资源，建议控制并发和批量大小；权限变更不由 CLI 执行。
 
 Windows 使用 Credential Manager。非 macOS 或 Keychain 不可用时，会回退到 `~/.shimo-net-cli/credentials.json`（目录 `0700`、文件 `0600`）。CI 可用 `SHIMO_NET_COOKIE`，但不要写进日志。详见 [SECURITY.md](SECURITY.md)。
 

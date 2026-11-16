@@ -266,5 +266,5 @@ func defaultBrowserCommand(target string) (*exec.Cmd, string, error) {
 }
 
 func (a *App) cmdPurge() error {
-	return errors.New("彻底删除不在 CLI 支持范围：请到石墨网页的「回收站」里手动删除。CLI 只提供 delete（进回收站）和 restore（恢复）。")
+	return manualOnlyError("彻底删除")
 }

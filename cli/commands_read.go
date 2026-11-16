@@ -572,7 +572,7 @@ func (a *App) cmdAudit() error {
 		for _, f := range groups["public"] {
 			links = append(links, `"`+str(f, "url")+`"`)
 		}
-		fmt.Printf("\n批量收回：shimo-net share %s enterprise_readonly\n", strings.Join(links, " "))
+		fmt.Printf("\n权限变更禁止由 CLI 执行，请打开石墨网页逐项确认并收回：%s\n", strings.Join(links, " "))
 	}
 	return nil
 }

@@ -1,7 +1,7 @@
 ---
 name: shimo-net-cli
-description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限、新建改名删除、读正文、常用文件夹别名。用户说“找一下 XX”“传上去”“导到 XX”“拉下来”“设成企业内可评论”时触发。
-whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、改权限、新建/改名/删除、读文档、记常用文件夹时。
+description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
+whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
 version: 0.9.1
 agent_created: true
 ---
@@ -35,13 +35,13 @@ shimo-net init --origin https://<客户域名>
 | 空间/目录 | `shimo-net spaces`、`shimo-net ls <链接\|@别名> --json` |
 | 文件出处 | `shimo-net info <链接\|@别名> --json` |
 | 上传（问位置） | `shimo-net upload <文件> [--to desktop\|空间\|文件夹\|@别名]` |
-| 导入+权限 | `shimo-net import <文件> --to <位置>` → 问权限 → `shimo-net share <链接> <模式>` |
+| 导入+权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
 | 拉取 | `shimo-net pull <链接> [--out <目录>] --json` |
 | 新建 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>` |
 | 改名 | `shimo-net rename <链接> <新名字>` |
 | 删除/回收站/恢复 | `delete`（只进回收站） / `trash` / `restore`；彻底删除不提供，需网页手动操作 |
 | 权限巡检 | `shimo-net audit <文件夹\|@别名>` |
-| 批量改权限 | `shimo-net share <链接1> <链接2> … <模式>` |
+| 批量改权限 | CLI 禁止处理；打开石墨网页逐项人工确认和设置 |
 | 读正文摘要 | `shimo-net read <链接> [--max-chars 12000]` |
 | 周报 | `shimo-net ls <链接> --since 7d` + `shimo-net read` |
 | 附件下载 | `shimo-net get <链接> [--out <目录>]` |
@@ -64,15 +64,15 @@ shimo-net init --origin https://<客户域名>
 ## 必须遵守
 
 1. **上传/导入先确认位置**：桌面 / 空间 / 文件夹；没有目标就列出候选让用户选，不要瞎猜。
-2. **导入后必须问权限**（7 档），不要默认公开；`upload` 是云文件不参与分享设置。
-3. 删除只进回收站；**CLI 不提供彻底删除**，遇到“彻底删”要引导用户去石墨网页回收站手动操作。
+2. **导入后必须转网页人工设置权限**（7 档），不要默认公开；`upload` 是云文件不参与分享设置。
+3. 文件锁定、限制编辑、高级权限、成员级授权和彻底删除均**禁止由 CLI 处理**，遇到这些请求必须打开石墨网页，由人工确认和操作；删除命令只进回收站。
 4. 只支持 md / doc(x) / xls(x) / ppt(x)，其他直说。
 5. 无权限如实说；大目录先 `ls` 再 `pull`；`--json` 便于解析。
 6. 用户提过的常用文件夹用 `fav add` 记成 `@别名`，下次直接用。
 
 ## 编辑器与协作能力
 
-当前直接可用的是 @人/评论列表 API、异步文件导出和订阅文件扫描；历史、格式、评论添加、表格编辑（包括单元格底色）、预览打印等操作使用内联浏览器配合 computer-use：
+当前直接可用的是 @人/评论列表 API、异步文件导出和订阅文件扫描；历史、格式、评论添加、表格编辑（包括单元格底色）、预览打印等操作使用内联浏览器配合 computer-use。文件锁定、限制编辑、高级权限、成员级授权和彻底删除严格禁止 CLI 处理，必须由人工进入石墨网页操作：
 
 ```bash
 shimo-net phase2 <链接|guid|@别名> --action mentions-list|comments-list --json
