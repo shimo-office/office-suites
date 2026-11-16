@@ -1,11 +1,11 @@
 # P0 四款 × 石墨办公 · 图文教程
 
-从打开 Agent、接入 CLI、授权到 15 个场景的操作结果。每套教程包含：
+从打开 Agent、接入 CLI、授权到当前 28 个场景、49 项能力的操作结果。每套教程包含：
 
 - 实际系统与入口（WorkBuddy / 豆包工作 / DeepSeek Harness / Codex）
 - 打开 Agent、安装 shimo-net CLI 与首次配置
 - `shimo-net login` 授权
-- 15 个场景的步骤、命令、预期输出、验收和排错
+- 当前场景的步骤、命令、预期输出、验收和排错
 
 | 工具 | 形态 / 入口 | 教程 |
 |---|---|---|
@@ -18,12 +18,12 @@
 
 ## 一句话让 Agent 自己配置
 
-每篇教程开头都有一段可直接复制给 Agent 的 prompt；Agent 会运行 `bootstrap.sh`，下载 CLI、写入技能目录、打开登录页。手工步骤只作为兜底。
+每篇教程开头都有一段可直接复制给 Agent 的 prompt；WorkBuddy 直接使用已安装的官方市场技能，其他 Agent 可运行 `bootstrap.sh` 下载 latest CLI、初始化并打开登录页。手工步骤只作为兜底。
 
 ## 客户独立验收路径
 
 1. 打开已安装的 Agent，截图主界面。
-2. 在终端执行 `shimo-net version`，应看到 `shimo-net 0.9.1`。
+2. 在终端执行 `shimo-net version`，应看到当前 latest release 版本。
 3. 执行 `shimo-net whoami --json`，应返回账号；不想看账号就只看退出码 0。
 4. 在 Agent 里输入：`用 shimo-net 执行 whoami --json 验证连通；只回复「已连通，账号可用」`，应返回「已连通」。
 5. 再输入：`用 shimo-net info <一个你有权限的链接> 返回名称、类型、链接`，应返回三项。
@@ -32,7 +32,7 @@
 ## 使用说明
 
 1. 先打开已安装的 Agent，装好 `shimo-net` 和技能，`shimo-net doctor` 的 `checks` 全为 `OK`，最后一行 `结果：🟢 doctor: OK`。
-2. 从 15 个场景里挑一个，照着「步骤 → 命令 → 预期结果 → 验收」做一遍。
+2. 从当前场景里挑一个，照着「步骤 → 命令 → 预期结果 → 验收」做一遍。
 3. 出错先看每个场景末尾的「出错怎么办」。
 
 ## 说明

@@ -45,7 +45,21 @@ var httpClient = &http.Client{
 }
 
 func (a *App) request(path, method string, body any, raw []byte, headers map[string]string, cookie string) (*Response, error) {
-	u := strings.TrimRight(a.Origin, "/") + "/api/v1" + path
+	return a.requestURL(strings.TrimRight(a.Origin, "/")+"/api/v1"+path, method, body, raw, headers, cookie)
+}
+
+// requestPath calls a same-origin endpoint that is outside the /api/v1
+// namespace.  The spreadsheet editor exposes its stable mutation endpoints
+// under /lizard-api, so keeping this separate prevents accidental path
+// rewriting for normal file APIs.
+func (a *App) requestPath(path, method string, body any, raw []byte, headers map[string]string, cookie string) (*Response, error) {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return a.requestURL(strings.TrimRight(a.Origin, "/")+path, method, body, raw, headers, cookie)
+}
+
+func (a *App) requestURL(u, method string, body any, raw []byte, headers map[string]string, cookie string) (*Response, error) {
 	var rdr io.Reader
 	if raw != nil {
 		rdr = bytes.NewReader(raw)
@@ -96,6 +110,21 @@ func (a *App) authRequest(path, method string, body any, raw []byte, headers map
 		return nil, err
 	}
 	r, err := a.request(path, method, body, raw, headers, cookie)
+	if err != nil {
+		return nil, err
+	}
+	if r.Status == 401 {
+		return nil, errors.New("登录已过期（HTTP 401）：请先运行 shimo-net login")
+	}
+	return r, nil
+}
+
+func (a *App) authRequestPath(path, method string, body any, raw []byte, headers map[string]string) (*Response, error) {
+	cookie, err := readCookie()
+	if err != nil {
+		return nil, err
+	}
+	r, err := a.requestPath(path, method, body, raw, headers, cookie)
 	if err != nil {
 		return nil, err
 	}

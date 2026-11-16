@@ -1,6 +1,6 @@
 # Codex × 石墨办公：从打开到第一个结果
 
-> 适用版本：Codex CLI 0.144.0-alpha.4 · shimo-net CLI 0.9.1  
+> 适用版本：Codex CLI 0.144.0-alpha.4 · shimo-net CLI 最新 release
 > 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开 Codex → 装 CLI → 登录 → 装技能 → 跑出真实结果」。  
 
 ## 0. 开始前
@@ -16,7 +16,7 @@
 
 ```text
 请帮我完成 shimo-net 的安装和配置：
-1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/download/v0.9.1/bootstrap.sh | bash -s -- codex
+1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- codex
 2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
 3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
 如果脚本失败，返回完整错误信息。
@@ -24,7 +24,7 @@
 
 它会下载 CLI、写入技能目录、打开登录页。Codex 默认沙箱可能拦截 Keychain；如果脚本报未登录，按第 5 步放宽沙箱后重试。
 
-> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（release 镜像：v0.9.1 附件 bootstrap.sh）  
+> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（默认下载 latest release）
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
 ## 1. 打开 Codex
@@ -126,7 +126,7 @@ codex exec --dangerously-bypass-approvals-and-sandbox \
 
 看到「名称 / 类型 / 链接」三项，并且链接能打开，就完成了从授权到结果的闭环。
 
-## 7. 15 个场景怎么用
+## 7. 当前场景怎么用
 
 流程和上面一样：在 Codex 里说人话，Agent 调用 `shimo-net`。
 
@@ -135,30 +135,30 @@ codex exec --dangerously-bypass-approvals-and-sandbox \
 | 01 | 找文件 | 帮我找一下「季度方案」，最多 5 条 | `shimo-net search "季度方案" --limit 5 --json` |
 | 02 | 看目录 | 看看这个文件夹里有什么：<链接> | `shimo-net ls <链接> --json` |
 | 03 | 文件出处 | 这份文档在哪个空间、谁有权限：<链接> | `shimo-net info <链接> --json` |
-| 04 | 导入并设权限 | 把这份 docx 导到「交付」文件夹，先私有 | `shimo-net import ./file.docx --to <文件夹> --share private --json` |
+| 04 | 导入并设权限 | 把这份 docx 导到「交付」文件夹，权限到石墨网页人工设置 | `shimo-net import ./file.docx --to <文件夹> --json`，再打开页面人工操作 |
 | 05 | 拉取文件夹 | 把这个文件夹拉到本地 ./交付 | `shimo-net pull <链接> --out ./交付 --json` |
 | 06 | 新建文档 | 在桌面新建一个文档，叫「会议纪要」 | `shimo-net new "会议纪要" --type doc --to desktop --json` |
 | 07 | 改名 | 把「会议纪要」改名为「周会纪要」 | `shimo-net rename <链接> "周会纪要" --json` |
 | 08 | 删除/恢复 | 把这份文档移到回收站；再恢复 | `shimo-net delete <链接>` / `shimo-net restore <guid>` |
 | 09 | 权限巡检 | 看看这个文件夹里哪些是公开的 | `shimo-net audit <文件夹> --json` |
-| 10 | 批量改权限 | 把这个文件夹里的文档都改成「组织内可读」 | 先 `audit`，再逐条 `share <链接> enterprise_readonly` |
+| 10 | 批量改权限 | 把这个文件夹里的文档都改成「组织内可读」 | 先 `audit`，再打开石墨网页逐项人工确认和设置 |
 | 11 | 读正文 | 读一下这份文档，给我 5 条摘要 | `shimo-net read <链接> --max-chars 12000` |
 | 12 | 周报 | 把这个文件夹最近 7 天的内容整理成一页纸 | `shimo-net ls <链接> --since 7d` + `shimo-net read` |
 | 13 | 下载附件 | 把这份文档的附件下载到 ./附件 | `shimo-net get <链接> --out ./附件` |
 | 14 | 上传 | 把这个 PDF 传到「资料」文件夹，先私有 | `shimo-net upload ./file.pdf --to <文件夹>` |
 | 15 | 常用别名 | 以后把「交付」文件夹叫「交付」 | `shimo-net fav add 交付 <链接> --note 交付目录` |
 
-> 写操作执行前，Agent 会先确认位置和权限；删除只进回收站。
+> 导入、上传等 CLI 写操作执行前，Agent 会先确认位置；高风险权限和不可逆操作必须打开石墨网页人工处理，删除命令只进回收站。
 
 ## 8. 验收清单
 
 - [ ] `codex --version` 能输出版本；
-- [ ] `shimo-net version` 输出 `0.9.1`；
+- [ ] `shimo-net version` 输出当前 latest release 版本；
 - [ ] `shimo-net whoami --json` 返回账号；
 - [ ] `~/.codex/skills/shimo-net-cli/SKILL.md` 存在；
 - [ ] 第一个任务返回「已连通，账号可用」；
 - [ ] 第二个任务返回「名称 / 类型 / 链接」；
-- [ ] 15 个场景里至少完整跑通 1 个。
+- [ ] 当前场景里至少完整跑通 1 个。
 
 ## 9. 常见问题
 

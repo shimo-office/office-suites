@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -152,7 +154,7 @@ func (a *App) cmdFav() error {
 
 func (a *App) cmdOpen() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net open <链接|guid|@别名>")
+		return errors.New("用法：shimo-net open <链接|guid|@别名> [--default]")
 	}
 	raw := a.Pos[0]
 	target := raw
@@ -170,6 +172,25 @@ func (a *App) cmdOpen() error {
 		}
 		target = a.urlOf(withGUID(info, guid))
 	}
+	if a.has("--default") {
+		cmd, launcher, err := defaultBrowserCommand(target)
+		if err != nil {
+			return err
+		}
+		cmd.Stdout, cmd.Stderr = nil, nil
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("启动默认浏览器失败：%w", err)
+		}
+		if a.JSON {
+			return a.printJSON(map[string]any{
+				"ok": true, "url": target, "mode": "default", "launcher": launcher,
+				"note": "用操作系统默认浏览器打开",
+			})
+		}
+		fmt.Printf("已用系统默认浏览器打开：%s\n", target)
+		return nil
+	}
+
 	chrome, err := findChrome()
 	if err != nil {
 		return err
@@ -177,12 +198,16 @@ func (a *App) cmdOpen() error {
 	if err := os.MkdirAll(profilePath(), 0o700); err != nil {
 		return err
 	}
-	cmd := exec.Command(chrome, "--user-data-dir="+profilePath(), target)
+	portFile := filepath.Join(profilePath(), "DevToolsActivePort")
+	_ = os.Remove(portFile)
+	cmd := exec.Command(chrome, "--no-first-run", "--no-default-browser-check", "--user-data-dir="+profilePath(), "--remote-debugging-port=0", target)
 	cmd.Stdout, cmd.Stderr = nil, nil
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	o := map[string]any{"ok": true, "url": target, "profile": profilePath(), "note": "用已登录的专用 Chrome 配置打开；如未登录会跳到登录页"}
+	injected := injectManagedCookie(target, portFile)
+	o := map[string]any{"ok": true, "url": target, "profile": profilePath(), "sessionInjected": injected,
+		"note": "用 CLI 专用浏览器打开；已从 Keychain 注入会话时无需重新登录"}
 	if a.JSON {
 		return a.printJSON(o)
 	}
@@ -190,6 +215,56 @@ func (a *App) cmdOpen() error {
 	return nil
 }
 
+// injectManagedCookie upgrades the CLI-managed browser launch into an
+// authenticated page when a Keychain/file session is available. The browser
+// process is intentionally left running for the user or agent to operate.
+// A failure to attach CDP is non-fatal: the page remains open and the caller
+// can use its own browser login flow.
+func injectManagedCookie(target, portFile string) bool {
+	cookie, err := readCookie()
+	if err != nil || !sameCookieHost(target) {
+		return false
+	}
+	port, err := waitDevToolsPort(portFile, 5*time.Second)
+	if err != nil {
+		return false
+	}
+	wsURL, err := waitPageTarget(port, target)
+	if err != nil {
+		return false
+	}
+	ws, err := dialWS(wsURL)
+	if err != nil {
+		return false
+	}
+	defer ws.Close()
+	if _, err := ws.Call(1, "Network.enable", nil, 5*time.Second); err != nil {
+		return false
+	}
+	if _, err := ws.Call(2, "Page.enable", nil, 5*time.Second); err != nil {
+		return false
+	}
+	if err := setCookies(ws, target, cookie); err != nil {
+		return false
+	}
+	_, _ = ws.Call(3, "Page.reload", map[string]any{"ignoreCache": true}, 10*time.Second)
+	time.Sleep(1200 * time.Millisecond)
+	return true
+}
+
+func defaultBrowserCommand(target string) (*exec.Cmd, string, error) {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", target), "open", nil
+	case "linux":
+		return exec.Command("xdg-open", target), "xdg-open", nil
+	case "windows":
+		return exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", target), "rundll32.exe", nil
+	default:
+		return nil, "", fmt.Errorf("当前操作系统不支持默认浏览器打开：%s", runtime.GOOS)
+	}
+}
+
 func (a *App) cmdPurge() error {
-	return errors.New("彻底删除不在 CLI 支持范围：请到石墨网页的「回收站」里手动删除。CLI 只提供 delete（进回收站）和 restore（恢复）。")
+	return manualOnlyError("彻底删除")
 }

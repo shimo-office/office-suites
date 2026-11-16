@@ -1,6 +1,6 @@
 # shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **15 个办公场景**。当前版本 **0.9.1**，Go 单二进制。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、49 项能力**。当前版本 **0.9.2**，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain（Windows 为 Credential Manager）；过期就地重登。
@@ -80,26 +80,52 @@ shimo-net doctor
 shimo-net logout
 ```
 
-## 15 个场景
+## 当前能力（28 个场景）
 
 | # | 场景 | 命令 |
 |---|---|---|
 | 1 | 搜索文件 / 文件夹 / 空间 | `shimo-net search "<关键词>" [--limit 20]` |
 | 2 | 我的空间 / 空间里有什么 | `shimo-net spaces [--limit 300]`、`shimo-net ls <空间\|文件夹\|@别名> [--since 7d]` |
 | 3 | 文件出处（类型 / 权限 / 路径） | `shimo-net info <链接\|@别名>` |
-| 4 | 导入 + 权限 | `shimo-net import <文件> --to <位置>` + `shimo-net share <链接> <权限>` |
+| 4 | 导入 + 权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
 | 5 | 拉取文件夹 | `shimo-net pull <链接\|@别名> [--out <目录>] [--since 7d]`（省略时 `./shimo-pull`） |
 | 6 | 新建空白文档 / 表格 / 幻灯片 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>` |
 | 7 | 改名 | `shimo-net rename <链接> "<新名字>"` |
 | 8 | 删除 / 回收站 / 恢复 | `shimo-net delete`（只进回收站）、`trash`、`restore`；彻底删除到石墨网页手动操作 |
 | 9 | 权限巡检 | `shimo-net audit <文件夹\|@别名> [--limit 200]` |
-| 10 | 批量改权限 | `shimo-net share <链接1> <链接2> … <权限>` |
+| 10 | 批量改权限 | CLI 禁止处理；打开石墨网页逐项人工确认和设置 |
 | 11 | 读正文 / 摘要 | `shimo-net read <链接> [--max-chars 12000]` |
 | 12 | 周报 | `shimo-net ls <链接> --since 7d` + `shimo-net read` |
 | 13 | 附件 / 云文件下载 | `shimo-net get <链接> [--out <目录>]`（省略时 `./shimo-pull`） |
 | 14 | 上传（问传到哪里） | `shimo-net upload <文件> [--to desktop\|空间\|文件夹\|@别名]`；不给 `--to` 会列出可选位置 |
 | 15 | 常用文件夹别名 | `shimo-net fav add <别名> <链接> --note 特征`，之后任意命令用 `@别名` |
+| 16 | 只看与我相关的内容 | `shimo-net phase2 <链接> --action mentions-list\|comments-list`；跨文件订阅用 `subscriptions` |
+| 17 | 留痕与版本 | `shimo-net open <链接>` 后用 computer-use 操作历史面板 |
+| 18 | 文字与段落 | `shimo-net open <链接>` 后用 computer-use 操作菜单和选区 |
+| 19 | 文内表格与图片 | `shimo-net open <链接>` 后由 computer-use 插入、调整并截图 |
+| 20 | 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面操作 |
+| 21 | 预览与打印 | `shimo-net open <链接>` 后用 computer-use 操作预览/打印 |
+| 22 | 文档重排全文 | `shimo-net open <链接>` 后由 computer-use 调整标题、段落和页面样式 |
+| 23 | 表格写入 | `phase2 --action sheet-update|sheet-append|sheet-insert|sheet-delete` 直接调用表格 API |
+| 24 | 表格整理 | `shimo-net open <链接>` 后用 computer-use 操作冻结、排序、筛选和单元格底色 |
+| 25 | 表格清洗 | 删除重复项、分列、填充等通过表格页面操作 |
+| 26 | 表格算与看数 | `shimo-net open <链接>` 后由 computer-use 操作公式、定义名称和透视表 |
+| 27 | 表格校验与格式 | `phase2 --action sheet-format|sheet-merge` 直接调用表格 API；数据验证仍用页面 |
+| 28 | 表格输出 | 导出使用异步导出 API；打印用 `open` + computer-use |
 | — | 用已登录浏览器打开链接 | `shimo-net open <链接\|guid>`（复用 CLI 的 Chrome 配置，免重复登录） |
+
+## 编辑器与协作能力
+
+当前可直接使用的编辑器能力包括 @人/评论列表 API、异步文件导出、订阅文件扫描，以及表格内容/样式/合并 API；历史、文字与段落格式、评论添加、预览打印等页面操作使用 `open` 配合 computer-use。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除的操作禁止由 CLI 处理，必须由人工在石墨网页完成：
+
+```bash
+shimo-net phase2 <链接> --action sheet-format --payload '{"range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}' --json
+shimo-net phase2 <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
+```
+
+`phase2` 是兼容入口：`sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源表格 API，因此不会因为页面未暴露 `globalThis.sdk` 而退回本地 XLSX；其他动作如果没有对应 API，立即改用 `shimo-net open <链接>`，由 computer-use 按页面菜单、工具栏和选区完成操作并返回截图。CLI 专用浏览器会从 Keychain 注入会话，不输出 sid/cookie；只有无法使用内联浏览器和 CLI 专用浏览器时才使用 `open --default`。
+
+订阅更新文件：`shimo-net subscriptions --json` 会扫描逐文件订阅状态；用户选定序号后用 `shimo-net subscriptions --open <序号>` 打开对应文件（优先使用内联浏览器，其次使用会注入 Keychain 会话的 CLI 专用浏览器）。
 
 通用命令：`init` / `config` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version`；全局 `--json`、`--relogin`。
 
@@ -116,7 +142,7 @@ shimo-net fav rm ai
 
 别名存在 `~/.shimo-net-cli/favorites.json`，只有别名和链接，不含账号信息。任何接受 `链接|guid` 的参数都可以用 `@别名`。
 
-## 权限（7 档）
+## 权限（仅查看；变更必须人工页面操作）
 
 | 值 | 含义 |
 |---|---|
@@ -128,10 +154,7 @@ shimo-net fav rm ai
 | `commentable` | 公开链接 · 可评论 |
 | `editable` | 公开链接 · 可编辑 |
 
-```bash
-shimo-net share <链接> enterprise_commentable
-shimo-net share <链接1> <链接2> readonly     # 批量
-```
+CLI 不提供权限变更命令。`share` 仅保留为兼容入口，调用时会明确拒绝并提示转到石墨网页。
 
 后三档是公开链接，任何拿到链接的人都能访问；导入后先确认再设置。
 
@@ -150,8 +173,9 @@ shimo-net doctor --json
 ## 行为约定
 
 - `upload` = 原样上传云文件；`import` = 转成在线文档 / 文稿 / 表格 / 幻灯片。
-- `upload` 不给 `--to` 会先列出位置；`import` 必须给 `--to`；导入后先问权限。
+- `upload` 不给 `--to` 会先列出位置；`import` 必须给 `--to`；权限变更转到石墨网页人工操作。
 - **删除只进回收站；CLI 不提供彻底删除**，要彻底删请在石墨网页回收站手动操作。
+- 文件锁定、限制编辑、高级权限、成员级授权均禁止由 CLI 处理，必须在石墨网页人工确认和操作。
 - 只支持 `md / doc(x) / xls(x) / ppt(x)`；其他格式直说。
 - 无权限如实说；大目录先 `ls` 再 `pull`；批量操作控制并发。
 - 凭据：macOS 走 Keychain，Windows 走 Credential Manager；不可用时回退到 `~/.shimo-net-cli/credentials.json`（`0600`），需自行评估风险。CI 可用 `SHIMO_NET_COOKIE`。

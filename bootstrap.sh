@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shimo-net 一键配置：下载 CLI、写入 Agent 技能目录、登录并验证。
+# shimo-net 一键配置：下载 CLI、初始化、登录并验证。
 # 用法：bash bootstrap.sh workbuddy|dsh|codex|doubao
 set -euo pipefail
 
@@ -22,13 +22,19 @@ case "$ARCH" in
   *) echo "暂不支持架构 $ARCH" >&2; exit 2 ;;
 esac
 
-VERSION="${SHIMO_NET_VERSION:-v0.9.1}"
+VERSION="${SHIMO_NET_VERSION:-latest}"
 DEST="${SHIMO_NET_BIN:-$HOME/.local/bin/shimo-net}"
 ASSET="shimo-net_${PLATFORM}_${CPU}"
-BIN_URL="${SHIMO_NET_BIN_URL:-https://github.com/shimo-office/office-suites/releases/download/${VERSION}/${ASSET}}"
+if [ -n "${SHIMO_NET_BIN_URL:-}" ]; then
+  BIN_URL="$SHIMO_NET_BIN_URL"
+elif [ "$VERSION" = "latest" ]; then
+  BIN_URL="https://github.com/shimo-office/office-suites/releases/latest/download/${ASSET}"
+else
+  BIN_URL="https://github.com/shimo-office/office-suites/releases/download/${VERSION}/${ASSET}"
+fi
 
 NEED_DOWNLOAD=0
-if [ ! -x "$DEST" ]; then
+if [ ! -x "$DEST" ] || [ "$VERSION" = "latest" ]; then
   NEED_DOWNLOAD=1
 else
   CURRENT="$("$DEST" version 2>/dev/null | awk '{print $2}')"
@@ -54,7 +60,9 @@ fi
 
 SKILL_DIR=""
 case "$AGENT" in
-  workbuddy) SKILL_DIR="$HOME/.workbuddy/skills/shimo-net-cli" ;;
+  # WorkBuddy has an official market skill. Do not install the repository
+  # custom skill into its private skills directory.
+  workbuddy) SKILL_DIR="" ;;
   dsh)       SKILL_DIR="$HOME/.dsh/skills/shimo-net-cli" ;;
   codex)     SKILL_DIR="$HOME/.codex/skills/shimo-net-cli" ;;
   doubao)    SKILL_DIR="" ;;
@@ -63,7 +71,13 @@ esac
 if [ -n "$SKILL_DIR" ]; then
   echo "== 安装技能到 ${SKILL_DIR} =="
   mkdir -p "$SKILL_DIR"
-  SKILL_URL="${SHIMO_NET_SKILL_URL:-https://github.com/shimo-office/office-suites/releases/download/${VERSION}/SKILL.md}"
+  if [ -n "${SHIMO_NET_SKILL_URL:-}" ]; then
+    SKILL_URL="$SHIMO_NET_SKILL_URL"
+  elif [ "$VERSION" = "latest" ]; then
+    SKILL_URL="https://github.com/shimo-office/office-suites/releases/latest/download/SKILL.md"
+  else
+    SKILL_URL="https://github.com/shimo-office/office-suites/releases/download/${VERSION}/SKILL.md"
+  fi
   if ! curl -fsSL --retry 2 --connect-timeout 20 "$SKILL_URL" -o "$SKILL_DIR/SKILL.md"; then
     echo "技能下载失败：$SKILL_URL" >&2
     exit 1
@@ -91,7 +105,7 @@ fi
 
 echo "已配置完成，账号可用"
 case "$AGENT" in
-  workbuddy) echo "如果 WorkBuddy 的「已安装技能」没刷新，退出 WorkBuddy 再打开一次。" ;;
+  workbuddy) echo "请在 WorkBuddy 市场安装官方 shimo-net 技能；本脚本不会安装仓库自定义技能。" ;;
   dsh)       echo "新建一个 DSH 会话即可使用技能。" ;;
   codex)     echo "新开一个 Codex 任务即可使用技能。" ;;
   doubao)    echo "在豆包「工作」里选择「本地电脑」，直接发任务即可。" ;;
