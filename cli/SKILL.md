@@ -19,7 +19,7 @@ shimo-net session status --json   # 查看会话来自 Keychain / 文件 / 浏�
 shimo-net doctor
 ```
 
-### 登录态桥接（0.9.6）
+### 登录态桥接
 
 - 只要本机 Chrome / Chromium / Edge / Brave 里已经登录 shimo.net，CLI 不需要再弹一次登录：`whoami`、`open`、`phase2` 等命令会在 Keychain 没有会话或返回 401 时，自动从浏览器配置中读取完整 cookie jar，验证后写回 Keychain。
 - 需要手动触发或只想验证时：`shimo-net session harvest --json`；加 `--no-save` 只验证不落盘。

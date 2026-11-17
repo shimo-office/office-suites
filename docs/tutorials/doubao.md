@@ -1,6 +1,6 @@
 # 豆包工作 × 石墨办公：从打开到第一个结果
 
-> 适用版本：豆包 2.35.8「工作」模式 · shimo-net CLI 0.9.7
+> 适用版本：豆包 2.35.8「工作」模式 · shimo-net CLI 最新版
 > 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开豆包工作 → 检查/安装 CLI → 登录 → 跑出真实结果」。
 
 ## 0. 开始前
@@ -37,7 +37,7 @@
 
 ## 2. 检查 / 安装 shimo-net CLI（已安装可跳过）
 
-先执行 `shimo-net version`；已有就跳到第 3 步登录授权。下面的安装命令只在本机没有 CLI 时使用。
+先执行 `shimo-net doctor`；已有就跳到第 3 步登录授权。下面的安装命令只在本机没有 CLI 时使用。
 
 macOS 终端：
 
@@ -45,7 +45,6 @@ macOS 终端：
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 ./install.command
-shimo-net version
 shimo-net doctor --json
 ```
 
@@ -55,11 +54,10 @@ Windows PowerShell：
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 powershell -ExecutionPolicy Bypass -File .\install.ps1
-shimo-net version
 shimo-net doctor --json
 ```
 
-看到版本和配置就对了：
+看到配置和 doctor 结果就对了：
 
 ![CLI 安装与配置验证](images/common/cli-version.jpg)
 
@@ -149,7 +147,7 @@ shimo-net whoami --json
 ## 8. 验收清单
 
 - [ ] 豆包能切到「工作」，输入框下方是「本地电脑」；
-- [ ] `shimo-net version` 输出当前 latest release 版本；
+- [ ] `shimo-net doctor` 返回 `ok: true`，最后一行是 `结果：🟢 doctor: OK`；
 - [ ] `shimo-net whoami --json` 返回账号；
 - [ ] 第一个任务返回「已连通，账号身份正常」；
 - [ ] 第二个任务返回「名称 / 类型 / 链接」；

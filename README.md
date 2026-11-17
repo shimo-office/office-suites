@@ -46,7 +46,7 @@ shimo-net login
 
 > 安装器会把命令放到 `~/.local/bin/shimo-net`（Windows 为 `%LOCALAPPDATA%\shimo-net\shimo-net.exe`）。有 Go 时本地构建；没有 Go 时自动下载 [release](https://github.com/shimo-office/office-suites/releases) 里的对应平台二进制。如果提示找不到命令，把安装目录加进 `PATH`。
 
-> **已经在 Chrome 里登录过？** 0.9.6 会在 Keychain 没有会话时自动复用 Chrome / Chromium / Edge / Brave 的登录态，验证后写回 Keychain；`shimo-net open <链接>` 和 `--default` 都会注入完整 cookie jar，不需要再登录一次。手动检查：`shimo-net session status --json`。
+> **已经在 Chrome 里登录过？** CLI 会在 Keychain 没有会话时自动复用 Chrome / Chromium / Edge / Brave 的登录态，验证后写回 Keychain；`shimo-net open <链接>` 和 `--default` 都会注入完整 cookie jar，不需要再登录一次。手动检查：`shimo-net session status --json`。
 
 **客户私有部署**只改网址，不另装一套：
 

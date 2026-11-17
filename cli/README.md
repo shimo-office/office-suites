@@ -1,6 +1,6 @@
 # shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、50 项能力**。当前版本 **0.9.7**，Go 单二进制。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、50 项能力**。当前为最新版，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain（Windows 为 Credential Manager）；过期就地重登。
@@ -74,7 +74,7 @@ shimo-net doctor
 - 任意命令加 `--relogin`，遇 401 自动登录并重试；
 - 不要把密码 / cookie 贴进对话、Issue 或日志。
 
-### 登录态复用（0.9.6）
+### 登录态复用
 
 Keychain 没有会话、或现有会话返回 401 时，CLI 会自动从本机 Chrome / Chromium / Edge / Brave 的已登录配置复用 shimo.net 会话：读取完整 cookie jar（`sid`、`smdev-ws-route`、`deviceId` 等），验证后写回 Keychain（写回失败时回退到 0600 文件）。不需要用户二次登录。
 

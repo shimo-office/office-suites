@@ -23,7 +23,7 @@
 ## 客户独立验收路径
 
 1. 打开已安装的 Agent，截图主界面。
-2. 在终端执行 `shimo-net version`，应看到当前 latest release 版本。
+2. 在终端执行 `shimo-net doctor`，应看到 `ok: true` 和 `结果：🟢 doctor: OK`。
 3. 执行 `shimo-net whoami --json`，应返回账号；不想看账号就只看退出码 0。
 4. 在 Agent 里输入：`用 shimo-net 执行 whoami --json 验证连通；只回复「已连通，账号可用」`，应返回「已连通」。
 5. 再输入：`用 shimo-net info <一个你有权限的链接> 返回名称、类型、链接`，应返回三项。

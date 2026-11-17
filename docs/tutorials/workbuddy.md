@@ -1,6 +1,6 @@
 # WorkBuddy × 石墨办公：从打开到第一个结果
 
-> 适用版本：WorkBuddy 5.11.3（桌面客户端）· shimo-net CLI 0.9.7
+> 适用版本：WorkBuddy 5.11.3（桌面客户端）· shimo-net CLI 最新版
 > 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 检查/安装市场技能 → 登录授权 → 跑出第一个真实结果」。
 
 ## 0. 开始前
@@ -47,7 +47,6 @@
 
 ```bash
 curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- workbuddy
-shimo-net version
 shimo-net doctor --json
 ```
 
@@ -57,19 +56,17 @@ Windows 用 PowerShell 时，下载仓库后执行安装器，或直接安装当
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 powershell -ExecutionPolicy Bypass -File .\install.ps1
-shimo-net version
 shimo-net doctor --json
 ```
 
-正常情况下会看到版本号和配置信息：
+正常情况下会看到配置信息和 doctor 结果：
 
 ![CLI 安装与配置验证](images/common/cli-version.jpg)
 
-你要确认三件事（如果 CLI 已存在，只需确认版本和 doctor）：
+你要确认两件事（如果 CLI 已存在，只需确认 doctor）：
 
-1. `shimo-net version` 输出当前安装的 latest release 版本；
-2. `shimo-net config show` 显示 `https://shimo.net`；
-3. `doctor --json` 的 `ok` 为 `true`，`checks` 五项都是 `ok`；终端最后一行显示 `结果：🟢 doctor: OK`。
+1. `shimo-net config show` 显示 `https://shimo.net`；
+2. `doctor --json` 的 `ok` 为 `true`，`checks` 五项都是 `ok`；终端最后一行显示 `结果：🟢 doctor: OK`。
 
 装完后如果提示 `shimo-net: command not found`，先执行：
 
@@ -230,7 +227,7 @@ shimo-net phase2 <表格链接> --action sheet-merge \
 全部打勾，才算独立完成：
 
 - [ ] WorkBuddy 能正常打开，能看到任务输入框；
-- [ ] `shimo-net version` 输出当前安装的 latest release 版本；
+- [ ] `shimo-net doctor` 返回 `ok: true`，最后一行是 `结果：🟢 doctor: OK`；
 - [ ] `shimo-net config show` 显示 `https://shimo.net`；
 - [ ] `shimo-net whoami --json` 返回账号；
 - [ ] WorkBuddy「已安装」里能看到并启用官方市场版 shimo-net-cli 技能；
