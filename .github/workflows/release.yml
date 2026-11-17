@@ -15,7 +15,10 @@ jobs:
           - os: macos-13
             goos: darwin
             goarch: amd64
-          - os: macos-14
+          # GitHub-hosted macOS ARM64 is unavailable for this repository plan.
+          # Go cross-compiles the CGO-free CLI, so build the ARM64 artifact on
+          # the supported macOS Intel runner instead.
+          - os: macos-13
             goos: darwin
             goarch: arm64
           - os: ubuntu-latest
