@@ -1,17 +1,17 @@
 # WorkBuddy × 石墨办公：从打开到第一个结果
 
-> 适用版本：WorkBuddy 5.9.3（桌面客户端）· shimo-net CLI 最新 release
-> 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 安装市场技能 → 装 CLI → 登录授权 → 跑出第一个真实结果」。
+> 适用版本：WorkBuddy 5.11.3（桌面客户端）· shimo-net CLI 0.9.7
+> 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 检查/安装市场技能 → 登录授权 → 跑出第一个真实结果」。
 
 ## 0. 开始前
 
 你只需要准备：
 
 - 已经安装好的 WorkBuddy 桌面端（不需要重新下载）；
-- WorkBuddy 市场中的 [shimo-net 技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)；
+- WorkBuddy 市场中的 [shimo-net 技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)（未安装也没关系，第 0.1 节会让 Agent 检查并安装）；
 - 一个能登录 shimo.net 的账号；
 - macOS 的「终端」，或 Windows 的 PowerShell；
-- 能访问 GitHub（安装 CLI 用）。
+- 能访问 GitHub（兜底安装 CLI 用）。
 
 不需要会写代码；命令都可以直接复制。
 
@@ -20,19 +20,20 @@
 把下面整段发给 WorkBuddy，不要自己开终端：
 
 ```text
-请直接使用已经安装的 WorkBuddy 官方市场版 shimo-net 技能完成配置，不要上传或复制仓库里的 cli/SKILL.md，也不要重复安装技能：
-1. 先检查本机 shimo-net CLI 是否可用；如果没有，再从 GitHub Releases 的 latest 版本安装，不要固定旧版本号。
-2. 如果需要登录，打开 Chrome 登录页；我会完成登录，登录成功后继续。
-3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
+请帮我完成 shimo-net 的安装和配置，不要让我手动开终端：
+1. 先检查官方市场版 shimo-net 技能是否已安装；已安装就直接使用，不要重复安装。
+2. 没有安装的话，帮我安装官方市场版技能。
+3. 只有本机确实没有可用技能时，再从 GitHub Releases 的 latest 版本安装 CLI。
+4. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
 如果配置失败，返回完整错误信息。
 ```
 
-市场技能安装后可以直接使用；只有本机没有 CLI 时才下载 latest 版本并初始化。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
+市场技能装好后可以直接使用；已有 CLI 时不需要重新安装。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
 
-> CLI 安装脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh；脚本默认从 GitHub Releases latest 下载。
+> CLI 安装脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh；只有在没有市场技能、本机也没有 CLI 时才会用到。
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
-真实执行结果（WorkBuddy 5.9.3，38 秒）：
+配置完成后的对话（WorkBuddy 5.11.3）：
 
 ![WorkBuddy 一句话自配置](images/workbuddy/real-self-setup.jpg)
 
@@ -42,7 +43,7 @@
 
 ## 2. 检查 shimo-net CLI（已安装可跳过）
 
-市场技能安装后先直接使用。如果 WorkBuddy 提示本机没有 `shimo-net`，再打开「终端」安装 GitHub Releases 的 latest 版本：
+先确认市场技能已安装并启用；已有 `shimo-net` 就直接用。只有本机确实没有 CLI 时，才打开「终端」安装 GitHub Releases 的 latest 版本：
 
 ```bash
 curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- workbuddy
@@ -86,7 +87,7 @@ export PATH="$HOME/.local/bin:$PATH"
 shimo-net login
 ```
 
-会弹出一个 Chrome 窗口：
+如果本机 Chrome 已登录 shimo.net，CLI 会直接复用登录态，不会弹窗；没有登录态时才打开 Chrome 登录页：
 
 1. 用你的 shimo.net 账号登录；
 2. 看到登录成功提示后，Chrome 会自动关闭；
@@ -108,16 +109,16 @@ shimo-net login
 shimo-net whoami --json
 ```
 
-## 4. 安装 WorkBuddy 市场技能
+## 4. 检查 / 安装 WorkBuddy 市场技能（已安装可跳过）
 
-WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制仓库里的 `cli/SKILL.md`。
+WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制仓库里的 `cli/SKILL.md`。如果「已安装」里已经有并已启用，直接跳到第 5 步；没有再按下面步骤安装。
 
 1. 打开 [WorkBuddy 市场技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)；
 2. 点击「安装」或「添加到 WorkBuddy」；
 3. 回到左侧栏「专家 · 技能 · 连接器」→「技能」→「已安装」；
 4. 确认市场版 shimo-net 技能已启用。
 
-装好后打开「已安装技能」，应该看到：
+装好后打开「已安装技能」，确认 shimo-net-cli 已启用：
 
 ![WorkBuddy 已安装技能](images/workbuddy/real-installed.jpg)
 

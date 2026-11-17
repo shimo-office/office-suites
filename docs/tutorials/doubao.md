@@ -1,7 +1,7 @@
 # 豆包工作 × 石墨办公：从打开到第一个结果
 
-> 适用版本：豆包 2.35.8「工作」模式 · shimo-net CLI 最新 release
-> 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开豆包工作 → 装 CLI → 登录 → 跑出真实结果」。  
+> 适用版本：豆包 2.35.8「工作」模式 · shimo-net CLI 0.9.7
+> 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开豆包工作 → 检查/安装 CLI → 登录 → 跑出真实结果」。
 
 ## 0. 开始前
 
@@ -12,19 +12,19 @@
 
 ## 0.1 一句话让 Agent 自己配置（推荐）
 
-把下面整段发给 豆包工作，不要自己开终端：
+把下面整段发给豆包工作，不要自己开终端：
 
 ```text
-请帮我完成 shimo-net 的安装和配置：
-1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- doubao
-2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
+请帮我完成 shimo-net 的安装和配置，不要让我手动开终端：
+1. 先检查本机是否已安装 shimo-net CLI；已安装就直接使用，不要重复安装。
+2. 没有安装的话，帮我安装；只有本机确实没有可用 CLI 时，再从 GitHub Releases 的 latest 版本安装。
 3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
-如果脚本失败，返回完整错误信息。
+如果配置失败，返回完整错误信息。
 ```
 
-它会下载 CLI、写入技能目录、打开登录页。豆包工作不需要技能目录；脚本只装 CLI。完成后在「工作」里选「本地电脑」再发任务。
+豆包工作不需要技能目录；已有 CLI 时直接使用。完成后在「工作」里选「本地电脑」再发任务。
 
-> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（默认下载 latest release）
+> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（只有在没有 CLI 时才会用到）
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
 ## 1. 打开豆包工作
@@ -35,7 +35,9 @@
 
 「本地电脑」很关键：只有它才能执行本机的 `shimo-net`，云电脑不行。
 
-## 2. 安装 shimo-net CLI
+## 2. 检查 / 安装 shimo-net CLI（已安装可跳过）
+
+先执行 `shimo-net version`；已有就跳到第 3 步登录授权。下面的安装命令只在本机没有 CLI 时使用。
 
 macOS 终端：
 
@@ -75,7 +77,7 @@ export PATH="$HOME/.local/bin:$PATH"
 shimo-net login
 ```
 
-Chrome 窗口登录 shimo.net，成功后：
+Chrome 窗口登录 shimo.net；如果已经登录，CLI 会直接复用，不会弹窗。成功后：
 
 ```bash
 shimo-net whoami --json

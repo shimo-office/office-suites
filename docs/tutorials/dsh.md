@@ -1,7 +1,7 @@
 # DeepSeek Harness × 石墨办公：从打开到第一个结果
 
-> 适用版本：DeepSeek Harness 0.2.1-rc.3（桌面客户端）· shimo-net CLI 最新 release
-> 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开 DSH → 装 CLI → 登录 → 装技能 → 跑出真实结果」。  
+> 适用版本：DeepSeek Harness 0.2.1-rc.3（桌面客户端）· shimo-net CLI 0.9.7
+> 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开 DSH → 检查/安装技能 → 登录 → 跑出真实结果」。
 
 ## 0. 开始前
 
@@ -15,16 +15,17 @@
 把下面整段发给 DeepSeek Harness，不要自己开终端：
 
 ```text
-请帮我完成 shimo-net 的安装和配置：
-1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- dsh
-2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
-3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
-如果脚本失败，返回完整错误信息。
+请帮我完成 shimo-net 的安装和配置，不要让我手动开终端：
+1. 先检查本机是否已安装 shimo-net 技能（`~/.dsh/skills/shimo-net-cli`）；已安装就直接使用，不要重复安装。
+2. 没有安装的话，帮我安装技能。
+3. 只有本机确实没有可用技能时，再从 GitHub Releases 的 latest 版本安装 CLI。
+4. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
+如果配置失败，返回完整错误信息。
 ```
 
-它会下载 CLI、写入技能目录、打开登录页。完成后新建一个 DSH 会话，让技能生效。
+已安装的 DSH 技能会写在 `~/.dsh/skills/shimo-net-cli`；本机已有 CLI 时不需要重新安装。完成后新建一个 DSH 会话，让技能生效。
 
-> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（默认下载 latest release）
+> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（只有在没有技能、本机也没有 CLI 时才会用到）
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
 ## 1. 打开 DeepSeek Harness
@@ -32,7 +33,9 @@
 打开已安装的 DSH，点「新会话」，确认能看到输入框和工作目录选择。
 
 
-## 2. 安装 shimo-net CLI
+## 2. 检查 / 安装 shimo-net CLI（已安装可跳过）
+
+先执行 `shimo-net version`；已有就跳到第 3 步登录授权。下面的安装命令只在本机没有 CLI 时使用。
 
 macOS 终端：
 
@@ -72,7 +75,7 @@ export PATH="$HOME/.local/bin:$PATH"
 shimo-net login
 ```
 
-Chrome 窗口里登录 shimo.net，成功后回到终端：
+Chrome 窗口里登录 shimo.net；如果已经登录，CLI 会直接复用，不会弹窗。成功后回到终端：
 
 ```bash
 shimo-net whoami --json
@@ -90,9 +93,9 @@ shimo-net login
 shimo-net whoami --json
 ```
 
-## 4. 安装技能
+## 4. 检查 / 安装技能（已安装可跳过）
 
-DSH 从 `~/.dsh/skills` 读取技能，不需要在应用里点安装：
+DSH 从 `~/.dsh/skills` 读取技能，不需要在应用里点安装。先检查 `~/.dsh/skills/shimo-net-cli/SKILL.md`；已有就跳到第 5 步。没有时再执行：
 
 ```bash
 mkdir -p ~/.dsh/skills/shimo-net-cli
