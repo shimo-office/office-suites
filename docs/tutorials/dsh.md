@@ -123,7 +123,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 ## 6. 第二个任务：真实操作
 
 ```text
-用 shimo-net info https://shimo.net/docs/MWn7L07R8jhPEm1p 返回名称、类型、链接；只回复这三项，不要显示账号信息。
+用 shimo-net info https://shimo.net/docs/demo 返回名称、类型、链接；只回复这三项，不要显示账号信息。
 ```
 
 ![DSH 执行 info](images/dsh/real-info.jpg)

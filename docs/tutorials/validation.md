@@ -2,6 +2,8 @@
 
 目标：确认四个 Agent 能调用 `shimo-net`，并记录 0.9.7 能力的真实结果。场景对外按当前能力描述，不按内部阶段命名。
 
+> 注：教程内图片是按当前界面做的 H5 还原示意，账号、文件名、文件链接已脱敏；真实执行结果以本表记录和 [internal-capability-test-results.md](../internal-capability-test-results.md) 为准。
+
 | Agent | 本机版本 | 入口 | 结果 | 证据 |
 |---|---|---|---|---|
 | WorkBuddy | 5.11.3 | 桌面客户端 | ✅ 通过（本地 0.9.7 包） | `images/workbuddy/real-whoami.jpg` |

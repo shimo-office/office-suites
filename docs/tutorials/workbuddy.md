@@ -166,7 +166,7 @@ Agent 执行页面操作时遵循以下顺序：
 在 WorkBuddy 新任务里粘贴（把链接换成你有权限的文档）：
 
 ```text
-用 shimo-net info https://shimo.net/docs/MWn7L07R8jhPEm1p 返回名称、类型、链接；只回复这三项，不要显示账号信息。
+用 shimo-net info https://shimo.net/docs/demo 返回名称、类型、链接；只回复这三项，不要显示账号信息。
 ```
 
 你应该看到文档名称、类型和链接：
