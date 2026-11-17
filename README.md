@@ -67,7 +67,7 @@ shimo-net login
 | 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
 | 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
 
-当前可用的 28 个场景（覆盖 49 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
+当前版本为 **0.9.4**，可用的 28 个场景（覆盖 49 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
 
 ---
 
@@ -208,6 +208,8 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 | 表格算与看数 | `shimo-net open <链接>` 后由 computer-use 操作公式、定义名称和透视表 |
 | 表格校验与格式 | `shimo-net phase2 <链接> --action sheet-format|sheet-merge --payload …` 直接调用表格 API；数据验证仍用页面 |
 | 表格输出 | 导出使用异步导出 API，打印用 `open` + computer-use |
+| 订阅更新 | `shimo-net subscriptions --json` 列出已订阅文件；`--open <序号\|guid>` 打开用户选定文件 |
+| 打开文档 | `shimo-net open <链接\|guid>` 使用注入 Keychain 会话的 CLI 浏览器；`--default` 使用系统默认浏览器 |
 
 通用：`init` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version` / `open` / `phase2` / `subscriptions`。
 </details>

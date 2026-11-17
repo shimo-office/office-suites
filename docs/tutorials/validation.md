@@ -1,10 +1,10 @@
-# P0 Agent 连通验证（2026-11-10）
+# Agent 连通与 CLI 能力验证（2026-11-17）
 
-目标：四个 P0 Agent 是否都能调用 `shimo-net` 完成一次真实请求，并留下可复核的截图。
+目标：确认四个 Agent 能调用 `shimo-net`，并记录 0.9.4 扩展能力的真实结果。场景对外按当前能力描述，不按内部阶段命名。
 
 | Agent | 本机版本 | 入口 | 结果 | 证据 |
 |---|---|---|---|---|
-| WorkBuddy | 5.9.3 | 桌面客户端 | ✅ 通过 | `images/workbuddy/real-whoami.jpg` |
+| WorkBuddy | 5.11.3 | 桌面客户端 | ✅ 通过（本地 0.9.4 包） | `images/workbuddy/real-whoami.jpg` |
 | DeepSeek Harness | 0.2.1-rc.3 | 桌面客户端 | ✅ 通过 | `images/dsh/real-whoami.jpg` |
 | Codex | 0.144.0-alpha.4 | CLI | ⚠️ 默认沙箱拦截 Keychain；加 `--dangerously-bypass-approvals-and-sandbox` 后通过 | `images/codex/real-whoami.jpg` |
 | 豆包工作 | 豆包 2.35.8（工作模式） | 桌面客户端 | ✅ 通过 | `images/doubao/real-whoami.jpg` |
@@ -39,20 +39,21 @@
 
 ## 结论
 
-- 4/4 完成：WorkBuddy、DeepSeek Harness、豆包工作、Codex（Codex 需放宽沙箱）。
+- 4/4 完成：WorkBuddy、DeepSeek Harness、豆包工作、Codex（Codex 需放宽沙箱）。WorkBuddy 另完成 0.9.4 的 schema、表格 API、订阅、导出和浏览器兜底回归，详细清单见 [internal-capability-test-results.md](../internal-capability-test-results.md)。
 - 共同前提：CLI 已安装到 `~/.local/bin/shimo-net`，已完成 `shimo-net login`，Keychain 有有效会话。
 
 ## 当前场景的验收状态
 
-当前场景是**功能范围**，不等于全部能力都已完成可复核验收。当前真实账号回归的覆盖情况：
+当前场景是**功能范围**，具体结果按 API、页面操作和人工禁用三类记录：
 
 | 状态 | 场景 |
 |---|---|
 | 真实验证过基础管理命令 | 找文件、看目录、文件出处、导入、拉取、新建、改名、删除/回收站/恢复、权限巡检、读正文、周报（`ls --since 7d`）、附件下载、上传、常用别名 |
-| 部分验证 / 待补 | 10 批量改权限（权限变更已调整为 CLI 禁止处理，需打开石墨网页逐项人工确认；指定成员授权同样需网页操作） |
-| 未单独验收的边界 | `open`、`logout`、`--relogin` 的完整交互 |
+| 页面操作 | 历史、文字/段落、评论添加、冻结/排序/筛选、数据验证、打印等由内联浏览器 computer-use 完成，并返回截图 |
+| 严格人工 | 文件锁定、限制编辑、高级权限、成员级授权、彻底删除；CLI 拒绝处理 |
+| 需用户参数 | 单元格历史必须先说明行号和列号；订阅更新先列文件，再按序号打开 |
 
-结论：基础管理命令已有真实账号回归记录；当前能力矩阵中的编辑器与协作场景仍需按具体套件、文件和页面入口补充逐项截图/JSON 记录，不能据此宣称全部能力已验收。
+结论：0.9.4 的 API 入口和浏览器兜底规则已在 WorkBuddy 本地包回归；页面动作仍以截图作为结果证据，严格人工项不会由 CLI 代办。
 
 
 ### 本轮补充记录（2026-11-11）
