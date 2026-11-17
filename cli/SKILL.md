@@ -2,7 +2,7 @@
 name: shimo-net-cli
 description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
 whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
-version: 0.9.6
+version: 0.9.7
 agent_created: true
 ---
 
@@ -45,7 +45,7 @@ shimo-net init --origin https://<客户域名>
 | 上传（问位置） | `shimo-net upload <文件> [--to desktop\|空间\|文件夹\|@别名]` |
 | 导入+权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
 | 拉取 | `shimo-net pull <链接> [--out <目录>] --json` |
-| 新建 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>` |
+| 新建 | `shimo-net new <名称> --type doc\|docx\|sheet\|slide --to <位置>`；`doc`=文档，`docx`=文稿（documentPro） |
 | 新建文件夹 | `shimo-net mkdir <名称> --to <父文件夹\|@别名>` |
 | 改名 | `shimo-net rename <链接> <新名字>` |
 | 删除/回收站/恢复 | `delete`（只进回收站） / `trash` / `restore`；彻底删除不提供，需网页手动操作 |

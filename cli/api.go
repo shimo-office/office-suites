@@ -23,8 +23,12 @@ var shareModes = map[string]string{
 var importTypes = map[string]string{"md": "document", "doc": "documentPro", "docx": "documentPro",
 	"xls": "spreadsheet", "xlsx": "spreadsheet", "ppt": "presentation", "pptx": "presentation"}
 
-var createTypes = map[string]string{"doc": "document", "document": "document", "sheet": "spreadsheet",
-	"spreadsheet": "spreadsheet", "slide": "presentation", "presentation": "presentation",
+var createTypes = map[string]string{"doc": "document", "document": "document",
+	// 文稿（Word 类在线文档）与轻文档是两种类型：文档 = document，文稿 = documentPro。
+	"docx": "documentPro", "docpro": "documentPro", "documentpro": "documentPro",
+	"word": "documentPro", "文稿": "documentPro",
+	"sheet": "spreadsheet", "spreadsheet": "spreadsheet",
+	"slide": "presentation", "presentation": "presentation",
 	"table": "table", "form": "form", "mindmap": "mindmap", "flowchart": "flowchart"}
 
 var typeRoute = map[string]string{"document": "docs", "documentPro": "docx", "spreadsheet": "sheets",

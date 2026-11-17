@@ -16,3 +16,14 @@ func TestDefaultBrowserFlagParsing(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateTypesIncludeDocumentPro(t *testing.T) {
+	if createTypes["doc"] != "document" {
+		t.Fatalf("doc = %q", createTypes["doc"])
+	}
+	for _, alias := range []string{"docx", "docpro", "documentpro", "word", "文稿"} {
+		if createTypes[alias] != "documentPro" {
+			t.Fatalf("%s = %q, want documentPro", alias, createTypes[alias])
+		}
+	}
+}

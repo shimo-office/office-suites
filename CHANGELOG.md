@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.7 — 2026-11-17
+
+### 新增
+
+- `new` 支持新建空白**文稿**（`documentPro`）：`--type docx`、`docpro`、`documentpro`、`word`、`文稿` 均可；`--type doc` 仍然是轻文档（`document`）。
+- 文稿创建走 `GET /api/v1/files/create/documentPro`，返回 `/docx/<guid>`；`info` 显示 `type=documentPro`、`typeLabel=文稿`。
+
+### 验证
+
+- `shimo-net new "验证文稿" --type docx --to <文件夹>` 返回 `type: documentPro`、`typeLabel: 文稿`、`url: https://shimo.net/docx/<guid>`；`info` 一致；测试文稿已移入回收站。
+
+
 ## 0.9.6 — 2026-11-17
 
 ### 修复

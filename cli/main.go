@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const version = "0.9.6"
+const version = "0.9.7"
 
 func main() {
 	app := newApp(os.Args[1:])

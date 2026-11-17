@@ -1,6 +1,6 @@
 # shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、50 项能力**。当前版本 **0.9.6**，Go 单二进制。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、50 项能力**。当前版本 **0.9.7**，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain（Windows 为 Credential Manager）；过期就地重登。
@@ -106,7 +106,7 @@ shimo-net logout
 | 3 | 文件出处（类型 / 权限 / 路径） | `shimo-net info <链接\|@别名>` |
 | 4 | 导入 + 权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
 | 5 | 拉取文件夹 | `shimo-net pull <链接\|@别名> [--out <目录>] [--since 7d]`（省略时 `./shimo-pull`） |
-| 6 | 新建空白文档 / 表格 / 幻灯片 / 文件夹 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>`、`shimo-net mkdir <名称> --to <父文件夹>` |
+| 6 | 新建空白文档 / 文稿 / 表格 / 幻灯片 / 文件夹 | `shimo-net new <名称> --type doc\|docx\|sheet\|slide --to <位置>`、`shimo-net mkdir <名称> --to <父文件夹>`；`doc`=文档（document），`docx`=文稿（documentPro） |
 | 7 | 改名 | `shimo-net rename <链接> "<新名字>"` |
 | 8 | 删除 / 回收站 / 恢复 | `shimo-net delete`（只进回收站）、`trash`、`restore`；彻底删除到石墨网页手动操作 |
 | 9 | 权限巡检 | `shimo-net audit <文件夹\|@别名> [--limit 200]` |

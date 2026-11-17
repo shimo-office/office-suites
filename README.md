@@ -69,7 +69,7 @@ shimo-net login
 | 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
 | 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
 
-当前版本为 **0.9.6**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
+当前版本为 **0.9.7**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
 
 ---
 
@@ -193,7 +193,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 | 文件出处 | `shimo-net info <链接\|@别名>` |
 | 导入 + 权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
 | 拉取文件夹 | `shimo-net pull <链接\|@别名> [--out <目录>] [--since 7d]`（省略 `--out` 时用 `./shimo-pull`） |
-| 新建 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>` |
+| 新建 | `shimo-net new <名称> --type doc\|docx\|sheet\|slide --to <位置>`；`doc`=文档，`docx`=文稿 |
 | 改名 | `shimo-net rename <链接> "<新名字>"` |
 | 删除 / 回收站 / 恢复 | `shimo-net delete`、`shimo-net trash`、`shimo-net restore <guid>` |
 | 权限巡检 | `shimo-net audit <文件夹\|@别名> [--limit 200]` |

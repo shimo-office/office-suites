@@ -16,7 +16,7 @@ func schema() map[string]any {
 		{"name": "info", "usage": "shimo-net info <链接|guid|@别名>", "desc": "文件类型/权限/所在路径"},
 		{"name": "upload", "usage": "shimo-net upload <本地文件> [--to desktop|空间|文件夹|@别名]", "desc": "原样上传云文件；不给 --to 会列出可选位置"},
 		{"name": "import", "usage": "shimo-net import <本地文件> --to <位置> [--title NAME]", "desc": "md→文档, doc→文稿, xlsx→表格, pptx→幻灯片；权限需人工页面操作"},
-		{"name": "new", "usage": "shimo-net new <name> [--type doc|sheet|slide] [--to <位置>]", "desc": "新建空白文件"},
+		{"name": "new", "usage": "shimo-net new <name> [--type doc|docx|sheet|slide] [--to <位置>]", "desc": "新建空白文件；doc=文档（document），docx=文稿（documentPro）"},
 		{"name": "mkdir", "usage": "shimo-net mkdir <名称> [--to <父文件夹|@别名>]", "desc": "新建文件夹"},
 		{"name": "rename", "usage": "shimo-net rename <链接|guid|@别名> <新名字>", "desc": "改名"},
 		{"name": "share", "usage": "shimo-net share …", "desc": "已禁用；限制编辑、高级权限、成员级授权必须人工页面操作"},
@@ -75,7 +75,7 @@ func helpText() string {
   shimo-net upload <本地文件> [--to <位置>]          14 上传（不给 --to 会问：桌面/空间/文件夹）
   shimo-net import <本地文件> --to <位置>            4 导入并转在线文档；权限需页面人工操作
   shimo-net pull <文件夹|空间> [--out <目录>]          5 拉取（默认全部；--limit N 可限制）
-  shimo-net new <名称> [--type doc|sheet|slide]      6 新建
+  shimo-net new <名称> [--type doc|docx|sheet|slide]  6 新建（doc=文档，docx=文稿）
   shimo-net mkdir <名称> [--to <父文件夹>]             6 新建文件夹
   shimo-net rename <链接> <新名字>                   7 改名
   shimo-net delete / trash / restore                 8 删除（只进回收站）/ 回收站 / 恢复

@@ -1,5 +1,18 @@
 # 内部真实回归结果
 
+## 2026-11-17 0.9.7 文稿补测
+
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| 新建空白文稿 | `new "验证文稿" --type docx --to M12Y8VYXolUbK5Wg --json` | 通过：`type=documentPro`、`typeLabel=文稿`、`url=/docx/9qK56V5wwRUDoGWb` |
+| 文稿信息 | `info 9qK56V5wwRUDoGWb --json` | 通过：`type=documentPro`、`typeLabel=文稿` |
+| 类型别名 | `docx` / `docpro` / `documentpro` / `word` / `文稿` | 均映射 `documentPro` |
+| 轻文档不受影响 | `new ... --type doc` | 仍为 `document`，走 `/docs/<guid>`（既有回归） |
+| 清理 | `delete 9qK56V5wwRUDoGWb` | 已移入回收站 |
+
+结论：空白文稿已支持；`--type doc` 是文档（`document`），`--type docx` 是文稿（`documentPro`），两者类型和 URL 路由都不同。
+
+
 ## 2026-11-17 0.9.6 一二期真实回归
 
 测试环境：macOS、Google Chrome 157、shimo.net 公有云、WorkBuddy 5.11.3。WorkBuddy 已安装技能 `~/.workbuddy/skills/shimo-net-cli`，二进制与 `SKILL.md` 已同步到 0.9.6；CLI 由本仓库 `cli` 构建。
@@ -41,7 +54,7 @@
 | 5 | 导入并转在线文档 | 通过 | `import 验证文档.md --to M12Y8VYXolUbK5Wg` → `docs/VWwQZXQeO2TrDeq3` |
 | 6 | 设置权限（7 档） | 人工页面 | `share` 明确拒绝；按设计必须网页人工确认 |
 | 7 | 整个文件夹拉取 | 通过 | `pull M12Y8VYXolUbK5Wg --out /tmp/verify/pull` 下载 2 个文件并生成 `manifest.json` |
-| 8 | 新建空白文件 | 通过 | `new 验证表格 --type sheet` → `sheets/mqAD2JDw8pCYyw1E`；`mkdir` 新建「二期」→ `folder/rlvQlJLljpmieaq2` |
+| 8 | 新建空白文件 | 通过 | `new 验证表格 --type sheet` → `sheets/mqAD2JDw8pCYyw1E`；`new 验证文稿 --type docx` → `docx/9qK56V5wwRUDoGWb`；`mkdir` 新建「二期」→ `folder/rlvQlJLljpmieaq2` |
 | 9 | 改名 | 通过 | `rename VWwQZXQeO2TrDeq3 "验证文档-改名"`，链接不变 |
 | 10 | 删除到回收站 | 通过 | `delete VWwQZXQeO2TrDeq3`，提示可 `restore` |
 | 11 | 回收站列表 | 通过 | `trash --json` 共 268 项，能按 guid 找到刚删除的文档 |
