@@ -135,6 +135,7 @@ func (a *App) cmdWhoami() error {
 	if err != nil {
 		return err
 	}
+	me = deepRepairMojibake(me).(map[string]any)
 	if a.JSON {
 		return a.printJSON(me)
 	}

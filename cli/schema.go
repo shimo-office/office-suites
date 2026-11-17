@@ -17,6 +17,7 @@ func schema() map[string]any {
 		{"name": "upload", "usage": "shimo-net upload <本地文件> [--to desktop|空间|文件夹|@别名]", "desc": "原样上传云文件；不给 --to 会列出可选位置"},
 		{"name": "import", "usage": "shimo-net import <本地文件> --to <位置> [--title NAME]", "desc": "md→文档, doc→文稿, xlsx→表格, pptx→幻灯片；权限需人工页面操作"},
 		{"name": "new", "usage": "shimo-net new <name> [--type doc|sheet|slide] [--to <位置>]", "desc": "新建空白文件"},
+		{"name": "mkdir", "usage": "shimo-net mkdir <名称> [--to <父文件夹|@别名>]", "desc": "新建文件夹"},
 		{"name": "rename", "usage": "shimo-net rename <链接|guid|@别名> <新名字>", "desc": "改名"},
 		{"name": "share", "usage": "shimo-net share …", "desc": "已禁用；限制编辑、高级权限、成员级授权必须人工页面操作"},
 		{"name": "audit", "usage": "shimo-net audit <文件夹|@别名> [--limit 200]", "desc": "权限巡检"},
@@ -30,6 +31,7 @@ func schema() map[string]any {
 		{"name": "open", "usage": "shimo-net open <链接|guid|@别名> [--default]", "desc": "打开链接；默认使用 CLI 已登录的 Chrome 配置，--default 使用操作系统默认浏览器"},
 		{"name": "phase2", "usage": "shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH]", "desc": "调用同源 API；表格格式/合并/读写直接走稳定接口，其他编辑动作按需使用页面操作"},
 		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "扫描逐文件订阅状态，列出最近更新文件并可打开浏览器"},
+		{"name": "session", "usage": "shimo-net session <status|harvest> [--no-save]", "desc": "查看登录态来源；从本机 Chrome 复用登录态"},
 		{"name": "whoami", "usage": "shimo-net whoami [--json]", "desc": "当前账号"},
 		{"name": "doctor", "usage": "shimo-net doctor [--json]", "desc": "自检（运行时/Chrome/凭据/origin）"},
 	}
@@ -41,7 +43,7 @@ func schema() map[string]any {
 		"commands":   cmds,
 		"shareModes": keys(shareModes), "shareModeLabels": shareModes,
 		"importTypes": importTypes, "createTypes": createTypes,
-		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 49, "manualOnly": manualOnlyOperations,
+		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 50, "manualOnly": manualOnlyOperations,
 		"phase2":        map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list", "sheet-format", "sheet-merge", "sheet-values", "sheet-update"}, "transport": "same-origin-api", "fallback": "没有对应 API 的操作优先使用 agent 内联浏览器；没有内联浏览器时用 shimo-net open <链接> 注入 Keychain 会话，再由 computer-use 操作"},
 		"subscriptions": map[string]any{"status": "supported", "endpoint": "GET /api/v1/files/{fileGuid}/update_subscription", "mode": "scan accessible files; no server-side all-subscriptions endpoint"},
 		"errors":        map[string]any{"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
@@ -65,6 +67,7 @@ func helpText() string {
   shimo-net login [--origin URL]                   登录（Chrome → macOS Keychain / Windows 凭据管理器）
   shimo-net logout                                 退出并删除本机凭据
   shimo-net whoami | doctor                        账号 / 自检
+  shimo-net session status|harvest                 查看登录态来源 / 从 Chrome 复用登录态
   shimo-net search <关键词> [--limit 20]            1 搜索
   shimo-net spaces [--limit 300]                   2 我的空间清单
   shimo-net ls <链接|@别名> [--since 7d]             2/12 列目录
@@ -73,6 +76,7 @@ func helpText() string {
   shimo-net import <本地文件> --to <位置>            4 导入并转在线文档；权限需页面人工操作
   shimo-net pull <文件夹|空间> [--out <目录>]          5 拉取（默认全部；--limit N 可限制）
   shimo-net new <名称> [--type doc|sheet|slide]      6 新建
+  shimo-net mkdir <名称> [--to <父文件夹>]             6 新建文件夹
   shimo-net rename <链接> <新名字>                   7 改名
   shimo-net delete / trash / restore                 8 删除（只进回收站）/ 回收站 / 恢复
   shimo-net audit <文件夹|@别名> [--limit 200]        9 权限巡检（默认 200，可能截断）

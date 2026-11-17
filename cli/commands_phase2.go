@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -89,7 +90,14 @@ func (a *App) cmdPhase2() error {
 		if guid == "" {
 			return errors.New("表格 API 动作需要包含文件 guid 的石墨链接")
 		}
-		value, err = a.runPhase2HTTP(guid, method, args)
+		if action == "sheet-format" {
+			// The attrs endpoint silently drops some attributes when several are
+			// sent together (for example background + color). Apply one attribute
+			// at a time so every requested property is actually persisted.
+			value, err = a.runSheetFormat(guid, args)
+		} else {
+			value, err = a.runPhase2HTTP(guid, method, args)
+		}
 		if err == nil && shot != "" {
 			_, err = runPhase2Browser(target, "browser.verify", nil, shot)
 		}
@@ -133,6 +141,19 @@ func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The spreadsheet API addresses cells as "<工作表名>!A1:C1".  Accept the
+	// friendlier {"sheetName":"工作表1","range":"A1:C1"} form and normalize it;
+	// a bare "A1:C1" is rejected by the server with a generic 400.
+	if strings.Contains(path, "/sheets/") {
+		if name := strings.TrimSpace(str(payload, "sheetName")); name != "" {
+			if rng := strings.TrimSpace(str(payload, "range")); rng != "" && !strings.Contains(rng, "!") {
+				payload["range"] = name + "!" + rng
+			}
+		}
+		if rng := strings.TrimSpace(str(payload, "range")); rng != "" && !strings.Contains(rng, "!") {
+			return nil, errors.New("range 必须带工作表名，例如 \"工作表1!A1:C1\"，或在 payload 中提供 sheetName")
+		}
+	}
 	if httpMethod == "POSTROW" || httpMethod == "DELETEROW" {
 		sheetName := strings.TrimSpace(str(payload, "sheetName"))
 		index := strings.TrimSpace(str(payload, "index"))
@@ -173,6 +194,43 @@ func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
 		return r.Data, nil
 	}
 	return map[string]any{"status": r.Status}, nil
+}
+
+func (a *App) runSheetFormat(guid string, args []any) (any, error) {
+	payload, err := phase2ObjectArg(args)
+	if err != nil {
+		return nil, err
+	}
+	rangeValue := strings.TrimSpace(str(payload, "range"))
+	sheetName := strings.TrimSpace(str(payload, "sheetName"))
+	if sheetName != "" && rangeValue != "" && !strings.Contains(rangeValue, "!") {
+		rangeValue = sheetName + "!" + rangeValue
+	}
+	if rangeValue == "" || !strings.Contains(rangeValue, "!") {
+		return nil, errors.New("sheet-format 的 range 必须带工作表名，例如 \"工作表1!A1:C1\"，或在 payload 中提供 sheetName")
+	}
+	attrs, ok := payload["attrs"].(map[string]any)
+	if !ok || len(attrs) == 0 {
+		return nil, errors.New("sheet-format 必须在 attrs 中提供至少一个属性，例如 {\"background\":\"#D32F2F\"}")
+	}
+	keys := make([]string, 0, len(attrs))
+	for k := range attrs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	applied := make([]string, 0, len(keys))
+	for _, key := range keys {
+		body := map[string]any{"range": rangeValue, "attrs": map[string]any{key: attrs[key]}}
+		r, err := a.authRequestPath("/lizard-api/files/"+url.PathEscape(guid)+"/sheets/attrs", "POST", body, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		if r.Status < 200 || r.Status >= 300 {
+			return nil, fmt.Errorf("sheet-format 设置 %s 失败：HTTP %d %s", key, r.Status, snippet(r.Raw))
+		}
+		applied = append(applied, key)
+	}
+	return map[string]any{"range": rangeValue, "applied": applied}, nil
 }
 
 func phase2ObjectArg(args []any) (map[string]any, error) {
@@ -223,12 +281,16 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(profilePath(), 0o700); err != nil {
+	// Use a throw-away profile for visual verification: the sheet editor keeps
+	// a rendered snapshot in the persistent CLI profile, so reusing it can
+	// produce a screenshot of the pre-write state even after the API succeeded.
+	profile, err := os.MkdirTemp("", "shimo-net-verify-")
+	if err != nil {
 		return nil, err
 	}
-	portFile := filepath.Join(profilePath(), "DevToolsActivePort")
-	_ = os.Remove(portFile)
-	cmd := exec.Command(chrome, "--no-first-run", "--no-default-browser-check", "--user-data-dir="+profilePath(), "--remote-debugging-port=0", target)
+	defer os.RemoveAll(profile)
+	portFile := filepath.Join(profile, "DevToolsActivePort")
+	cmd := exec.Command(chrome, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--user-data-dir="+profile, "--remote-debugging-port=0", target)...)
 	cmd.Stdout, cmd.Stderr = nil, nil
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("启动浏览器失败：%w", err)
@@ -260,12 +322,15 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	// cookie value is never included in command output or error messages.
 	// Never send the stored session to a different host supplied on the
 	// command line. Private deployments use their configured origin here.
-	if cookie, err := readCookie(); err == nil && sameCookieHost(target) {
+	if cookie, err := authCookie(); err == nil && sameCookieHost(target) {
 		if err := setCookies(ws, target, cookie); err == nil {
 			_, _ = ws.Call(102, "Page.reload", map[string]any{"ignoreCache": true}, 10*time.Second)
-			time.Sleep(1200 * time.Millisecond)
 		}
 	}
+	// A screenshot taken before the editor mounts is a blank white image and
+	// must not be accepted as visual proof.  Wait for a real document body
+	// before running the action or capturing the result.
+	waitPageReady(ws, 30*time.Second)
 	argsJSON, _ := json.Marshal(args)
 	expr := phase2Expression(method, string(argsJSON), guidFromURL(target))
 	var value any
@@ -315,7 +380,7 @@ func sameCookieHost(target string) bool {
 
 func phase2Expression(method, argsJSON, guid string) string {
 	if method == "browser.verify" {
-		return `(async()=>{const path=location.pathname||"";const text=document.body?.innerText||"";if(path==="/login"||text.includes("验证码登录")||text.includes("欢迎使用石墨办公"))return {ok:false,error:"页面未登录，无法完成视觉核验"};return {ok:true};})()`
+		return `(async()=>{const path=location.pathname||"";const text=(document.body?.innerText||"").trim();if(path==="/login"||text.includes("验证码登录")||text.includes("欢迎使用石墨办公"))return {ok:false,error:"页面未登录，无法完成视觉核验"};if(document.readyState!=="complete")return {ok:false,error:"页面尚未渲染完成，不能作为视觉核验证据"};if(!document.querySelector("canvas")&&text.length<20)return {ok:false,error:"页面尚未渲染完成，不能作为视觉核验证据"};return {ok:true,textLength:text.length,canvas:document.querySelectorAll("canvas").length};})()`
 	}
 	if strings.HasPrefix(method, "api:") {
 		endpoint := map[string]string{
@@ -357,13 +422,34 @@ func setCookies(ws *WSConn, target, raw string) error {
 		if len(kv) != 2 || kv[0] == "" {
 			continue
 		}
-		cookies = append(cookies, map[string]any{"name": kv[0], "value": kv[1], "url": target})
+		cookies = append(cookies, map[string]any{
+			"name": kv[0], "value": kv[1], "url": target,
+			"path": "/", "httpOnly": true, "secure": strings.HasPrefix(target, "https://"),
+		})
 	}
 	if len(cookies) == 0 {
 		return nil
 	}
 	_, err := ws.Call(100, "Network.setCookies", map[string]any{"cookies": cookies}, 10*time.Second)
 	return err
+}
+
+func waitPageReady(ws *WSConn, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	id := 900
+	for time.Now().Before(deadline) {
+		res, err := ws.Call(id, "Runtime.evaluate", map[string]any{
+			"expression":    `document.readyState==="complete" && (document.querySelector("canvas")!=null || (document.body?.innerText||"").trim().length>=20)`,
+			"returnByValue": true,
+		}, 5*time.Second)
+		id++
+		if err == nil {
+			if result, ok := res["result"].(map[string]any); ok && boolv(result, "value") {
+				return
+			}
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
 }
 
 func capturePhase2Screenshot(ws *WSConn, path string) error {

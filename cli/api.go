@@ -105,7 +105,7 @@ func (a *App) requestURL(u, method string, body any, raw []byte, headers map[str
 }
 
 func (a *App) authRequest(path, method string, body any, raw []byte, headers map[string]string) (*Response, error) {
-	cookie, err := readCookie()
+	cookie, err := authCookie()
 	if err != nil {
 		return nil, err
 	}
@@ -114,13 +114,21 @@ func (a *App) authRequest(path, method string, body any, raw []byte, headers map
 		return nil, err
 	}
 	if r.Status == 401 {
+		// The cached Keychain cookie can be stale while the user is still signed
+		// in inside Chrome.  Re-harvest once before asking for a manual login.
+		if fresh, harvestErr := harvestChromeSession(true); harvestErr == nil && fresh != "" && fresh != cookie {
+			_ = writeCred(a.Origin, fresh)
+			if r2, err2 := a.request(path, method, body, raw, headers, fresh); err2 == nil && r2.Status != 401 {
+				return r2, nil
+			}
+		}
 		return nil, errors.New("登录已过期（HTTP 401）：请先运行 shimo-net login")
 	}
 	return r, nil
 }
 
 func (a *App) authRequestPath(path, method string, body any, raw []byte, headers map[string]string) (*Response, error) {
-	cookie, err := readCookie()
+	cookie, err := authCookie()
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +137,12 @@ func (a *App) authRequestPath(path, method string, body any, raw []byte, headers
 		return nil, err
 	}
 	if r.Status == 401 {
+		if fresh, harvestErr := harvestChromeSession(true); harvestErr == nil && fresh != "" && fresh != cookie {
+			_ = writeCred(a.Origin, fresh)
+			if r2, err2 := a.requestPath(path, method, body, raw, headers, fresh); err2 == nil && r2.Status != 401 {
+				return r2, nil
+			}
+		}
 		return nil, errors.New("登录已过期（HTTP 401）：请先运行 shimo-net login")
 	}
 	return r, nil

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.6 — 2026-11-17
+
+### 修复
+
+- 登录态不再要求用户二次登录：Keychain 没有会话时，自动从本机 Chrome / Chromium / Edge / Brave 的已登录配置复用 shimo.net 会话，验证后写回 Keychain（写回失败时回退到 0600 文件）。
+- 注入浏览器时使用完整 cookie jar（sid 之外的 `smdev-ws-route`、`deviceId` 等一起注入），并保留 HttpOnly/Secure 属性，避免“只注入 sid 仍然未登录”。
+- `open --default` 在默认浏览器为 Chromium 内核时，使用 CLI 专用配置启动并注入会话；非 Chromium 浏览器如实提示无法注入。
+- 修复 `whoami` 中 `editionName` 等字段的双重编码乱码（例如 `ä¼ä¸šé«˜çº§ç‰ˆ` → `企业高级版`）。
+- 修复 Keychain 写入失败后 0600 文件凭据被旧 Keychain 条目遮蔽的问题；现在优先使用实际带有 cookie 的文件凭据。
+
+### 新增
+
+- `shimo-net session status|harvest`：查看登录态来源，或手动从浏览器复用会话；`--no-save` 只验证不写入。
+- `shimo-net mkdir <名称> [--to <父文件夹>]`：新建文件夹；能力清单更新为 28 个场景、50 项能力。
+- `SHIMO_NET_STATE_DIR` / `SHIMO_NET_KEYCHAIN_SERVICE` 测试隔离变量；`SHIMO_NET_DISABLE_HARVEST=1` 可关闭浏览器复用。
+
+### 验证
+
+- 在 Keychain 无会话、仅 Chrome 已登录的环境下，`whoami` 自动复用 Chrome 会话并返回账号；`open --default` 注入后页面直接进入目标文件夹，不再出现登录页。
+- `go test ./...`、`go vet ./...`、CLI 构建通过。
+
+
 ## 0.9.5 — 2026-11-17
 
 ### 修复

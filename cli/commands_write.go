@@ -218,6 +218,42 @@ func (a *App) cmdNew() error {
 	return nil
 }
 
+func (a *App) cmdMkdir() error {
+	if len(a.Pos) == 0 {
+		return errors.New("用法：shimo-net mkdir <文件夹名> [--to <父文件夹|@别名>]")
+	}
+	name := a.Pos[0]
+	parent, err := a.resolveTarget(firstNonEmpty(a.opt("--to"), "desktop"))
+	if err != nil {
+		return err
+	}
+	r, err := a.authRequest("/files/create/folder?parentGuid="+url.QueryEscape(parent)+"&name="+url.QueryEscape(name), "GET", nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	if r.Status != 302 {
+		return fmt.Errorf("新建文件夹失败：HTTP %d %s", r.Status, snippet(r.Raw))
+	}
+	loc := r.Header.Get("location")
+	m := regexp.MustCompile(`/folder/([A-Za-z0-9]+)`).FindStringSubmatch(loc)
+	if len(m) != 2 {
+		return fmt.Errorf("新建成功但没解析到 guid：%s", loc)
+	}
+	guid := m[1]
+	info, err := a.fileInfo(guid)
+	if err != nil {
+		return err
+	}
+	o := map[string]any{"ok": true, "name": firstNonEmpty(str(info, "name"), name), "guid": guid, "type": "folder",
+		"typeLabel": "文件夹", "url": a.urlOf(withGUID(info, guid)), "parent": parent}
+	if a.JSON {
+		return a.printJSON(o)
+	}
+	fmt.Printf("已新建文件夹：%s\n", str(o, "name"))
+	fmt.Printf("链接：%s\n", str(o, "url"))
+	return nil
+}
+
 func (a *App) renameFile(guid, name string) (map[string]any, error) {
 	r, err := a.authRequest("/files/"+url.PathEscape(guid), "PATCH", map[string]any{"name": name}, nil, nil)
 	if err != nil {

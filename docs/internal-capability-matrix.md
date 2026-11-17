@@ -1,6 +1,6 @@
 # 内部能力确认矩阵
 
-本表汇总当前 Go CLI `0.9.4` 已支持的 28 个场景和 49 项能力。表中的“API”指已在石墨编辑器 API 文档中确认的接口；已封装能力直接由 CLI 调用，未提供稳定接口的功能仍走页面操作。
+本表汇总当前 Go CLI `0.9.6` 已支持的 28 个场景和 50 项能力。表中的“API”指已在石墨编辑器 API 文档中确认的接口；已封装能力直接由 CLI 调用，未提供稳定接口的功能仍走页面操作。
 
 已核对的后端接口：[获取文件内容中所有的 @ 人信息列表](https://support.shimo.net/apidoc/docs-site/6000018/api-3470923)、[获取文档中的评论列表](https://support.shimo.net/apidoc/docs-site/6000018/co1.8.20260630/api-3470916)。
 
@@ -8,7 +8,7 @@
 
 - 基础文件管理、权限读取/巡检、读写和下载能力已经由 REST `/api/v1` 命令覆盖，见 [cli/README.md](../cli/README.md) 和 `shimo-net schema`。涉及人员、权限变更和不可逆动作的高风险操作严格保留给网页人工处理。
 - 当前真实回归确认：`phase2` 的同源 API 读取可用；页面 SDK 动作在当前页面未暴露 `globalThis.sdk`，统一转网页 computer-use。`phase2` 是现有兼容命令名。
-- 没有已确认 API 的项目优先使用 agent 内联浏览器；没有内联浏览器时使用 `shimo-net open <链接>`，由 CLI 专用浏览器注入 Keychain 会话后按 `shimo.net/desktop` 的可访问性树或 DOM 完成操作，再返回截图路径。`--default` 仅作最后兜底。
+- 没有已确认 API 的项目优先使用宿主 Agent 内联浏览器；WorkBuddy 先启用官方市场 `agent-browser` 技能。没有内联浏览器时使用 `shimo-net open <链接> --default`，由 CLI 在可安全注入的默认 Chromium 隔离配置中带入 Keychain 会话，再按 `shimo.net/desktop` 的可访问性树或 DOM 完成操作并返回截图路径。
 - SDK 只在编辑器页面和支持的桌面版本中可用。页面没有暴露 SDK、方法不存在或运行时抛错时，CLI 会返回浏览器兜底提示，不会伪造成功。
 
 ## 已支持场景
@@ -20,6 +20,8 @@
 | 拉取、上传、下载、周报 | 已支持 | `pull`、`upload`、`get`、`ls --since` + `read` |
 | 删除/回收站/恢复、权限巡检、批量改权限 | 删除/回收站/恢复、巡检已支持；权限变更人工 | `delete`、`trash`、`restore`、`audit`；批量权限页面人工操作 |
 | 常用位置别名 | 已支持 | `fav add/rm/show/list` |
+| 新建文件夹 | 已支持 | `mkdir <名称> --to <父文件夹>` |
+| 登录态复用 | 已支持 | `session status/harvest`；Keychain 空时自动从 Chrome 复用 |
 
 ## 编辑器与协作能力（30 项）
 
@@ -55,7 +57,7 @@
 | 表格·算与看数 | 透视表 | 网页操作 | 当前资料未确认透视表 API | 网页创建后截图 |
 | 表格·算与看数 | 排序、筛选、分组 | 网页操作 | 表格排序/筛选菜单 | 返回范围并截图 |
 | 表格·校验与格式 | 数据验证 | 网页操作 | 表格数据验证菜单 | 读回规则并截图 |
-| 表格·校验与格式 | 单元格格式、字体、边框、单元格底色 | API 可用 | `POST /lizard-api/files/{fileGuid}/sheets/attrs`；CLI `sheet-format` | 用 `range` + `attrs` 调用后导出或网页截图核验 |
+| 表格·校验与格式 | 单元格格式、字体、边框、单元格底色 | API 可用 | `POST /lizard-api/files/{fileGuid}/sheets/attrs`；CLI `sheet-format` | `range` 必须带工作表名（如 `工作表1!A1:C1`）；多属性由 CLI 拆分逐项写入，导出 xlsx 或截图核验 |
 | 表格·校验与格式 | 合并单元格 | API 可用 | `POST /lizard-api/files/{fileGuid}/sheets/mergeCells`；CLI `sheet-merge` | 用 `sheet-merge` 调用后网页截图核验 |
 | 表格·校验与格式 | 行高列宽、数据验证 | 网页操作 | 当前对外稳定 API 未统一 | 由内联浏览器/computer-use 操作并截图 |
 | 表格·输出 | 导出与打印 | API 可用 + 网页操作 | [创建导出任务 API](https://support.shimo.net/apidoc/docs-site/6000018/co1.8.20260630/api-3470892) `POST /sdk/v2/api/files/v1/export/{fileId}` 为异步任务；CLI 的 `get` / `pull` 已通过导出 API 下载在线文件；打印走页面入口 | 导出任务完成后下载 `data.downloadUrl`；打印前截图 |
@@ -96,7 +98,7 @@ shimo-net subscriptions --open 1
 ## 浏览器兜底协议
 
 1. 先执行 `shimo-net whoami --json`；401 或未登录时执行 `shimo-net login`，成功后重试原命令。
-2. agent 优先使用内联浏览器；没有内联浏览器时使用 `shimo-net open <链接>`，CLI 专用浏览器会读取 Keychain 并通过 CDP 注入 cookie。`shimo-net open <链接> --default` 只作为最后兜底，连接操作系统已运行的默认浏览器，无法安全地把 cookie 注入任意现有进程；若仍无登录态，让用户在该浏览器登录一次。
+2. agent 优先使用内联浏览器；WorkBuddy 没有内置网页操作能力时，先引导安装并启用官方市场 `agent-browser` 技能。确认宿主没有内联浏览器后才使用 `shimo-net open <链接> --default`，CLI 会读取 Keychain 并在可安全注入的默认 Chromium 隔离配置中带入 cookie；若默认浏览器不是 Chromium，无法安全注入时如实报告，不打印 sid/cookie。
 3. 按已实测的套件入口操作：轻文档顶部有“正文、字体、字号、插入、评论”；表格菜单有“冻结、排序、筛选、条件格式、数据验证、版本管理、评论”；幻灯片菜单有“编辑、插入、格式、动画、排列、设计、幻灯片、视图、演示、审阅、工具”。同时以当前页面可访问性名称为准，不依赖猜测的 CSS 选择器。
 4. 普通网页写操作（编辑、评论、打印）先向用户确认目标、范围和影响，再执行；上述五类高风险操作必须交由人工页面完成。完成后保存页面截图并返回绝对路径。
 5. 页面无权限、API 未开放或控件名称随版本变化时如实报告，并保留失败截图/页面地址，不能声称操作成功。

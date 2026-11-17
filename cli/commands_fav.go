@@ -172,7 +172,33 @@ func (a *App) cmdOpen() error {
 		}
 		target = a.urlOf(withGUID(info, guid))
 	}
+	// Resolve the session before launching anything, so opening a browser does
+	// not show a login page and then reload after the cookie is injected.
+	_, _ = authCookie()
 	if a.has("--default") {
+		if bin, label := defaultChromiumBinary(); bin != "" {
+			if err := os.MkdirAll(profilePath(), 0o700); err == nil {
+				portFile := filepath.Join(profilePath(), "DevToolsActivePort")
+				_ = os.Remove(portFile)
+				cmd := exec.Command(bin, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--user-data-dir="+profilePath(), "--remote-debugging-port=0", target)...)
+				cmd.Stdout, cmd.Stderr = nil, nil
+				if err := cmd.Start(); err == nil {
+					injected := injectManagedCookie(target, portFile)
+					o := map[string]any{"ok": true, "url": target, "mode": "default", "browser": label,
+						"launcher": bin, "profile": "managed", "sessionInjected": injected,
+						"note": "系统默认浏览器 + CLI 专用配置，已注入 Keychain 会话，无需二次登录"}
+					if a.JSON {
+						return a.printJSON(o)
+					}
+					if injected {
+						fmt.Printf("已用系统默认浏览器（%s，已注入登录态）打开：%s\n", label, target)
+					} else {
+						fmt.Printf("已用系统默认浏览器（%s）打开：%s（未注入会话，可能需要登录）\n", label, target)
+					}
+					return nil
+				}
+			}
+		}
 		cmd, launcher, err := defaultBrowserCommand(target)
 		if err != nil {
 			return err
@@ -183,11 +209,12 @@ func (a *App) cmdOpen() error {
 		}
 		if a.JSON {
 			return a.printJSON(map[string]any{
-				"ok": true, "url": target, "mode": "default", "launcher": launcher,
-				"note": "用操作系统默认浏览器打开",
+				"ok": true, "url": target, "mode": "default", "launcher": launcher, "sessionInjected": false,
+				"note": "该默认浏览器不是 Chromium 内核，无法安全注入 cookie；如未登录请在页面内登录一次",
 			})
 		}
 		fmt.Printf("已用系统默认浏览器打开：%s\n", target)
+		fmt.Println("提示：该浏览器不是 Chromium 内核，无法注入登录态；如未登录请在页面内登录一次，或使用 shimo-net open（专用配置已注入）。")
 		return nil
 	}
 
@@ -200,7 +227,7 @@ func (a *App) cmdOpen() error {
 	}
 	portFile := filepath.Join(profilePath(), "DevToolsActivePort")
 	_ = os.Remove(portFile)
-	cmd := exec.Command(chrome, "--no-first-run", "--no-default-browser-check", "--user-data-dir="+profilePath(), "--remote-debugging-port=0", target)
+	cmd := exec.Command(chrome, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--user-data-dir="+profilePath(), "--remote-debugging-port=0", target)...)
 	cmd.Stdout, cmd.Stderr = nil, nil
 	if err := cmd.Start(); err != nil {
 		return err
@@ -221,11 +248,11 @@ func (a *App) cmdOpen() error {
 // A failure to attach CDP is non-fatal: the page remains open and the caller
 // can use its own browser login flow.
 func injectManagedCookie(target, portFile string) bool {
-	cookie, err := readCookie()
+	cookie, err := authCookie()
 	if err != nil || !sameCookieHost(target) {
 		return false
 	}
-	port, err := waitDevToolsPort(portFile, 5*time.Second)
+	port, err := waitDevToolsPort(portFile, 10*time.Second)
 	if err != nil {
 		return false
 	}
@@ -250,6 +277,57 @@ func injectManagedCookie(target, portFile string) bool {
 	_, _ = ws.Call(3, "Page.reload", map[string]any{"ignoreCache": true}, 10*time.Second)
 	time.Sleep(1200 * time.Millisecond)
 	return true
+}
+
+// defaultChromiumBinary returns the system default browser when it is a
+// Chromium-family browser that can accept a DevTools session injection.
+func defaultChromiumBinary() (string, string) {
+	switch runtime.GOOS {
+	case "darwin":
+		switch defaultBrowserBundleID() {
+		case "com.google.chrome":
+			return browserBinary("chrome"), "Chrome"
+		case "com.microsoft.edgemac":
+			return browserBinary("edge"), "Microsoft Edge"
+		case "com.brave.browser":
+			return browserBinary("brave"), "Brave"
+		case "org.chromium.chromium":
+			return browserBinary("chromium"), "Chromium"
+		case "com.vivaldi.vivaldi":
+			return browserBinary("vivaldi"), "Vivaldi"
+		}
+	case "linux":
+		out, _ := exec.Command("xdg-settings", "get", "default-web-browser").Output()
+		s := strings.ToLower(string(out))
+		switch {
+		case strings.Contains(s, "brave"):
+			return browserBinary("brave"), "Brave"
+		case strings.Contains(s, "edge"):
+			return browserBinary("edge"), "Microsoft Edge"
+		case strings.Contains(s, "chromium"):
+			return browserBinary("chromium"), "Chromium"
+		case strings.Contains(s, "chrome"):
+			return browserBinary("chrome"), "Chrome"
+		}
+	}
+	return "", ""
+}
+
+func defaultBrowserBundleID() string {
+	out, err := exec.Command("defaults", "read", "com.apple.LaunchServices/com.apple.launchservices.secure", "LSHandlers").Output()
+	if err != nil {
+		return ""
+	}
+	re := regexp.MustCompile(`LSHandlerRoleAll\s*=\s*"?([^";]+)"?`)
+	for _, block := range strings.Split(string(out), "}") {
+		if !strings.Contains(block, "https") {
+			continue
+		}
+		if m := re.FindStringSubmatch(block); len(m) == 2 {
+			return strings.TrimSpace(m[1])
+		}
+	}
+	return ""
 }
 
 func defaultBrowserCommand(target string) (*exec.Cmd, string, error) {
