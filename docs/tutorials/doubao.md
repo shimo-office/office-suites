@@ -17,7 +17,7 @@
 ```text
 请帮我完成 shimo-net 的安装和配置，不要让我手动开终端：
 1. 先检查本机是否已安装 shimo-net CLI；已安装就直接使用，不要重复安装。
-2. 没有安装的话，帮我安装；只有本机确实没有可用 CLI 时，再从 GitHub Releases 的 latest 版本安装。
+2. 没有安装的话，帮我安装；如果安装后仍没有可用的 CLI，再从 GitHub Releases 的 latest 版本安装。
 3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
 如果配置失败，返回完整错误信息。
 ```

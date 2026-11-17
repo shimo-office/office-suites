@@ -23,7 +23,7 @@
 请帮我完成 shimo-net 的安装和配置，不要让我手动开终端：
 1. 先检查官方市场版 shimo-net 技能是否已安装；已安装就直接使用，不要重复安装。
 2. 没有安装的话，帮我安装官方市场版技能。
-3. 只有本机确实没有可用技能时，再从 GitHub Releases 的 latest 版本安装 CLI。
+3. 如果安装后仍没有可用的 shimo-net CLI，再从 GitHub Releases 的 latest 版本安装。
 4. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
 如果配置失败，返回完整错误信息。
 ```
