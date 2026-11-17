@@ -15,7 +15,7 @@
 
 - 任务：`用 shimo-net 执行 whoami --json 验证连通；只回复「已连通，账号可用」`
 - 结果：12 秒完成，回复「已连通，账号可用」，没有输出账号明细。
-- 说明：WorkBuddy 能直接执行本机 `~/.local/bin/shimo-net`，并读取 Keychain；使用官方市场版 shimo-net 技能。
+- 说明：WorkBuddy 能直接执行本机 `~/.local/bin/shimo-net`，并读取 Keychain；使用官方市场版 shimo-net-cli 技能。
 - 截图：`images/workbuddy/real-installed.jpg`（市场技能已安装）、`images/workbuddy/real-whoami.jpg`（执行结果）。
 
 ## 2. DeepSeek Harness

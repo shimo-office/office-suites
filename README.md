@@ -75,7 +75,7 @@ shimo-net login
 
 ## 在 Agent 里怎么用
 
-CLI 仓库提供通用技能定义 [cli/SKILL.md](cli/SKILL.md)，供没有官方市场技能的 Agent 使用。WorkBuddy 已上线官方市场技能，直接安装市场版本即可，不需要上传或复制仓库里的自定义技能。
+CLI 仓库提供通用技能定义 [cli/SKILL.md](cli/SKILL.md)，供没有官方市场技能的 Agent 使用。WorkBuddy 已上线官方市场版 shimo-net-cli 技能，直接安装市场版本即可，不需要上传或复制仓库里的自定义技能。
 
 ### 1. 安装技能
 
@@ -90,7 +90,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 新开一个会话，技能会按描述自动加载。
 </details>
 
-> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。先检查本机是否已安装 shimo-net 技能（WorkBuddy 为官方市场版，其他 Agent 为各自技能目录）；已安装就直接使用，没有就安装；只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 Releases latest 安装。手工步骤只作为兜底。
+> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。先检查本机是否已安装 shimo-net-cli 技能（WorkBuddy 为官方市场版，其他 Agent 为各自技能目录）；已安装就直接使用，没有就安装；只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 Releases latest 安装。手工步骤只作为兜底。
 
 <details>
 <summary><b>Codex</b></summary>

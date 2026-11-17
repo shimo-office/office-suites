@@ -18,7 +18,7 @@
 
 ## 一句话让 Agent 自己配置
 
-每篇教程开头都有一段可直接复制给 Agent 的 prompt。先检查本机是否已安装 shimo-net 技能：WorkBuddy 为官方市场版，Codex/DSH 为各自技能目录；已安装就直接使用，没有就安装。只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 latest 安装。手工步骤只作为兜底。
+每篇教程开头都有一段可直接复制给 Agent 的 prompt。先检查本机是否已安装 shimo-net-cli 技能：WorkBuddy 为官方市场版，Codex/DSH 为各自技能目录；已安装就直接使用，没有就安装。只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 latest 安装。手工步骤只作为兜底。
 
 ## 客户独立验收路径
 
