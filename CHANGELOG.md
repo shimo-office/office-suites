@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.8 — 2026-11-17
+
+### 修复
+
+- `phase2` 新增 `--no-verify` / `--no-browser` / `SHIMO_NET_NO_BROWSER=1`：表格 API 写入后跳过 CLI 本地 Chrome 核验，返回 `verified:false`、`verifyWith:"agent-browser"`，由 WorkBuddy 内置浏览器打开 `url` 截图。避免 WorkBuddy 里 Chrome 反复开关、Chrome 意外退出，以及 `RlzStore.plist` 的“删除文件命中询问规则”。
+- 带 `--no-verify` 调用页面类动作时明确报错并提示改用内置浏览器，不再启动本地 Chrome。
+
+
 ## 0.9.7 — 2026-11-17
 
 ### 新增

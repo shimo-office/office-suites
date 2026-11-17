@@ -69,7 +69,7 @@ shimo-net login
 | 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
 | 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
 
-当前版本为 **0.9.7**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
+当前版本为 **0.9.8**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
 
 ---
 
