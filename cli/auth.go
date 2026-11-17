@@ -13,7 +13,14 @@ import (
 	"time"
 )
 
-const keychainService = "shimo-net-cli"
+const defaultKeychainService = "shimo-net-cli"
+
+var keychainService = func() string {
+	if v := strings.TrimSpace(os.Getenv("SHIMO_NET_KEYCHAIN_SERVICE")); v != "" {
+		return v
+	}
+	return defaultKeychainService
+}()
 
 type Cred struct {
 	Origin  string `json:"origin,omitempty"`
@@ -26,11 +33,14 @@ func credSource() string {
 	if os.Getenv("SHIMO_NET_COOKIE") != "" {
 		return "env"
 	}
-	if keychainAvailable() && keychainLoad() != "" {
-		return "keychain"
-	}
+	// A 0600 file is only written when Keychain storage is unavailable (for
+	// example inside a sandbox).  Prefer it when it actually holds a cookie so
+	// a stale Keychain entry cannot shadow a freshly harvested session.
 	if c := readCredFile(); c != nil && c.Cookie != "" {
 		return "file"
+	}
+	if keychainAvailable() && keychainLoad() != "" {
+		return "keychain"
 	}
 	return ""
 }
@@ -51,13 +61,13 @@ func readCookie() (string, error) {
 	if c := os.Getenv("SHIMO_NET_COOKIE"); c != "" {
 		return c, nil
 	}
+	if c := readCredFile(); c != nil && c.Cookie != "" {
+		return c.Cookie, nil
+	}
 	if keychainAvailable() {
 		if c := keychainLoad(); c != "" {
 			return c, nil
 		}
-	}
-	if c := readCredFile(); c != nil && c.Cookie != "" {
-		return c.Cookie, nil
 	}
 	return "", errors.New("未登录：请先运行 shimo-net login")
 }
@@ -90,6 +100,14 @@ func clearCred() {
 	if keychainAvailable() {
 		keychainClear()
 	}
+}
+
+func chromeLaunchArgs(extra ...string) []string {
+	args := []string{}
+	if os.Getenv("SHIMO_NET_NO_SANDBOX") != "" {
+		args = append(args, "--no-sandbox", "--disable-gpu")
+	}
+	return append(args, extra...)
 }
 
 func findChrome() (string, error) {
@@ -130,6 +148,19 @@ func (a *App) cmdLogin() error {
 	if err := saveConfig(a.Origin); err != nil {
 		return err
 	}
+	// If the user is already signed in inside Chrome, reuse that session
+	// instead of opening a second login window.  `login --new` deliberately
+	// skips the bridge so the user can switch accounts.
+	if !a.has("--new") {
+		if cookie, err := harvestChromeSession(true); err == nil && cookie != "" {
+			if me, err := a.usersMeWithCookie(cookie); err == nil {
+				_ = writeCred(a.Origin, cookie)
+				fmt.Printf("已复用本机 Chrome 登录态：%s <%s>\n", str(me, "name"), str(me, "email"))
+				fmt.Println("如需切换账号，请先运行 shimo-net logout，再运行 shimo-net login --new")
+				return nil
+			}
+		}
+	}
 	chrome, err := findChrome()
 	if err != nil {
 		return err
@@ -139,12 +170,9 @@ func (a *App) cmdLogin() error {
 	}
 	portFile := filepath.Join(profilePath(), "DevToolsActivePort")
 	_ = os.Remove(portFile)
-	args := []string{"--no-first-run", "--no-default-browser-check",
-		"--user-data-dir=" + profilePath(), "--remote-debugging-port=0",
-		"--app=" + a.Origin + "/login"}
-	if os.Getenv("SHIMO_NET_NO_SANDBOX") != "" {
-		args = append([]string{"--no-sandbox", "--disable-gpu"}, args...)
-	}
+	args := chromeLaunchArgs("--no-first-run", "--no-default-browser-check",
+		"--user-data-dir="+profilePath(), "--remote-debugging-port=0",
+		"--app="+a.Origin+"/login")
 	fmt.Printf("产品网址：%s\n", a.Origin)
 	fmt.Printf("正在打开 Chrome，请在窗口里用你自己的账号登录 %s…\n", a.Origin)
 	cmd := exec.Command(chrome, args...)

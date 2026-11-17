@@ -175,16 +175,16 @@ func (a *App) cmdImport() error {
 
 func (a *App) cmdNew() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net new <名称> [--type doc|sheet|slide] [--to <文件夹|@别名>]")
+		return errors.New("用法：shimo-net new <名称> [--type doc|docx|sheet|slide] [--to <文件夹|@别名>]（doc=文档，docx=文稿）")
 	}
 	name := a.Pos[0]
-	typ := a.opt("--type")
+	typ := strings.ToLower(strings.TrimSpace(a.opt("--type")))
 	if typ == "" {
 		typ = "doc"
 	}
 	shimoType := createTypes[typ]
 	if shimoType == "" {
-		return fmt.Errorf("不支持的新建类型：%s（可用：doc / sheet / slide）", typ)
+		return fmt.Errorf("不支持的新建类型：%s（可用：doc=文档 / docx=文稿 / sheet=表格 / slide=幻灯片）", typ)
 	}
 	parent, err := a.resolveTarget(firstNonEmpty(a.opt("--to"), "desktop"))
 	if err != nil {
@@ -215,6 +215,42 @@ func (a *App) cmdNew() error {
 	fmt.Printf("新建完成：%s（%s）\n", str(o, "name"), str(o, "typeLabel"))
 	fmt.Printf("链接：%s\n", str(o, "url"))
 	fmt.Printf("当前权限：%s\n", str(o, "shareMode"))
+	return nil
+}
+
+func (a *App) cmdMkdir() error {
+	if len(a.Pos) == 0 {
+		return errors.New("用法：shimo-net mkdir <文件夹名> [--to <父文件夹|@别名>]")
+	}
+	name := a.Pos[0]
+	parent, err := a.resolveTarget(firstNonEmpty(a.opt("--to"), "desktop"))
+	if err != nil {
+		return err
+	}
+	r, err := a.authRequest("/files/create/folder?parentGuid="+url.QueryEscape(parent)+"&name="+url.QueryEscape(name), "GET", nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	if r.Status != 302 {
+		return fmt.Errorf("新建文件夹失败：HTTP %d %s", r.Status, snippet(r.Raw))
+	}
+	loc := r.Header.Get("location")
+	m := regexp.MustCompile(`/folder/([A-Za-z0-9]+)`).FindStringSubmatch(loc)
+	if len(m) != 2 {
+		return fmt.Errorf("新建成功但没解析到 guid：%s", loc)
+	}
+	guid := m[1]
+	info, err := a.fileInfo(guid)
+	if err != nil {
+		return err
+	}
+	o := map[string]any{"ok": true, "name": firstNonEmpty(str(info, "name"), name), "guid": guid, "type": "folder",
+		"typeLabel": "文件夹", "url": a.urlOf(withGUID(info, guid)), "parent": parent}
+	if a.JSON {
+		return a.printJSON(o)
+	}
+	fmt.Printf("已新建文件夹：%s\n", str(o, "name"))
+	fmt.Printf("链接：%s\n", str(o, "url"))
 	return nil
 }
 

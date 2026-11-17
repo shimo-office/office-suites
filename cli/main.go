@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const version = "0.9.5"
+const version = "0.9.7"
 
 func main() {
 	app := newApp(os.Args[1:])
@@ -114,6 +114,7 @@ func dispatch(a *App) map[string]func() error {
 		"share": a.cmdShare, "audit": a.cmdAudit, "delete": a.cmdDelete, "trash": a.cmdTrash,
 		"restore": a.cmdRestore, "purge": a.cmdPurge, "read": a.cmdRead, "pull": a.cmdPull,
 		"get": a.cmdGet, "fav": a.cmdFav, "open": a.cmdOpen, "phase2": a.cmdPhase2, "subscriptions": a.cmdSubscriptions,
+		"mkdir": a.cmdMkdir, "session": a.cmdSession,
 	}
 }
 

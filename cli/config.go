@@ -25,6 +25,9 @@ func homeDir() string {
 }
 
 func stateDir() string {
+	if v := strings.TrimSpace(os.Getenv("SHIMO_NET_STATE_DIR")); v != "" {
+		return v
+	}
 	if runtime.GOOS == "windows" {
 		if d, err := os.UserConfigDir(); err == nil && d != "" {
 			return filepath.Join(d, "shimo-net-cli")

@@ -99,7 +99,7 @@ func TestRunPhase2HTTPFormatsCells(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatal(err)
 		}
-		if body["range"] != "A1:C1" {
+		if body["range"] != "工作表1!A1:C1" {
 			t.Fatalf("range = %#v", body["range"])
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -107,8 +107,9 @@ func TestRunPhase2HTTPFormatsCells(t *testing.T) {
 	defer srv.Close()
 	a := &App{Origin: srv.URL}
 	value, err := a.runPhase2HTTP("demo", phase2Actions["sheet-format"], []any{map[string]any{
-		"range": "A1:C1",
-		"attrs": map[string]any{"background": "#D32F2F", "bold": true},
+		"range":     "A1:C1",
+		"sheetName": "工作表1",
+		"attrs":     map[string]any{"background": "#D32F2F", "bold": true},
 	}})
 	if err != nil {
 		t.Fatal(err)

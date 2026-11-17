@@ -46,6 +46,8 @@ shimo-net login
 
 > 安装器会把命令放到 `~/.local/bin/shimo-net`（Windows 为 `%LOCALAPPDATA%\shimo-net\shimo-net.exe`）。有 Go 时本地构建；没有 Go 时自动下载 [release](https://github.com/shimo-office/office-suites/releases) 里的对应平台二进制。如果提示找不到命令，把安装目录加进 `PATH`。
 
+> **已经在 Chrome 里登录过？** 0.9.6 会在 Keychain 没有会话时自动复用 Chrome / Chromium / Edge / Brave 的登录态，验证后写回 Keychain；`shimo-net open <链接>` 和 `--default` 都会注入完整 cookie jar，不需要再登录一次。手动检查：`shimo-net session status --json`。
+
 **客户私有部署**只改网址，不另装一套：
 
 ```bash
@@ -67,7 +69,7 @@ shimo-net login
 | 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
 | 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
 
-当前版本为 **0.9.5**，可用的 28 个场景（覆盖 49 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
+当前版本为 **0.9.7**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
 
 ---
 
@@ -175,8 +177,14 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 
 ## 常用命令
 
+### 页面操作与浏览器优先级
+
+涉及文字、段落、评论、历史、预览、打印或其他没有稳定 API 的操作时，Agent 必须先检查宿主是否有内置浏览器。WorkBuddy 使用官方市场的 **agent-browser** 技能：先安装并启用它，再在内置浏览器打开文件并用网页操作完成动作、返回截图。内置浏览器可用时不要运行 `shimo-net open`，也不要直接弹出系统默认浏览器。
+
+只有确认宿主没有内置浏览器时，才使用 `shimo-net open <链接> --default` 作为本机默认浏览器兜底。CLI 会读取本机 Keychain / Credential Manager 并在可安全注入的 Chromium 隔离配置中带入登录态；不会输出 sid/cookie。WorkBuddy 已有官方市场技能时，不要上传或复制仓库里的 `cli/SKILL.md`。
+
 <details>
-<summary><b>展开完整命令表（28 个场景，49 项能力）</b></summary>
+<summary><b>展开完整命令表（28 个场景，50 项能力）</b></summary>
 
 | 场景 | 命令 |
 |---|---|
@@ -185,7 +193,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 | 文件出处 | `shimo-net info <链接\|@别名>` |
 | 导入 + 权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
 | 拉取文件夹 | `shimo-net pull <链接\|@别名> [--out <目录>] [--since 7d]`（省略 `--out` 时用 `./shimo-pull`） |
-| 新建 | `shimo-net new <名称> --type doc\|sheet\|slide --to <位置>` |
+| 新建 | `shimo-net new <名称> --type doc\|docx\|sheet\|slide --to <位置>`；`doc`=文档，`docx`=文稿 |
 | 改名 | `shimo-net rename <链接> "<新名字>"` |
 | 删除 / 回收站 / 恢复 | `shimo-net delete`、`shimo-net trash`、`shimo-net restore <guid>` |
 | 权限巡检 | `shimo-net audit <文件夹\|@别名> [--limit 200]` |
@@ -268,7 +276,7 @@ flowchart LR
   S -->|链接 · 文件 · 权限| C
 ```
 
-`shimo-net` 是石墨办公 CLI：直连 `/api/v1`，把 28 个常用场景和 49 项能力封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
+`shimo-net` 是石墨办公 CLI：直连 `/api/v1`，把 28 个常用场景和 50 项能力封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
 
 ---
 

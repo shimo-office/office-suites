@@ -121,6 +121,18 @@ WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制�
 
 ![WorkBuddy 已安装技能](images/workbuddy/real-installed.jpg)
 
+### 启用内置浏览器
+
+没有 API 的页面操作（例如文字/段落格式、历史、评论添加、表格冻结排序和打印）需要 WorkBuddy 的网页操作能力。请在「专家 · 技能 · 连接器 → 技能 → 已安装」确认官方 **agent-browser** 技能已安装并打开开关。它是 WorkBuddy 的内置浏览器能力，负责打开页面、点击菜单、输入内容和截图。
+
+Agent 执行页面操作时遵循以下顺序：
+
+1. 已启用 `agent-browser`：直接在 WorkBuddy 内置浏览器打开石墨文件并操作，不能先运行 `shimo-net open`。
+2. 未安装或未启用：先询问「是否允许我安装并启用 WorkBuddy 市场的官方 agent-browser 技能？」；用户允许后再安装/启用并验证一次打开、点击和截图能力，完成后继续任务。技能已经安装时只开启开关，不重复安装。
+3. 用户允许但宿主确认没有内置浏览器：才运行 `shimo-net open <链接> --default` 调起本机默认浏览器。CLI 会尝试注入本机 Keychain 登录态；不能安全注入时如实提示并保留页面结果。用户拒绝安装/启用时，不要擅自弹出外部浏览器。
+
+`shimo-net` 无法从命令行强制创建 WorkBuddy 内置浏览器，也不能把仓库里的自定义 `cli/SKILL.md` 当作 Computer Use 安装。内置浏览器是 WorkBuddy 的宿主技能，市场技能安装并启用后才可用。
+
 判断标准是市场版 shimo-net 技能出现在「已安装」并处于启用状态；不需要检查 `~/.workbuddy/skills/`，也不要安装仓库自定义技能。
 
 装好之后不需要每次手动挑技能：在任务里直接写「用 shimo-net …」，Agent 会按技能描述自动调用。后面的任务都是这种方式。
@@ -175,7 +187,7 @@ WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制�
 | 03 | 文件出处 | 这份文档在哪个空间、谁有权限：<链接> | `shimo-net info <链接> --json` |
 | 04 | 导入并设权限 | 把这份 docx 导到「交付」文件夹，权限到石墨网页人工设置 | `shimo-net import ./file.docx --to <文件夹> --json`，再打开页面人工操作 |
 | 05 | 拉取文件夹 | 把这个文件夹拉到本地 ./交付 | `shimo-net pull <链接> --out ./交付 --json` |
-| 06 | 新建文档 | 在桌面新建一个文档，叫「会议纪要」 | `shimo-net new "会议纪要" --type doc --to desktop --json` |
+| 06 | 新建文档 / 文稿 | 在桌面新建一个文档，叫「会议纪要」；文稿用 `--type docx` | `shimo-net new "会议纪要" --type doc --to desktop --json`；`shimo-net new "周报" --type docx --to desktop --json` |
 | 07 | 改名 | 把「会议纪要」改名为「周会纪要」 | `shimo-net rename <链接> "周会纪要" --json` |
 | 08 | 删除/恢复 | 把这份文档移到回收站；再恢复 | `shimo-net delete <链接>` / `shimo-net restore <guid>` |
 | 09 | 权限巡检 | 看看这个文件夹里哪些是公开的 | `shimo-net audit <文件夹> --json` |
@@ -205,12 +217,12 @@ WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制�
 
 ```bash
 shimo-net phase2 <表格链接> --action sheet-format \
-  --payload '{"range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}' --json
+  --payload '{"sheetName":"工作表1","range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}' --json
 shimo-net phase2 <表格链接> --action sheet-merge \
   --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
 ```
 
-如果某项页面功能没有对应 API，Agent 应打开内联浏览器并用 computer-use 操作页面；没有内联浏览器时使用 `shimo-net open <链接>`，CLI 会复用 Keychain 会话。
+如果某项页面功能没有对应 API，Agent 应先确认 `agent-browser` 已启用，然后打开 WorkBuddy 内置浏览器并用网页操作完成；未启用时先询问用户是否允许安装/启用，获得允许后再继续。用户拒绝且宿主没有内置浏览器时，停止页面操作；用户允许但宿主仍无内置浏览器时才使用 `shimo-net open <链接> --default`。CLI 会复用 Keychain 会话，不输出 sid/cookie。
 
 ## 8. 验收清单
 
