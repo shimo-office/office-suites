@@ -11,11 +11,12 @@
 - 验证文件夹：<https://shimo.net/folder/M12Y8VYXolUbK5Wg>（内含文档、云文件和表格）
 - 验证文档：<https://shimo.net/docs/VWwQZXQeO2TrDeq3>
 - 验证表格：<https://shimo.net/sheets/mqAD2JDw8pCYyw1E>
-- 二期演示视频：<https://shimo.net/folder/rlvQlJLljpmieaq2>（28 个 14 秒 WorkBuddy 高保真 MOV + 说明文档 + 总览图 + 封面 + H5 源包 zip，共 32 项）
+- 二期演示视频：<https://shimo.net/folder/rlvQlJLljpmieaq2>（28 个 14 秒 WorkBuddy 高保真 MOV + 说明文档 + 总览图 + 封面 + manifest + H5 源包 zip，共 33 项）
 - 表格格式截图：[sheet-format.png](images/0.9.6/sheet-format.png)
 - 文档页面截图：[doc.png](images/0.9.6/doc.png)
 - 文件夹页面截图：[folder.png](images/0.9.6/folder.png)
 - WorkBuddy 演示画面：[workbuddy-demo.png](images/0.9.6/workbuddy-demo.png)
+- 二期文件夹列表：[final-folder.png](images/0.9.6/final-folder.png)
 
 ### 登录态桥接（本轮修复重点）
 
