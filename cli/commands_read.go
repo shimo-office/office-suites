@@ -156,12 +156,18 @@ func (a *App) usersMe() (map[string]any, error) {
 }
 
 func (a *App) cmdDoctor() error {
+	// Resolve the effective session first.  On a machine that only has a Chrome
+	// login, this triggers the browser bridge before the checks are built.
+	_, _ = authCookie()
 	chrome, _ := findChrome()
 	storageLabel := "macOS Keychain"
 	if runtime.GOOS == "windows" {
 		storageLabel = "Windows Credential Manager"
 	}
 	storage := map[string]string{"keychain": storageLabel, "file": "本机文件 0600", "env": "环境变量 SHIMO_NET_COOKIE"}[credSource()]
+	if storage == "" {
+		storage = "浏览器复用（Chrome/Chromium）"
+	}
 	if storage == "" {
 		storage = "未登录"
 	}
@@ -182,7 +188,7 @@ func (a *App) cmdDoctor() error {
 	add("chrome", chrome != "", chrome)
 	_, originErr := normalizeOrigin(a.Origin)
 	add("origin", originErr == nil, a.Origin)
-	add("credentials", credSource() != "", storage)
+	add("credentials", storage != "未登录", storage)
 	account := ""
 	if me, err := a.usersMe(); err == nil {
 		account = fmt.Sprintf("%s <%s>（id %s）", str(me, "name"), str(me, "email"), str(me, "id"))
