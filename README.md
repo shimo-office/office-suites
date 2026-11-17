@@ -75,7 +75,7 @@ shimo-net login
 
 ## 在 Agent 里怎么用
 
-CLI 仓库提供通用技能定义 [cli/SKILL.md](cli/SKILL.md)，供没有官方市场技能的 Agent 使用。WorkBuddy 已上线官方市场版 shimo-net-cli 技能，直接安装市场版本即可，不需要上传或复制仓库里的自定义技能。
+CLI 仓库提供通用技能定义 [cli/SKILL.md](cli/SKILL.md)，供没有 SkillHub 技能的 Agent 使用。WorkBuddy 的 shimo-net-cli 技能发布在 SkillHub（不在内置技能市场），从 SkillHub 分享页安装即可，不需要上传或复制仓库里的自定义技能。
 
 ### 1. 安装技能
 
@@ -90,7 +90,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 新开一个会话，技能会按描述自动加载。
 </details>
 
-> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。先检查本机是否已安装 shimo-net-cli 技能（WorkBuddy 为官方市场版，其他 Agent 为各自技能目录）；已安装就直接使用，没有就安装；只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 Releases latest 安装。手工步骤只作为兜底。
+> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。先检查本机是否已安装 shimo-net-cli 技能（WorkBuddy 为 SkillHub 版，其他 Agent 为各自技能目录）；已安装就直接使用，没有就安装；只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 Releases latest 安装。手工步骤只作为兜底。
 
 <details>
 <summary><b>Codex</b></summary>
@@ -110,7 +110,7 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 <details>
 <summary><b>WorkBuddy</b></summary>
 
-打开 [WorkBuddy 市场技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)，点击安装；也可以在 WorkBuddy 左侧栏「专家 · 技能 · 连接器」→「技能」中打开该市场链接安装。安装后在「已安装」里确认市场技能已启用，不需要上传 `cli/SKILL.md`。
+打开 [SkillHub 分享页](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)，点击安装；也可以在 WorkBuddy 左侧栏「专家 · 技能 · 连接器」→「技能」的 SkillHub 入口打开。安装后在「已安装」里确认 shimo-net-cli 已启用，不需要上传 `cli/SKILL.md`。
 </details>
 
 <details>
