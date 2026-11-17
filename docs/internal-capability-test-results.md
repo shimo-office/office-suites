@@ -4,6 +4,29 @@
 测试环境：macOS、当前 Codex 会话、本机 Keychain 登录态、shimo.net 公有云。  
 测试二进制：`/tmp/shimo-net-current`，由当前 `cli` 源码构建。
 
+## 2026-11-17 WorkBuddy 本地 0.9.4 回归
+
+WorkBuddy 使用本地构建包 `/tmp/shimo-net-cli-0.9.4-local.zip` 安装技能，CLI 版本和 schema 均已切换到 `0.9.4`。以下清单记录本轮真实执行结果；账号、cookie 和 sid 不写入报告。
+
+| 检查项 | 命令/动作 | 结果 |
+|---|---|---|
+| 版本 | `shimo-net version --json` | 通过，`0.9.4` |
+| 能力清单 | `shimo-net schema --json` | 通过，28 场景、49 能力、22 扩展动作 |
+| 登录态 | `shimo-net whoami --json` | 通过，WorkBuddy 会话可用 |
+| 表格写入 | `sheet-update`、`sheet-append` | 通过，同源表格 API |
+| 表格行操作 | `sheet-insert`、`sheet-delete` | 通过，同源表格 API |
+| 表格整理 | `sheet-freeze`、`sheet-sort`、`sheet-filter` | 页面操作入口已确认；由 computer-use 完成 |
+| 表格校验/格式 | `sheet-validation`、`sheet-format`、`sheet-merge` | 格式/合并 API 通过；数据验证页面操作 |
+| 留痕与版本 | `save-version`、`history-show` | 页面操作入口已确认；由 computer-use 完成 |
+| 文本查找替换 | `find`、`replace-all` | 页面操作入口已确认；由 computer-use 完成 |
+| 页面设置/输出 | `page-width`、`print` | 页面操作入口已确认；由 computer-use 完成 |
+| 订阅 | `subscriptions --json`、`subscriptions --open` | 通过；先列文件，再按用户选择打开 |
+| 文件导出 | `get <文件> --out <目录>` | 通过，使用异步导出 API |
+| 浏览器兜底 | `open <文件>`、`open --default` | 通过；优先注入 Keychain 会话，默认浏览器为最后兜底 |
+| 高风险项 | `share`、`purge`、锁定/限制编辑/成员授权 | 通过拒绝；必须人工网页操作 |
+
+单元格历史仍要求用户先提供行号和列号；没有 API 的文字、段落、评论添加、打印等动作不会由 CLI 伪造成功，统一交给 Agent 浏览器人工操作并返回截图。
+
 ## 结论
 
 - REST/API 能力可用：登录态、@人列表、评论列表、订阅扫描、在线文件导出、默认浏览器唤起均已验证。
