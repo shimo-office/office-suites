@@ -6,7 +6,7 @@ description_zh: 操作 shimo.net（含客户私有部署）时使用：用 shimo
 description_en: Use the shimo-net CLI for shimo.net (including private deployments) to search files and spaces, upload or import, pull or download, audit permissions, create or rename, read documents, and save favorite folders. High-risk permission changes and irreversible actions must be done in the Shimo web UI.
 description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
 whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
-version: 0.9.9
+version: 0.9.10
 agent_created: true
 ---
 
@@ -84,6 +84,16 @@ shimo-net init --origin https://<客户域名>
 6. 用户提过的常用文件夹用 `fav add` 记成 `@别名`，下次直接用。
 
 ## 编辑器与协作能力
+
+### 宿主浏览器预检（WorkBuddy 必做）
+
+如果宿主声称有内置浏览器（WorkBuddy 的 `agent-browser`），在第一次执行表格/页面任务前必须预检，不能直接跑 `phase2`：
+
+1. `agent-browser --version`；不存在时先询问用户，安装/启用官方 `agent-browser` 插件，并执行它的 setup。
+2. 只装 npm 包不算完成，必须运行 `agent-browser install` 下载浏览器运行时。
+3. 用 `agent-browser open https://example.com && agent-browser screenshot /tmp/agent-browser-check.png && agent-browser close` 验证；截图文件必须存在。
+4. 打开石墨页面确认不是登录页；登录态问题先解决，不能把登录页截图当成功。
+5. 预检失败时报告缺少的依赖/错误，并询问用户是否允许退回 `shimo-net open` 本地浏览器；不要静默退回。
 
 ### 宿主浏览器与 Computer Use 优先级
 

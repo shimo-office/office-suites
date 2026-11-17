@@ -25,6 +25,7 @@
 2. 没有安装的话，帮我从 SkillHub 安装 shimo-net-cli 技能，不要在 WorkBuddy 内置技能市场里找。
 3. 如果安装后仍没有可用的 shimo-net CLI，再从 GitHub Releases 的 latest 版本安装。
 4. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
+5. 如果本机有内置浏览器能力（WorkBuddy 的 agent-browser），先主动安装/启用插件和浏览器运行时，并用一次 open + screenshot 确认可用；确认前不要执行石墨操作。
 如果配置失败，返回完整错误信息。
 ```
 
@@ -124,6 +125,18 @@ shimo-net-cli 发布在 **SkillHub**，不在 WorkBuddy 内置的「技能市场
 ### 启用内置浏览器
 
 没有 API 的页面操作（例如文字/段落格式、历史、评论添加、表格冻结排序和打印）需要 WorkBuddy 的网页操作能力。请在「专家 · 技能 · 连接器 → 技能 → 已安装」确认官方 **agent-browser** 技能已安装并打开开关。它是 WorkBuddy 的内置浏览器能力，负责打开页面、点击菜单、输入内容和截图。
+
+先做内置浏览器预检，确认 `agent-browser` 真的可用：
+
+```bash
+agent-browser --version
+agent-browser open https://example.com
+agent-browser screenshot /tmp/agent-browser-check.png
+agent-browser close
+test -s /tmp/agent-browser-check.png
+```
+
+如果 `agent-browser` 不存在：在 WorkBuddy「专家 · 技能 · 连接器 → 技能」安装/启用官方 `agent-browser`（插件会自动跑 setup）；或手动执行 `npm install -g agent-browser && agent-browser install`。只装 npm 包不算完成，必须下载浏览器运行时，并以截图文件存在为准。预检通过后再跑表格/页面任务；预检失败先报告缺哪个依赖，不要静默退回本地 Chrome。
 
 Agent 执行页面操作时遵循以下顺序：
 

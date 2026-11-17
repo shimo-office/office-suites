@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"runtime"
 	"sort"
 	"strings"
@@ -171,7 +172,8 @@ func (a *App) cmdDoctor() error {
 	if storage == "" {
 		storage = "未登录"
 	}
-	o := map[string]any{"version": version, "runtime": runtime.Version(), "chrome": chrome, "home": stateDir(),
+	agentBrowser, _ := exec.LookPath("agent-browser")
+	o := map[string]any{"version": version, "runtime": runtime.Version(), "chrome": chrome, "agentBrowser": agentBrowser, "home": stateDir(),
 		"origin": a.Origin, "originSource": a.OriginSource, "configFile": nil, "credentialsFile": nil, "storage": storage}
 	if _, err := os.Stat(configPath()); err == nil {
 		o["configFile"] = configPath()
@@ -217,7 +219,7 @@ func (a *App) cmdDoctor() error {
 		}
 		return nil
 	}
-	for _, k := range []string{"version", "runtime", "chrome", "home", "origin", "originSource", "configFile", "credentialsFile", "storage", "account"} {
+	for _, k := range []string{"version", "runtime", "chrome", "agentBrowser", "home", "origin", "originSource", "configFile", "credentialsFile", "storage", "account"} {
 		if v := o[k]; v != nil {
 			fmt.Printf("%s: %v\n", k, v)
 		}

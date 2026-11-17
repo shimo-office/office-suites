@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.10 — 2026-11-17
+
+### 新增
+
+- `doctor` 增加 `agentBrowser` 路径信息（非阻塞检查），方便确认宿主的内置浏览器依赖是否安装。
+- 技能和 WorkBuddy 教程增加内置浏览器预检：先安装/启用 `agent-browser` 插件和浏览器运行时，用 `agent-browser open` + `screenshot` 验证通过后再执行石墨操作；预检失败先报告缺哪个依赖，不静默退回本地 Chrome。
+
+
 ## 0.9.9 — 2026-11-17
 
 ### 变更
