@@ -136,3 +136,18 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+func TestNoBrowserVerification(t *testing.T) {
+	a := newApp([]string{"phase2", "demo", "--no-verify"})
+	if !noBrowserVerification(a) {
+		t.Fatal("--no-verify not honored")
+	}
+	b := newApp([]string{"phase2", "demo"})
+	if noBrowserVerification(b) {
+		t.Fatal("unexpected no-browser default")
+	}
+	t.Setenv("SHIMO_NET_NO_BROWSER", "1")
+	if !noBrowserVerification(b) {
+		t.Fatal("SHIMO_NET_NO_BROWSER not honored")
+	}
+}

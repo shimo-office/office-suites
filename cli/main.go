@@ -44,7 +44,7 @@ func newApp(args []string) *App {
 			a.Relogin = true
 			continue
 		}
-		if arg == "--default" {
+		if arg == "--default" || arg == "--no-verify" || arg == "--no-browser" {
 			a.Bool[arg] = true
 			continue
 		}

@@ -56,7 +56,7 @@ var phase2ManualOnlyActions = map[string]string{
 
 func (a *App) cmdPhase2() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH]")
+		return errors.New("用法：shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--no-verify]")
 	}
 	action := strings.TrimSpace(a.opt("--action"))
 	if operation, manualOnly := phase2ManualOnlyActions[action]; manualOnly {
@@ -98,17 +98,25 @@ func (a *App) cmdPhase2() error {
 		} else {
 			value, err = a.runPhase2HTTP(guid, method, args)
 		}
-		if err == nil && shot != "" {
+		if err == nil && shot != "" && !noBrowserVerification(a) {
 			_, err = runPhase2Browser(target, "browser.verify", nil, shot)
 		}
 	} else {
+		if noBrowserVerification(a) {
+			return errors.New("该页面动作需要浏览器；请用宿主内置浏览器（WorkBuddy agent-browser）打开页面操作并截图，或去掉 --no-verify 使用 CLI 本地浏览器")
+		}
 		value, err = runPhase2Browser(target, method, args, shot)
 	}
 	if err != nil {
 		return err
 	}
 	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value}
-	if shot != "" {
+	if noBrowserVerification(a) {
+		out["verified"] = false
+		out["verifyWith"] = "agent-browser"
+		out["note"] = "已跳过 CLI 本地浏览器核验；请用宿主内置浏览器（WorkBuddy agent-browser）打开 url 并截图"
+	}
+	if shot != "" && !noBrowserVerification(a) {
 		out["screenshot"] = shot
 	}
 	if a.JSON {
@@ -123,6 +131,14 @@ func (a *App) cmdPhase2() error {
 		fmt.Printf("返回：%s\n", b)
 	}
 	return nil
+}
+
+func noBrowserVerification(a *App) bool {
+	if a.has("--no-verify") || a.has("--no-browser") {
+		return true
+	}
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("SHIMO_NET_NO_BROWSER")))
+	return v == "1" || v == "true" || v == "yes"
 }
 
 func phase2ActionNames() []string {

@@ -29,7 +29,7 @@ func schema() map[string]any {
 		{"name": "get", "usage": "shimo-net get <链接|guid|@别名> [--out <dir>]", "desc": "下载单个文件"},
 		{"name": "fav", "usage": "shimo-net fav <list|add|rm|show> …", "desc": "常用文件夹别名（下次直接说 @别名）"},
 		{"name": "open", "usage": "shimo-net open <链接|guid|@别名> [--default]", "desc": "打开链接；默认使用 CLI 已登录的 Chrome 配置，--default 使用操作系统默认浏览器"},
-		{"name": "phase2", "usage": "shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH]", "desc": "调用同源 API；表格格式/合并/读写直接走稳定接口，其他编辑动作按需使用页面操作"},
+		{"name": "phase2", "usage": "shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--no-verify]", "desc": "调用同源 API；表格格式/合并/读写直接走稳定接口；WorkBuddy 有 agent-browser 时加 --no-verify，由内置浏览器核验"},
 		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "扫描逐文件订阅状态，列出最近更新文件并可打开浏览器"},
 		{"name": "session", "usage": "shimo-net session <status|harvest> [--no-save]", "desc": "查看登录态来源；从本机 Chrome 复用登录态"},
 		{"name": "whoami", "usage": "shimo-net whoami [--json]", "desc": "当前账号"},
