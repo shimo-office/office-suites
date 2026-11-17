@@ -13,10 +13,10 @@ WorkBuddy 使用本地构建包 `/tmp/shimo-net-cli-0.9.4-local.zip` 安装技�
 | 版本 | `shimo-net version --json` | 通过，`0.9.4` |
 | 能力清单 | `shimo-net schema --json` | 通过，28 场景、49 能力、22 扩展动作 |
 | 登录态 | `shimo-net whoami --json` | 通过，WorkBuddy 会话可用 |
-| 表格写入 | `sheet-update`、`sheet-append` | 通过，同源表格 API |
+| 表格写入 | `sheet-update`、`sheet-append` | 通过，同源表格 API；现版本继续打开结果页做视觉核验并保存截图 |
 | 表格行操作 | `sheet-insert`、`sheet-delete` | 通过，同源表格 API |
 | 表格整理 | `sheet-freeze`、`sheet-sort`、`sheet-filter` | 页面操作入口已确认；由 computer-use 完成 |
-| 表格校验/格式 | `sheet-validation`、`sheet-format`、`sheet-merge` | 格式/合并 API 通过；数据验证页面操作 |
+| 表格校验/格式 | `sheet-validation`、`sheet-format`、`sheet-merge` | 格式/合并 API 通过并触发结果页截图；数据验证页面操作 |
 | 留痕与版本 | `save-version`、`history-show` | 页面操作入口已确认；由 computer-use 完成 |
 | 文本查找替换 | `find`、`replace-all` | 页面操作入口已确认；由 computer-use 完成 |
 | 页面设置/输出 | `page-width`、`print` | 页面操作入口已确认；由 computer-use 完成 |
@@ -34,6 +34,7 @@ WorkBuddy 使用本地构建包 `/tmp/shimo-net-cli-0.9.4-local.zip` 安装技�
 - 无 SDK 的操作优先在 agent 内联浏览器中由 computer-use 完成；没有内联浏览器时使用 `shimo-net open <链接>`，由 CLI 专用浏览器注入 Keychain 会话后操作。
 - 文件锁定、限制编辑、高级权限、成员级授权、彻底删除已列为 CLI 禁止项；必须打开石墨网页由人工确认和操作。
 - 失败重试已改为遇到明确的“页面未暴露 editor SDK”立即返回，单次约 5 秒完成浏览器启动和诊断，不再等待约 30 秒重试。
+- API 写入不再以 HTTP 200 作为唯一完成条件；会从 Keychain / Windows Credential Manager 注入会话，刷新真实编辑器页面并返回截图路径，登录页或截图失败会报告失败。
 
 ## CLI 与 API
 

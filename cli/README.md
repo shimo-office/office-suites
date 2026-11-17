@@ -1,6 +1,6 @@
 # shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、49 项能力**。当前版本 **0.9.4**，Go 单二进制。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、49 项能力**。当前版本 **0.9.5**，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain（Windows 为 Credential Manager）；过期就地重登。
@@ -123,7 +123,7 @@ shimo-net phase2 <链接> --action sheet-format --payload '{"range":"A1:C1","att
 shimo-net phase2 <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
 ```
 
-`phase2` 是扩展动作入口（保留该命令名以兼容已有 Agent）：`sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源表格 API，因此不会因为页面未暴露 `globalThis.sdk` 而退回本地 XLSX；其他动作如果没有对应 API，立即改用 `shimo-net open <链接>`，由 computer-use 按页面菜单、工具栏和选区完成操作并返回截图。CLI 专用浏览器会从 Keychain 注入会话，不输出 sid/cookie；只有无法使用内联浏览器和 CLI 专用浏览器时才使用 `open --default`。
+`phase2` 是扩展动作入口（保留该命令名以兼容已有 Agent）：`sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源表格 API，因此不会因为页面未暴露 `globalThis.sdk` 而退回本地 XLSX。API 成功后仍必须打开目标文件做视觉核验并截图；CLI 会先从 macOS Keychain / Windows Credential Manager 读取 cookie，注入目标域名后刷新页面，不输出 sid/cookie。其他动作如果没有对应 API，立即改用 `shimo-net open <链接>`，由 computer-use 按页面菜单、工具栏和选区完成操作并返回截图。只有无法使用内联浏览器和 CLI 专用浏览器时才使用 `open --default`，且没有截图不能报告完成。
 
 订阅更新文件：`shimo-net subscriptions --json` 会扫描逐文件订阅状态；用户选定序号后用 `shimo-net subscriptions --open <序号>` 打开对应文件（优先使用内联浏览器，其次使用会注入 Keychain 会话的 CLI 专用浏览器）。
 

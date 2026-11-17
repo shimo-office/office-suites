@@ -76,17 +76,23 @@ func (a *App) cmdPhase2() error {
 	shot := a.opt("--screenshot")
 	if shot == "" {
 		shot = filepath.Join(stateDir(), "screenshots", fmt.Sprintf("phase2-%s.png", time.Now().Format("20060102-150405.000")))
+	} else if absolute, absErr := filepath.Abs(shot); absErr == nil {
+		shot = absolute
 	}
 	var value any
 	if strings.HasPrefix(method, "http:") {
-		// API-backed spreadsheet mutations are complete once the server returns
-		// success; do not launch a second browser only to claim an SDK screenshot.
+		// An API response proves only that the server accepted the mutation. The
+		// user-facing result also requires a visual check in the real editor.
+		// Open the target page in the isolated browser, inject the CLI session
+		// when available, and capture the rendered result before reporting success.
 		guid := guidFromURL(target)
 		if guid == "" {
 			return errors.New("表格 API 动作需要包含文件 guid 的石墨链接")
 		}
-		shot = ""
 		value, err = a.runPhase2HTTP(guid, method, args)
+		if err == nil && shot != "" {
+			_, err = runPhase2Browser(target, "browser.verify", nil, shot)
+		}
 	} else {
 		value, err = runPhase2Browser(target, method, args, shot)
 	}
@@ -308,6 +314,9 @@ func sameCookieHost(target string) bool {
 }
 
 func phase2Expression(method, argsJSON, guid string) string {
+	if method == "browser.verify" {
+		return `(async()=>{const path=location.pathname||"";const text=document.body?.innerText||"";if(path==="/login"||text.includes("验证码登录")||text.includes("欢迎使用石墨办公"))return {ok:false,error:"页面未登录，无法完成视觉核验"};return {ok:true};})()`
+	}
 	if strings.HasPrefix(method, "api:") {
 		endpoint := map[string]string{
 			"api:mention-at-list": "/sdk/v2/collab-files/%s/mention-at-list",
