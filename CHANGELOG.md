@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.5 — 2026-11-17
+
+### 修复
+
+- API-backed spreadsheet actions now open the real editor, inject the saved Keychain/Credential Manager cookie, and require a successful visual screenshot before reporting completion.
+- A login page or failed screenshot is now reported as a failure instead of being hidden behind an HTTP 200 response.
+- Refreshed WorkBuddy guidance and the high-fidelity demo generation workflow.
+
 ## 0.9.4 — 2026-11-17
 
 ### 新增

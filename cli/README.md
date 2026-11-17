@@ -1,6 +1,6 @@
 # shimo-net
 
-`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、49 项能力**。当前版本 **0.9.4**，Go 单二进制。
+`shimo-net` 是 shimo.net（含客户私有部署）的命令行工具，覆盖 **28 个办公场景、49 项能力**。当前版本 **0.9.5**，Go 单二进制。
 
 - 直连 `/api/v1`，不开端口、不跑常驻服务。
 - 登录一次：Chrome 专用窗口 → macOS Keychain（Windows 为 Credential Manager）；过期就地重登。
