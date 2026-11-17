@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.9 — 2026-11-17
+
+### 变更
+
+- `phase2` 的表格 API 写入默认**不再启动 CLI 本地 Chrome**：返回 `verified:false`、`verifyWith:"host-browser"`，由宿主内置浏览器（WorkBuddy `agent-browser`）打开 `url` 截图。
+- 需要 CLI 本地截图时显式加 `--verify`；`--no-verify` 保留为显式跳过，`SHIMO_NET_VERIFY=1` 可全局开启。
+- 页面类动作仍需浏览器；没有内置浏览器时不要加 `--no-verify`，由 CLI 本地 Chrome 或 `shimo-net open` 完成。
+
+
 ## 0.9.8 — 2026-11-17
 
 ### 修复

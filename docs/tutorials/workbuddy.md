@@ -131,13 +131,13 @@ Agent 执行页面操作时遵循以下顺序：
 2. 未安装或未启用：先询问「是否允许我安装并启用 WorkBuddy 市场的官方 agent-browser 技能？」；用户允许后再安装/启用并验证一次打开、点击和截图能力，完成后继续任务。技能已经安装时只开启开关，不重复安装。
 3. 用户允许但宿主确认没有内置浏览器：才运行 `shimo-net open <链接> --default` 调起本机默认浏览器。CLI 会尝试注入本机 Keychain 登录态；不能安全注入时如实提示并保留页面结果。用户拒绝安装/启用时，不要擅自弹出外部浏览器。
 
-表格 API 动作在 WorkBuddy 里统一加 `--no-verify`，避免 CLI 启动本地 Chrome：
+表格 API 动作默认不启动 CLI 本地 Chrome：
 
 ```bash
-shimo-net phase2 <表格> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}' --no-verify --json
+shimo-net phase2 <表格> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}' --json
 ```
 
-命令会返回 `url`、`verified:false`、`verifyWith:"agent-browser"`；接着用 `agent-browser` 打开这个 `url` 截图即可。不加 `--no-verify` 时 CLI 会自己启动本地 Chrome，容易触发 WorkBuddy 的删除文件确认，并出现 Chrome 反复开关或意外退出。
+命令会返回 `url`、`verified:false`、`verifyWith:"host-browser"`；接着用 `agent-browser` 打开这个 `url` 截图即可。只有需要 CLI 本地 Chrome 截图时才加 `--verify`；加上它容易触发 WorkBuddy 的删除文件确认，并出现 Chrome 反复开关或意外退出。
 
 `shimo-net` 无法从命令行强制创建 WorkBuddy 内置浏览器，也不能把仓库里的自定义 `cli/SKILL.md` 当作 Computer Use 安装。内置浏览器是 WorkBuddy 的宿主技能，市场技能安装并启用后才可用。
 

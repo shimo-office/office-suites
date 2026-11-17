@@ -6,7 +6,7 @@ description_zh: 操作 shimo.net（含客户私有部署）时使用：用 shimo
 description_en: Use the shimo-net CLI for shimo.net (including private deployments) to search files and spaces, upload or import, pull or download, audit permissions, create or rename, read documents, and save favorite folders. High-risk permission changes and irreversible actions must be done in the Shimo web UI.
 description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
 whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
-version: 0.9.8
+version: 0.9.9
 agent_created: true
 ---
 
@@ -91,7 +91,7 @@ shimo-net init --origin https://<客户域名>
 
 按下面顺序处理：
 
-1. **有内置浏览器/网页操作能力**：直接用宿主提供的内置浏览器打开目标文件，在该页面完成操作并截图；不要先运行 `shimo-net open`，也不要先调用系统默认浏览器。表格 API 动作（`sheet-update` / `sheet-append` / `sheet-insert` / `sheet-delete` / `sheet-format` / `sheet-merge`）加 `--no-verify`，把视觉核验交给宿主内置浏览器。
+1. **有内置浏览器/网页操作能力**：直接用宿主提供的内置浏览器打开目标文件，在该页面完成操作并截图；不要先运行 `shimo-net open`，也不要先调用系统默认浏览器。表格 API 动作（`sheet-update` / `sheet-append` / `sheet-insert` / `sheet-delete` / `sheet-format` / `sheet-merge`）默认不启动 CLI 本地 Chrome，把视觉核验交给宿主内置浏览器。
 2. **WorkBuddy 没有该能力或技能未启用**：先询问用户是否允许安装/启用 WorkBuddy 市场里的官方 `agent-browser` 技能（已安装时只开启开关）。用户允许后才执行安装或启用，并用一次能力检查确认能打开页面和截图；用户拒绝时停止页面操作并返回市场链接与手动步骤。安装技能属于宿主配置，`shimo-net` 不会自行复制仓库技能或伪造 Computer Use。
 3. **用户允许但宿主仍没有内置浏览器**：才使用 `shimo-net open <链接> --default` 打开本机默认浏览器。CLI 会先从 Keychain / Credential Manager 取得会话，并在 Chromium 系默认浏览器的隔离配置中注入 cookie；非 Chromium 浏览器无法安全注入时如实提示，不要打印 sid/cookie。
 
@@ -100,14 +100,17 @@ shimo-net init --origin https://<客户域名>
 当前直接可用的是 @人/评论列表 API、异步文件导出、订阅文件扫描，以及表格内容/样式/合并 API。历史、评论添加、文字与段落格式、预览打印等操作使用内联浏览器配合 computer-use。文件锁定、限制编辑、高级权限、成员级授权和彻底删除严格禁止 CLI 处理，必须由人工进入石墨网页操作：
 
 ```bash
-shimo-net phase2 <链接|guid|@别名> --action sheet-format --payload '{"sheetName":"工作表1","range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}' --no-verify --json
-shimo-net phase2 <链接|guid|@别名> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --no-verify --json
+# 默认不启动本地 Chrome；用宿主内置浏览器打开 url 截图
+shimo-net phase2 <链接|guid|@别名> --action sheet-format --payload '{"sheetName":"工作表1","range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}' --json
+shimo-net phase2 <链接|guid|@别名> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
+# 需要 CLI 本地 Chrome 截图时
+shimo-net phase2 <链接|guid|@别名> --action sheet-format --payload '…' --verify --json
 shimo-net phase2 <链接|guid|@别名> --action mentions-list --json
 
-> WorkBuddy 已启用 `agent-browser` 时，表格 API 动作统一加 `--no-verify`：不要让 CLI 再启动本地 Chrome（否则会反复开关 Chrome，并触发 WorkBuddy 对 Chrome RLZ/临时文件的删除确认）。写完用 `agent-browser` 打开返回的 `url` 截图。
+> 有内置浏览器的宿主（WorkBuddy `agent-browser`）：不要加 `--verify`，默认由宿主浏览器截图。没有内置浏览器、需要 CLI 截图时才加 `--verify`。`--no-verify` 仍可显式关闭本地浏览器。
 ```
 
-`phase2` 是兼容入口。表格 `sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源 `/lizard-api` 接口，不依赖页面 `globalThis.sdk`，因此不会再退回本地生成 XLSX。API 返回成功只代表服务端接受了请求，**不是最终完成条件**。接下来优先用宿主内置浏览器（WorkBuddy 的 `agent-browser`）打开目标文件并截图；在这种宿主里调用 `phase2` 必须加 `--no-verify`，避免 CLI 再启动本地 Chrome。只有宿主没有内置浏览器时，才不加 `--no-verify`，由 CLI 读取 Keychain / Credential Manager 的 cookie、注入本地浏览器并截图。页面 SDK 未暴露或动作没有可用 API 时，先按上面的宿主浏览器优先级执行；确认没有内置浏览器后再使用 `shimo-net open <链接> --default`。如果本机凭据存储中没有会话，必须如实报告无法完成视觉核验，不能只凭 HTTP 200 宣称成功。
+`phase2` 是兼容入口。表格 `sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源 `/lizard-api` 接口，不依赖页面 `globalThis.sdk`，因此不会再退回本地生成 XLSX。API 返回成功只代表服务端接受了请求，**不是最终完成条件**。`phase2` 的表格 API 写入默认不启动本地 Chrome，返回 `verified:false`、`verifyWith:"host-browser"`；接下来用宿主内置浏览器（WorkBuddy 的 `agent-browser`）打开 `url` 截图。只有宿主没有内置浏览器、需要 CLI 截图时，才加 `--verify`，由 CLI 读取 Keychain / Credential Manager 的 cookie、注入本地浏览器并截图。页面 SDK 未暴露或动作没有可用 API 时，先按上面的宿主浏览器优先级执行；确认没有内置浏览器后再使用 `shimo-net open <链接> --default`。如果本机凭据存储中没有会话，必须如实报告无法完成视觉核验，不能只凭 HTTP 200 宣称成功。
 
 订阅更新：
 

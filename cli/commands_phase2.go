@@ -56,7 +56,7 @@ var phase2ManualOnlyActions = map[string]string{
 
 func (a *App) cmdPhase2() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--no-verify]")
+		return errors.New("用法：shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--verify|--no-verify]")
 	}
 	action := strings.TrimSpace(a.opt("--action"))
 	if operation, manualOnly := phase2ManualOnlyActions[action]; manualOnly {
@@ -98,11 +98,11 @@ func (a *App) cmdPhase2() error {
 		} else {
 			value, err = a.runPhase2HTTP(guid, method, args)
 		}
-		if err == nil && shot != "" && !noBrowserVerification(a) {
+		if err == nil && shot != "" && cliBrowserVerification(a) {
 			_, err = runPhase2Browser(target, "browser.verify", nil, shot)
 		}
 	} else {
-		if noBrowserVerification(a) {
+		if explicitNoBrowser(a) {
 			return errors.New("该页面动作需要浏览器；请用宿主内置浏览器（WorkBuddy agent-browser）打开页面操作并截图，或去掉 --no-verify 使用 CLI 本地浏览器")
 		}
 		value, err = runPhase2Browser(target, method, args, shot)
@@ -111,12 +111,12 @@ func (a *App) cmdPhase2() error {
 		return err
 	}
 	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value}
-	if noBrowserVerification(a) {
+	if !cliBrowserVerification(a) {
 		out["verified"] = false
-		out["verifyWith"] = "agent-browser"
-		out["note"] = "已跳过 CLI 本地浏览器核验；请用宿主内置浏览器（WorkBuddy agent-browser）打开 url 并截图"
+		out["verifyWith"] = "host-browser"
+		out["note"] = "默认不启动 CLI 本地浏览器；请用宿主内置浏览器（WorkBuddy agent-browser）打开 url 截图；需要 CLI 截图时加 --verify"
 	}
-	if shot != "" && !noBrowserVerification(a) {
+	if shot != "" && cliBrowserVerification(a) {
 		out["screenshot"] = shot
 	}
 	if a.JSON {
@@ -133,11 +133,24 @@ func (a *App) cmdPhase2() error {
 	return nil
 }
 
-func noBrowserVerification(a *App) bool {
+func explicitNoBrowser(a *App) bool {
 	if a.has("--no-verify") || a.has("--no-browser") {
 		return true
 	}
 	v := strings.ToLower(strings.TrimSpace(os.Getenv("SHIMO_NET_NO_BROWSER")))
+	return v == "1" || v == "true" || v == "yes"
+}
+
+// cliBrowserVerification is opt-in: API writes do not launch a local Chrome
+// unless the caller explicitly asks for CLI screenshot verification.
+func cliBrowserVerification(a *App) bool {
+	if explicitNoBrowser(a) {
+		return false
+	}
+	if a.has("--verify") {
+		return true
+	}
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("SHIMO_NET_VERIFY")))
 	return v == "1" || v == "true" || v == "yes"
 }
 
