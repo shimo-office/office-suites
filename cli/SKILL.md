@@ -80,7 +80,7 @@ shimo-net phase2 <链接|guid|@别名> --action sheet-merge --payload '{"sheetNa
 shimo-net phase2 <链接|guid|@别名> --action mentions-list --json
 ```
 
-`phase2` 是兼容入口。表格 `sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源 `/lizard-api` 接口，不依赖页面 `globalThis.sdk`，因此不会再退回本地生成 XLSX。页面 SDK 未暴露或动作没有可用 API 时，优先在 agent 内联浏览器中打开目标页面并由 computer-use 操作；没有内联浏览器时使用 `shimo-net open <链接>`，CLI 会从 Keychain 注入会话；只有这两种方式都不可用时才使用 `shimo-net open <链接> --default`。
+`phase2` 是兼容入口。表格 `sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源 `/lizard-api` 接口，不依赖页面 `globalThis.sdk`，因此不会再退回本地生成 XLSX。API 返回成功只代表服务端接受了请求，**不是最终完成条件**：CLI 必须继续打开目标文件，优先从 macOS Keychain / Windows Credential Manager 读取已保存的 cookie（不打印 sid/cookie），注入浏览器 cookie 并刷新页面，再由 computer-use 做视觉核验和截图；截图成功后才允许报告完成。页面 SDK 未暴露或动作没有可用 API 时，优先在 agent 内联浏览器中打开目标页面并由 computer-use 操作；没有内联浏览器时使用 `shimo-net open <链接>`，CLI 会从 Keychain 注入会话；只有这两种方式都不可用时才使用 `shimo-net open <链接> --default`。如果本机凭据存储中没有会话，必须如实报告无法完成视觉核验，不能只凭 HTTP 200 宣称成功。
 
 订阅更新：
 
@@ -91,4 +91,4 @@ shimo-net subscriptions --open 1
 
 该命令逐文件查询 `/api/v1/files/{fileGuid}/update_subscription`，先列已订阅文件，再按用户选择打开对应文档；没有服务端全量订阅列表或最近更新正文接口时，不要猜测结果。
 
-浏览器操作固定步骤：先 `whoami --json`，401 时 `login` 后重试；所有 agent 优先使用内联浏览器；没有内联浏览器时使用 `shimo-net open <链接>`，不要直接把页面导航到登录地址；CLI 专用浏览器会读取 Keychain 并注入 cookie；只有最后才使用 `--default`，此模式连接操作系统现有浏览器，无法注入到已有进程，若仍显示登录页再让用户在该浏览器登录一次。没有 API 时使用 computer-use 直接操作页面菜单、工具栏和选区；单元格历史必须先让用户说明行号和列号；单元格底色直接通过表格格式菜单操作；写操作先确认目标和影响范围；不要复制 sid；不要把 sid/cookie 写入日志或消息；截图返回绝对路径；失败要如实说明并保留失败截图。
+浏览器操作固定步骤：先 `whoami --json`；浏览器显示登录页时，先检查本机 Keychain / Windows Credential Manager，若有 cookie 就由 CLI 注入目标域名 cookie 并刷新，禁止要求用户二次登录；只有凭据存储确实没有会话时才提示用户登录。所有 agent 优先使用内联浏览器；没有内联浏览器时使用 `shimo-net open <链接>`，不要直接把页面导航到登录地址；没有 API 时使用 computer-use 直接操作页面菜单、工具栏和选区；单元格历史必须先让用户说明行号和列号；单元格底色直接通过表格格式菜单操作；写操作先确认目标和影响范围；不要复制 sid；不要把 sid/cookie 写入日志或消息；**每个成功场景必须保存截图并在最终答复中返回绝对路径和 Markdown 图片**；截图失败或仍停留在登录页时必须如实说明并保留失败截图，不能报告完成。

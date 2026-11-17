@@ -49,6 +49,15 @@ func TestPhase2ExpressionUsesDocumentAPIs(t *testing.T) {
 	}
 }
 
+func TestPhase2ExpressionVerifiesAuthenticatedPage(t *testing.T) {
+	expr := phase2Expression("browser.verify", "[]", "demo")
+	for _, want := range []string{"location.pathname", "/login", "验证码登录", "页面未登录", "ok:true"} {
+		if !contains(expr, want) {
+			t.Errorf("verification expression missing %q: %s", want, expr)
+		}
+	}
+}
+
 func TestPhase2ObjectArg(t *testing.T) {
 	payload, err := phase2ObjectArg([]any{map[string]any{"range": "A1:C1"}})
 	if err != nil || payload["range"] != "A1:C1" {
