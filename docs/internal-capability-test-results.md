@@ -11,7 +11,7 @@
 - 验证文件夹：<https://shimo.net/folder/M12Y8VYXolUbK5Wg>（内含文档、云文件和表格）
 - 验证文档：<https://shimo.net/docs/VWwQZXQeO2TrDeq3>
 - 验证表格：<https://shimo.net/sheets/mqAD2JDw8pCYyw1E>
-- 二期演示视频：<https://shimo.net/folder/rlvQlJLljpmieaq2>（28 个 14 秒 WorkBuddy 高保真 MOV + 说明文档 + 总览图 + 封面 + manifest + H5 源包 zip，共 33 项）
+- 二期演示视频：<https://shimo.net/folder/rlvQlJLljpmieaq2>（28 个 14 秒 WorkBuddy 高保真 MOV + 说明文档 + 总览图 + 封面 + manifest + H5 源包 zip，共 33 项；账号头像、协作者姓名和页面水印已替换/去除）
 - 表格格式截图：[sheet-format.png](images/0.9.6/sheet-format.png)
 - 文档页面截图：[doc.png](images/0.9.6/doc.png)
 - 文件夹页面截图：[folder.png](images/0.9.6/folder.png)
