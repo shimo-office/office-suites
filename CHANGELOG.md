@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.13 — 2026-11-18
+
+### 修复
+
+- 页面动作在编辑器异步挂载时最多重试 **5 次**、每次间隔 2 秒；不再因为第一秒读不到 SDK 就直接报错。
+- SDK 实际入口改为 `window.smsdk.__DRIVE_SDK__.editor`（`globalThis.sdk` 在该页面为 undefined）：`history-show/hide`、`save-version`、`comments-show/hide`、`comment-add`、`print` 通过 `editor.actions` 打开对应面板。
+- `find`、`replace-all`、`page-width`、`sheet-freeze`、`sheet-sort`、`sheet-filter`、`sheet-validation` 明确标为页面动作，调用时返回可读提示，不再伪装成 SDK 方法。
+
+### 文档
+
+- 场景清单、安全边界、安装说明、技能包与能力矩阵对齐当前实现；修正 49/50 计数、`login --new`、`mkdir`/`docx`、`new` 支持 `table/form/mindmap/flowchart`、SkillHub 提示与 LICENSE。
+- 浏览器优先级统一到 [docs/tutorials/browser.md](docs/tutorials/browser.md) 的 P0 矩阵。
+
+
 ## 0.9.12 — 2026-11-18
 
 ### 新增

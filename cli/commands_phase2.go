@@ -18,22 +18,16 @@ import (
 // the document/sheet page. The method is intentionally selected from a
 // whitelist; callers provide only the documented method arguments as JSON.
 var phase2Actions = map[string]string{
-	"history-show":     "history.show",
-	"history-hide":     "history.hide",
-	"save-version":     "version.createRevision",
-	"comments-show":    "comments.show",
-	"comments-hide":    "comments.hide",
-	"find":             "search.findAll",
-	"replace-all":      "search.replaceAll",
-	"page-width":       "settings.setPageWidth",
-	"print":            "print",
-	"sheet-append":     "http:PUT:/lizard-api/files/%s/sheets/values",
-	"sheet-insert":     "http:POSTROW:/lizard-api/files/%s/sheets",
-	"sheet-delete":     "http:DELETEROW:/lizard-api/files/%s/sheets",
-	"sheet-freeze":     "activeSheet.freeze",
-	"sheet-sort":       "activeSheet.sort",
-	"sheet-filter":     "activeSheet.filter",
-	"sheet-validation": "activeSheet.setDataValidation",
+	"history-show":  "actions.showViewHistory",
+	"history-hide":  "actions.hideViewHistory",
+	"save-version":  "actions.showSaveVersion",
+	"comments-show": "actions.showViewCommentList",
+	"comments-hide": "actions.hideViewCommentList",
+	"comment-add":   "actions.showAddComment",
+	"print":         "actions.showPrint",
+	"sheet-append":  "http:PUT:/lizard-api/files/%s/sheets/values",
+	"sheet-insert":  "http:POSTROW:/lizard-api/files/%s/sheets",
+	"sheet-delete":  "http:DELETEROW:/lizard-api/files/%s/sheets",
 	// Stable same-origin spreadsheet APIs. These do not depend on a
 	// page-global editor SDK, so agents can call them directly from the CLI.
 	"sheet-format":  "http:POST:/lizard-api/files/%s/sheets/attrs",
@@ -42,6 +36,16 @@ var phase2Actions = map[string]string{
 	"sheet-update":  "http:POST:/lizard-api/files/%s/sheets/values",
 	"mentions-list": "api:mention-at-list",
 	"comments-list": "api:comment-list",
+}
+
+var phase2PageOnlyActions = map[string]string{
+	"find":             "查找/替换",
+	"replace-all":      "查找/替换",
+	"page-width":       "页面宽度/重排",
+	"sheet-freeze":     "冻结行列",
+	"sheet-sort":       "排序",
+	"sheet-filter":     "筛选",
+	"sheet-validation": "数据验证",
 }
 
 var phase2ManualOnlyActions = map[string]string{
@@ -61,6 +65,9 @@ func (a *App) cmdPhase2() error {
 	action := strings.TrimSpace(a.opt("--action"))
 	if operation, manualOnly := phase2ManualOnlyActions[action]; manualOnly {
 		return manualOnlyError(operation)
+	}
+	if label, pageOnly := phase2PageOnlyActions[action]; pageOnly {
+		return fmt.Errorf("%s 需要页面操作（当前 editor SDK 未暴露该能力）；请用 shimo-net open <链接> 后在页面操作", label)
 	}
 	method, ok := phase2Actions[action]
 	if !ok {
@@ -156,7 +163,7 @@ func cliBrowserVerification(a *App) bool {
 
 func phase2ActionNames() []string {
 	// Keep schema/help deterministic even though the map is intentionally simple.
-	return []string{"history-show", "history-hide", "save-version", "comments-show", "comments-hide", "find", "replace-all", "page-width", "print", "sheet-append", "sheet-insert", "sheet-delete", "sheet-freeze", "sheet-sort", "sheet-filter", "sheet-validation", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "mentions-list", "comments-list"}
+	return []string{"history-show", "history-hide", "save-version", "comments-show", "comments-hide", "comment-add", "find", "replace-all", "page-width", "print", "sheet-append", "sheet-insert", "sheet-delete", "sheet-freeze", "sheet-sort", "sheet-filter", "sheet-validation", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "mentions-list", "comments-list"}
 }
 
 func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
@@ -305,6 +312,19 @@ func (a *App) phase2Target(raw string) (string, error) {
 	return a.urlOf(withGUID(info, guid)), nil
 }
 
+func isRetryableEditorError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	for _, needle := range []string{"页面未暴露 editor sdk", "editor sdk", "sdk 方法不可用", "页面尚未渲染", "cannot read", "undefined is not"} {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
+}
+
 func runPhase2Browser(target, method string, args []any, screenshot string) (any, error) {
 	chrome, err := findChrome()
 	if err != nil {
@@ -362,9 +382,15 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	waitPageReady(ws, 30*time.Second)
 	argsJSON, _ := json.Marshal(args)
 	expr := phase2Expression(method, string(argsJSON), guidFromURL(target))
+	// The editor mounts asynchronously after the document shell is ready. A
+	// missing SDK in the first second usually means "not initialized yet", not
+	// "this page will never support the action". Retry a small, bounded number
+	// of times so a slow editor does not turn into a hard failure.
+	const editorAttempts = 5
+	const editorRetryDelay = 2 * time.Second
 	var value any
 	var lastErr error
-	for i := 0; i < 20; i++ {
+	for i := 0; i < editorAttempts; i++ {
 		res, callErr := ws.Call(3+i, "Runtime.evaluate", map[string]any{"expression": expr, "awaitPromise": true, "returnByValue": true}, 10*time.Second)
 		if callErr == nil {
 			if _, hasException := res["exceptionDetails"]; hasException {
@@ -376,10 +402,9 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 					value = result["value"]
 					if resultValue, ok := value.(map[string]any); ok && resultValue["ok"] == false {
 						lastErr = errors.New(str(resultValue, "error"))
-						// Explicit page-level failures (for example, the current
-						// editor does not expose globalThis.sdk) are deterministic;
-						// retrying them only delays the browser fallback.
-						break
+						if !isRetryableEditorError(lastErr) {
+							break
+						}
 					} else {
 						lastErr = nil
 						break
@@ -389,10 +414,12 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 		} else {
 			lastErr = callErr
 		}
-		time.Sleep(1500 * time.Millisecond)
+		if i < editorAttempts-1 {
+			time.Sleep(editorRetryDelay)
+		}
 	}
 	if lastErr != nil {
-		return nil, fmt.Errorf("页面 editor SDK/API 不可用（可改用 shimo-net open 后由 computer-use 按网页操作）：%w", lastErr)
+		return nil, fmt.Errorf("页面 editor SDK/API 不可用（已重试 %d 次；可改用 shimo-net open 后由 computer-use 按网页操作）：%w", editorAttempts, lastErr)
 	}
 	if screenshot != "" {
 		if err := capturePhase2Screenshot(ws, screenshot); err != nil {
@@ -422,7 +449,7 @@ func phase2Expression(method, argsJSON, guid string) string {
 	}
 	parts := strings.Split(method, ".")
 	pathJSON, _ := json.Marshal(parts)
-	return fmt.Sprintf(`(async()=>{const sdk=globalThis.sdk;if(!sdk)return {ok:false,error:"页面未暴露 editor SDK"};const path=%s;let owner=sdk;for(let i=0;i<path.length-1;i++){owner=owner?.[path[i]]}const fn=owner?.[path[path.length-1]];if(typeof fn!=="function")return {ok:false,error:"SDK 方法不可用："+path.join(".")};const args=%s;const value=await fn.apply(owner,args);return {ok:true,value};})()`, string(pathJSON), argsJSON)
+	return fmt.Sprintf(`(async()=>{const sdk=window.smsdk?.__DRIVE_SDK__?.editor||globalThis.sdk;if(!sdk)return {ok:false,error:"页面未暴露 editor SDK"};const path=%s;let owner=sdk;for(let i=0;i<path.length-1;i++){owner=owner?.[path[i]]}const fn=owner?.[path[path.length-1]];if(typeof fn!=="function")return {ok:false,error:"SDK 方法不可用："+path.join(".")};const args=%s;const value=await fn.apply(owner,args);return {ok:true,value};})()`, string(pathJSON), argsJSON)
 }
 
 func waitDevToolsPort(path string, timeout time.Duration) (int, error) {

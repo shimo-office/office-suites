@@ -71,6 +71,7 @@ shimo-net doctor
 - 首次使用没有 `config.json` 时，会提示输入产品网址；
 - 登录成功后窗口关闭，会话写入 macOS Keychain（Windows 为 Credential Manager）；
 - 登录过期：重新 `shimo-net login`，成功后重试原命令，网址不用重配；
+- 切账号必须 `shimo-net login --new`；普通 `login` 会复用本机 Chrome 会话；
 - 任意命令加 `--relogin`，遇 401 自动登录并重试；
 - 不要把密码 / cookie 贴进对话、Issue 或日志。
 
@@ -95,9 +96,9 @@ shimo-net logout
 
 ### 页面操作的浏览器顺序
 
-没有对应 API 的页面动作由宿主 Agent 的浏览器完成。WorkBuddy 请先检查官方市场 **agent-browser** 技能；未安装或未启用时，Agent 应先询问用户是否允许安装/启用，获得允许后再执行并验证点击、输入和截图能力。启用后，Agent 直接在内置浏览器打开石墨文件，不应先调用 `shimo-net open`；用户拒绝时不应擅自弹出外部浏览器。
+没有对应 API 的页面动作按 [docs/tutorials/browser.md](../docs/tutorials/browser.md) 的 P0 矩阵选浏览器。WorkBuddy 用 `present_files` 把 URL 放到右侧内置浏览器；豆包工作、DSH、Codex 没有可调用的内置浏览器，用 `shimo-net open` 或 `computer-use`。WorkBuddy 内置浏览器可用时不要先调用 `shimo-net open`，也不要启动 agent-browser 的 Chrome。
 
-如果宿主没有内置浏览器，才使用 `shimo-net open <链接> --default` 调起本机默认浏览器。CLI 会尝试注入本机 Keychain / Credential Manager 会话；不支持安全注入的浏览器会明确提示登录状态问题，且不会输出 sid/cookie。仓库里的 `cli/SKILL.md` 只供没有官方市场技能的 Agent 使用，WorkBuddy 不需要上传或复制它。
+如果宿主没有内置浏览器，才使用 `shimo-net open <链接>` 或 `--default` 调起本机浏览器。CLI 会尝试注入本机 Keychain / Credential Manager 会话；不支持安全注入的浏览器会明确提示登录状态问题，且不会输出 sid/cookie。仓库里的 `cli/SKILL.md` 只供没有 SkillHub 技能的 Agent 使用，WorkBuddy 不需要上传或复制它。
 
 | # | 场景 | 命令 |
 |---|---|---|
@@ -140,7 +141,7 @@ shimo-net phase2 <链接> --action sheet-format --payload '{"sheetName":"工作�
 shimo-net phase2 <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
 ```
 
-`phase2` 是扩展动作入口（保留该命令名以兼容已有 Agent）：`sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源表格 API。表格 API 写入默认不启动 CLI 本地 Chrome；WorkBuddy 用 `agent-browser` 打开 `url` 截图；需要 CLI 本地 Chrome 截图时加 `--verify`，`--no-verify` 可显式关闭。`sheet-format` 的 `range` 必须带工作表名，推荐写成 `{"sheetName":"工作表1","range":"A1:C1",...}`；CLI 会拼成 `工作表1!A1:C1`，并把多个属性拆成多次写入（服务端同时提交 `background+color` 时可能只生效一部分），因此不会因为页面未暴露 `globalThis.sdk` 而退回本地 XLSX。API 成功后仍必须打开目标文件做视觉核验并截图；CLI 会先从 macOS Keychain / Windows Credential Manager 读取 cookie，注入目标域名后刷新页面，不输出 sid/cookie。其他动作如果没有对应 API，先由宿主内置浏览器（WorkBuddy 的 `agent-browser`）按页面菜单、工具栏和选区完成操作并返回截图；只有确认宿主没有内置浏览器时才使用 `shimo-net open <链接> --default`。没有截图不能报告完成。
+`phase2` 是扩展动作入口（保留该命令名以兼容已有 Agent）：`sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源表格 API。表格 API 写入默认不启动 CLI 本地 Chrome；WorkBuddy 用 `present_files` 打开 `url`；其他宿主按浏览器矩阵；需要 CLI 截图时加 `--verify`，`--no-verify` 可显式关闭。`sheet-format` 的 `range` 必须带工作表名，推荐写成 `{"sheetName":"工作表1","range":"A1:C1",...}`；CLI 会拼成 `工作表1!A1:C1`，并把多个属性拆成多次写入（服务端同时提交 `background+color` 时可能只生效一部分），因此不会因为页面未暴露 `globalThis.sdk` 而退回本地 XLSX。API 成功后仍必须打开目标文件做视觉核验并截图；CLI 会先从 macOS Keychain / Windows Credential Manager 读取 cookie，注入目标域名后刷新页面，不输出 sid/cookie。其他动作如果没有对应 API，先由宿主内置浏览器按页面菜单、工具栏和选区完成操作并返回截图；WorkBuddy 用 `present_files`，其他宿主用 `shimo-net open`。没有截图不能报告完成。
 
 订阅更新文件：`shimo-net subscriptions --json` 会扫描逐文件订阅状态；用户选定序号后用 `shimo-net subscriptions --open <序号>` 打开对应文件。打开前先使用宿主内置浏览器；没有内置浏览器时才使用 `shimo-net open <链接> --default`。
 

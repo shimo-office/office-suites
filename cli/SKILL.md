@@ -6,7 +6,7 @@ description_zh: 操作 shimo.net（含客户私有部署）时使用：用 shimo
 description_en: Use the shimo-net CLI for shimo.net (including private deployments) to search files and spaces, upload or import, pull or download, audit permissions, create or rename, read documents, and save favorite folders. High-risk permission changes and irreversible actions must be done in the Shimo web UI.
 description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
 whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
-version: 0.9.12
+version: 0.9.13
 agent_created: true
 ---
 
@@ -60,18 +60,18 @@ shimo-net init --origin https://<客户域名>
 | 附件下载 | `shimo-net get <链接> [--out <目录>]` |
 | 常用文件夹别名 | `shimo-net fav add <别名> <链接> --note 特征` → 之后用 `@别名` |
 | 只看与我相关的内容 | `shimo-net phase2 <链接> --action mentions-list\|comments-list`、`subscriptions` |
-| 留痕与版本 | `shimo-net open <链接>` 后用 computer-use 操作历史面板 |
-| 文字与段落 | `shimo-net open <链接>` 后由 computer-use 操作菜单和选区 |
-| 文内表格与图片 | `shimo-net open <链接>` 后由 computer-use 操作 |
-| 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面 |
-| 预览与打印 | `shimo-net open <链接>` 后由 computer-use 操作 |
-| 文档重排全文 | `shimo-net open <链接>` 后由 computer-use 调整 |
+| 留痕与版本 | `phase2 --action history-show|history-hide|save-version` 打开对应面板；内容由页面展示 |
+| 文字与段落 | 页面动作：`find` / `replace-all` / `page-width` 未暴露 SDK，用宿主浏览器操作菜单和选区 |
+| 文内表格与图片 | 页面动作：用宿主浏览器在选区插入表格/图片 |
+| 评论与提及 | `comments-list` 读取；`phase2 --action comment-add` 打开评论输入，提交由页面完成 |
+| 预览与打印 | `phase2 --action print` 打开打印面板；导出 PDF 走页面入口 |
+| 文档重排全文 | 页面动作：`page-width` 未暴露 SDK，用宿主浏览器调整 |
 | 表格写入 | `phase2 --action sheet-update|sheet-append|sheet-insert|sheet-delete` 直接调用表格 API |
-| 表格整理 | `shimo-net open <链接>` 后用 computer-use 操作冻结、排序、筛选和单元格底色 |
-| 表格清洗 | `shimo-net open <链接>` 后由 computer-use 操作 |
-| 表格算与看数 | `shimo-net open <链接>` 后由 computer-use 操作 |
+| 表格整理 | `phase2 --action sheet-format` 写底色/字体/字号；冻结、排序、筛选是页面动作 |
+| 表格清洗 | 页面动作：表格数据工具，CLI 动作白名单没有 |
+| 表格算与看数 | 页面动作：公式/透视表/排序筛选走页面 |
 | 表格校验与格式 | `phase2 --action sheet-format|sheet-merge` 直接调用表格 API；数据验证仍用页面 |
-| 表格输出 | 导出使用异步导出 API；打印由 computer-use 操作 |
+| 表格输出 | `get` 异步导出；`--format csv` 仍导出 xlsx（已知限制）；打印走页面 |
 | 打开链接（免登录） | `shimo-net open <链接>`：注入 Keychain/浏览器会话；`--default` 用系统默认浏览器 |
 
 ## 必须遵守
@@ -151,6 +151,14 @@ shimo-net phase2 <链接|guid|@别名> --action mentions-list --json
 ```
 
 `phase2` 是兼容入口。表格 `sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源 `/lizard-api` 接口，不依赖页面 `globalThis.sdk`，因此不会再退回本地生成 XLSX。API 返回成功只代表服务端接受了请求，**不是最终完成条件**。`phase2` 的表格 API 写入默认不启动本地 Chrome，返回 `verified:false`、`verifyWith:"host-browser"`；接下来用宿主内置浏览器打开 `url`：WorkBuddy 用 `present_files`，其他宿主用其内置浏览器。只有宿主没有内置浏览器、需要 CLI 截图时，才加 `--verify`，由 CLI 读取 Keychain / Credential Manager 的 cookie、注入本地浏览器并截图。页面 SDK 未暴露或动作没有可用 API 时，先按上面的宿主浏览器优先级执行；确认没有内置浏览器后再使用 `shimo-net open <链接> --default`。如果本机凭据存储中没有会话，必须如实报告无法完成视觉核验，不能只凭 HTTP 200 宣称成功。
+
+### 页面动作与重试
+
+`phase2` 的页面动作在编辑器异步挂载时最多重试 **5 次**，每次间隔 2 秒；仍失败才报错。SDK 实际入口是 `window.smsdk.__DRIVE_SDK__.editor`：
+
+- `history-show` / `history-hide`、`save-version`、`comments-show` / `comments-hide`、`comment-add`、`print`：通过 `editor.actions` 打开对应面板，内容由页面展示。
+- `find`、`replace-all`、`page-width`、`sheet-freeze`、`sheet-sort`、`sheet-filter`、`sheet-validation`：当前未暴露 SDK，走页面操作；不要谎报已执行。
+- 表格 API 写入后仍要读回 `sheet-values` 或截图核验；`sheet-format` 只保证 `background/color/bold/fontSize`，`numberFormat`、列宽、行高不落库。
 
 订阅更新：
 

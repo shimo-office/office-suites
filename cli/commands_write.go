@@ -175,7 +175,7 @@ func (a *App) cmdImport() error {
 
 func (a *App) cmdNew() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net new <名称> [--type doc|docx|sheet|slide] [--to <文件夹|@别名>]（doc=文档，docx=文稿）")
+		return errors.New("用法：shimo-net new <名称> [--type doc|docx|sheet|slide|table|form|mindmap|flowchart] [--to <文件夹|@别名>]（doc=文档，docx=文稿）")
 	}
 	name := a.Pos[0]
 	typ := strings.ToLower(strings.TrimSpace(a.opt("--type")))
@@ -184,7 +184,7 @@ func (a *App) cmdNew() error {
 	}
 	shimoType := createTypes[typ]
 	if shimoType == "" {
-		return fmt.Errorf("不支持的新建类型：%s（可用：doc=文档 / docx=文稿 / sheet=表格 / slide=幻灯片）", typ)
+		return fmt.Errorf("不支持的新建类型：%s（可用：doc=文档 / docx=文稿 / sheet=表格 / slide=幻灯片 / table=表格 / form=表单 / mindmap=思维导图 / flowchart=流程图）", typ)
 	}
 	parent, err := a.resolveTarget(firstNonEmpty(a.opt("--to"), "desktop"))
 	if err != nil {

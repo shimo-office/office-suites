@@ -69,7 +69,7 @@ shimo-net login
 | 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
 | 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
 
-当前版本为 **0.9.12**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
+当前版本为 **0.9.13**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
 
 ---
 
@@ -179,9 +179,9 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 
 ### 页面操作与浏览器优先级
 
-涉及文字、段落、评论、历史、预览、打印或其他没有稳定 API 的操作时，Agent 必须先检查宿主是否有内置浏览器。WorkBuddy 使用官方市场的 **agent-browser** 技能：先安装并启用它，再在内置浏览器打开文件并用网页操作完成动作、返回截图。内置浏览器可用时不要运行 `shimo-net open`，也不要直接弹出系统默认浏览器。
+涉及文字、段落、评论、历史、预览、打印或其他没有稳定 API 的操作时，Agent 先按 [docs/tutorials/browser.md](docs/tutorials/browser.md) 的 P0 矩阵选浏览器：WorkBuddy 用 `present_files` 打开右侧内置浏览器；豆包工作、DSH、Codex 没有可调用的内置浏览器，用 `shimo-net open` 或 `computer-use`。内置浏览器可用时不要运行 `shimo-net open`。
 
-只有确认宿主没有内置浏览器时，才使用 `shimo-net open <链接> --default` 作为本机默认浏览器兜底。CLI 会读取本机 Keychain / Credential Manager 并在可安全注入的 Chromium 隔离配置中带入登录态；不会输出 sid/cookie。WorkBuddy 已有官方市场技能时，不要上传或复制仓库里的 `cli/SKILL.md`。
+只有确认宿主没有内置浏览器时，才使用 `shimo-net open <链接>` 或 `--default` 作为本机浏览器兜底。CLI 会读取本机 Keychain / Credential Manager 并在可安全注入的 Chromium 配置中带入登录态；不会输出 sid/cookie。WorkBuddy 已装 SkillHub 技能时，不要上传或复制仓库里的 `cli/SKILL.md`。
 
 <details>
 <summary><b>展开完整命令表（28 个场景，50 项能力）</b></summary>
@@ -242,6 +242,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 
 - `shimo-net login` 打开一个 Chrome 专用窗口，登录成功后关闭；会话存进 macOS Keychain（Windows 为 Credential Manager），之后命令不再问密码。
 - 登录过期时，重新执行 `shimo-net login`，**网址不用重配**，然后重试原命令。Agent 指令里已经包含这个重试逻辑。
+- 切账号必须 `shimo-net login --new`；普通 `login` 会优先复用本机 Chrome 会话，不会换账号。
 - `shimo-net logout` 删除本机凭据。
 - 不要把密码、cookie 粘进对话、Issue 或截图。
 - 删除只进回收站；CLI 不提供彻底删除，需要到石墨网页回收站手动操作。
@@ -342,4 +343,4 @@ make test        # Go 单元测试 + 构建 + 冒烟检查
 
 ## 许可
 
-本仓库用于石墨办公套件交付与客户私有部署，默认保留所有权利；对外分发或商用授权请联系石墨办公套件团队。
+本仓库用于石墨办公套件交付与客户私有部署，默认保留所有权利；对外分发或商用授权请联系石墨办公套件团队。完整许可见 [LICENSE](LICENSE)。

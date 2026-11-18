@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -153,5 +154,21 @@ func TestCLIBrowserVerificationIsOptIn(t *testing.T) {
 	t.Setenv("SHIMO_NET_VERIFY", "1")
 	if !cliBrowserVerification(base) {
 		t.Fatal("SHIMO_NET_VERIFY not honored")
+	}
+}
+
+func TestIsRetryableEditorError(t *testing.T) {
+	for _, msg := range []string{
+		"页面未暴露 editor SDK",
+		"SDK 方法不可用：history.show",
+		"页面尚未渲染完成，不能作为视觉核验证据",
+		"Cannot read properties of undefined (reading 'actions')",
+	} {
+		if !isRetryableEditorError(errors.New(msg)) {
+			t.Fatalf("expected retryable: %s", msg)
+		}
+	}
+	if isRetryableEditorError(errors.New("HTTP 403")) {
+		t.Fatal("HTTP 403 must not be retried as an editor error")
 	}
 }

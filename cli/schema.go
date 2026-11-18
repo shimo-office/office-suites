@@ -8,7 +8,7 @@ func schema() map[string]any {
 	cmds := []map[string]any{
 		{"name": "init", "usage": "shimo-net init [--origin https://域名] [--login]", "desc": "初始化产品网址并校验接口可达"},
 		{"name": "config", "usage": "shimo-net config [show|set <url>|clear]", "desc": "查看/修改产品网址（config.json）"},
-		{"name": "login", "usage": "shimo-net login [--origin https://域名]", "desc": "Chrome 登录并保存凭据"},
+		{"name": "login", "usage": "shimo-net login [--origin https://域名] [--new]", "desc": "Chrome 登录并保存凭据；--new 强制切换账号，不复用本机会话"},
 		{"name": "logout", "usage": "shimo-net logout", "desc": "退出并删除本机凭据"},
 		{"name": "search", "usage": "shimo-net search <keyword> [--limit 20]", "desc": "搜文件/文件夹/空间，返回地址"},
 		{"name": "spaces", "usage": "shimo-net spaces [--limit 300]", "desc": "列出我参与的空间"},
@@ -44,7 +44,7 @@ func schema() map[string]any {
 		"shareModes": keys(shareModes), "shareModeLabels": shareModes,
 		"importTypes": importTypes, "createTypes": createTypes,
 		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 50, "manualOnly": manualOnlyOperations,
-		"phase2":        map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list", "sheet-format", "sheet-merge", "sheet-values", "sheet-update"}, "transport": "same-origin-api", "fallback": "没有对应 API 的操作优先使用 agent 内联浏览器；没有内联浏览器时用 shimo-net open <链接> 注入 Keychain 会话，再由 computer-use 操作"},
+		"phase2":        map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "sheet-append", "sheet-insert", "sheet-delete"}, "pageOnlyActions": keys(phase2PageOnlyActions), "transport": "same-origin-api", "fallback": "WorkBuddy 用 present_files 打开内置浏览器；豆包/DSH/Codex 用 shimo-net open；页面动作按 docs/tutorials/browser.md 的 P0 矩阵"},
 		"subscriptions": map[string]any{"status": "supported", "endpoint": "GET /api/v1/files/{fileGuid}/update_subscription", "mode": "scan accessible files; no server-side all-subscriptions endpoint"},
 		"errors":        map[string]any{"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
 	}
@@ -59,12 +59,12 @@ func keys(m map[string]string) []string {
 }
 
 func helpText() string {
-	return `shimo-net ` + version + ` —— shimo.net 接口（28 个场景，覆盖 49 项能力）
+	return `shimo-net ` + version + ` —— shimo.net 接口（28 个场景，覆盖 50 项能力）
 
 用法:
   shimo-net init [--origin URL]                    初始化产品网址并校验可达
   shimo-net config [show|set URL|clear]            查看 / 修改产品网址
-  shimo-net login [--origin URL]                   登录（Chrome → macOS Keychain / Windows 凭据管理器）
+  shimo-net login [--origin URL] [--new]            登录；--new 强制切换账号（Chrome → Keychain / 凭据管理器）
   shimo-net logout                                 退出并删除本机凭据
   shimo-net whoami | doctor                        账号 / 自检
   shimo-net session status|harvest                 查看登录态来源 / 从 Chrome 复用登录态
@@ -75,7 +75,7 @@ func helpText() string {
   shimo-net upload <本地文件> [--to <位置>]          14 上传（不给 --to 会问：桌面/空间/文件夹）
   shimo-net import <本地文件> --to <位置>            4 导入并转在线文档；权限需页面人工操作
   shimo-net pull <文件夹|空间> [--out <目录>]          5 拉取（默认全部；--limit N 可限制）
-  shimo-net new <名称> [--type doc|docx|sheet|slide]  6 新建（doc=文档，docx=文稿）
+  shimo-net new <名称> [--type doc|docx|sheet|slide|table|form|mindmap|flowchart]  6 新建（doc=文档，docx=文稿）
   shimo-net mkdir <名称> [--to <父文件夹>]             6 新建文件夹
   shimo-net rename <链接> <新名字>                   7 改名
   shimo-net delete / trash / restore                 8 删除（只进回收站）/ 回收站 / 恢复
@@ -84,13 +84,15 @@ func helpText() string {
   shimo-net read <链接> [--max-chars N]              11 读正文
   shimo-net get <链接> [--out <目录>]                13 下载单个文件
   shimo-net fav <list|add|rm|show> …                15 常用文件夹别名（下次直接 @别名）
+  shimo-net version                                输出版本
   shimo-net open <链接|guid> [--default]            用已登录的浏览器打开；--default 使用系统默认浏览器
+  shimo-net purge <链接>                            彻底删除（按设计拒绝，请到网页回收站操作）
   shimo-net phase2 <链接> --action sheet-format --payload '{"range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}'
   shimo-net phase2 <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}'
   shimo-net phase2 <链接> --action sheet-values --payload '{"range":"工作表1!A1:C5"}'
   shimo-net phase2 <链接> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
   shimo-net phase2 <链接> --action sheet-append --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
-  shimo-net phase2 <链接> --action mentions-list|comments-list  同源 API；无 API 的编辑操作用 open + computer-use
+  shimo-net phase2 <链接> --action mentions-list|comments-list  同源 API；页面动作按 P0 浏览器矩阵执行
   shimo-net subscriptions [--limit 200] [--depth 3]   列已订阅文件；--open 序号|guid 后打开
   16 只看与我相关的                              mentions-list / comments-list / subscriptions
   17 留痕与版本                                  history / save-version
