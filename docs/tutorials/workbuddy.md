@@ -25,7 +25,7 @@
 2. 没有安装的话，帮我从 SkillHub 安装 shimo-net-cli 技能，不要在 WorkBuddy 内置技能市场里找。
 3. 如果安装后仍没有可用的 shimo-net CLI，再从 GitHub Releases 的 latest 版本安装。
 4. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
-5. 如果本机有内置浏览器能力（WorkBuddy 的 agent-browser），先主动安装/启用插件和浏览器运行时，并用一次 open + screenshot 确认可用；确认前不要执行石墨操作。
+5. 如果本机有内置浏览器（WorkBuddy 右侧面板），用 present_files 把石墨链接作为 URL 展示，不要用 shimo-net open 打开本地 Chrome。
 如果配置失败，返回完整错误信息。
 ```
 
@@ -124,25 +124,31 @@ shimo-net-cli 发布在 **SkillHub**，不在 WorkBuddy 内置的「技能市场
 
 ### 启用内置浏览器
 
-没有 API 的页面操作（例如文字/段落格式、历史、评论添加、表格冻结排序和打印）需要 WorkBuddy 的网页操作能力。请在「专家 · 技能 · 连接器 → 技能 → 已安装」确认官方 **agent-browser** 技能已安装并打开开关。它是 WorkBuddy 的内置浏览器能力，负责打开页面、点击菜单、输入内容和截图。
+没有 API 的页面操作（例如文字/段落格式、历史、评论添加、表格冻结排序和打印）需要在 WorkBuddy 右侧的内置浏览器中操作。用 `present_files` 打开 URL 即可，面板由 WorkBuddy 自带，不需要安装 `agent-browser`。
 
-先做内置浏览器预检，确认 `agent-browser` 真的可用：
+WorkBuddy 右上角的「打开浏览器」就是它的内置浏览器。Agent 不直接调面板，而是用 WorkBuddy 的 `present_files` 工具把链接作为 URL 展示：
 
-```bash
-agent-browser --version
-agent-browser open https://example.com
-agent-browser screenshot /tmp/agent-browser-check.png
-agent-browser close
-test -s /tmp/agent-browser-check.png
+```json
+{"files":["https://shimo.net/sheets/<guid>"],"explanation":"打开表格检查写入结果"}
 ```
 
-如果 `agent-browser` 不存在：在 WorkBuddy「专家 · 技能 · 连接器 → 技能」安装/启用官方 `agent-browser`（插件会自动跑 setup）；或手动执行 `npm install -g agent-browser && agent-browser install`。只装 npm 包不算完成，必须下载浏览器运行时，并以截图文件存在为准。预检通过后再跑表格/页面任务；预检失败先报告缺哪个依赖，不要静默退回本地 Chrome。
+`files` 是字符串数组；`http/https` URL 会被 WorkBuddy 在右侧内置浏览器预览面板打开，不会启动本地 Chrome。
+
+> 不要在 WorkBuddy 里用 `shimo-net open` 或 `phase2 --verify` 打开本地 Chrome。`agent-browser` 是本地/无头 Chrome 自动化插件，不是 WorkBuddy 的内置浏览器；WorkBuddy 的内置浏览器入口是 `present_files` 的 URL 预览。
+
+表格 API 写完后，`shimo-net phase2` 返回 `url`，下一步直接：
+
+```text
+present_files({"files":["<返回的 url>"],"explanation":"打开表格检查写入结果"})
+```
+
+需要截图时，内置浏览器面板本身就是结果展示；如果 Agent 不能直接截面板，让用户确认，或使用 WorkBuddy 提供的截图能力，不要用 CLI 本地 Chrome 代替。
 
 Agent 执行页面操作时遵循以下顺序：
 
-1. 已启用 `agent-browser`：直接在 WorkBuddy 内置浏览器打开石墨文件并操作，不能先运行 `shimo-net open`。
-2. 未安装或未启用：先询问「是否允许我安装并启用 WorkBuddy 市场的官方 agent-browser 技能？」；用户允许后再安装/启用并验证一次打开、点击和截图能力，完成后继续任务。技能已经安装时只开启开关，不重复安装。
-3. 用户允许但宿主确认没有内置浏览器：才运行 `shimo-net open <链接> --default` 调起本机默认浏览器。CLI 会尝试注入本机 Keychain 登录态；不能安全注入时如实提示并保留页面结果。用户拒绝安装/启用时，不要擅自弹出外部浏览器。
+1. **WorkBuddy 有内置浏览器**：用 `present_files` 把石墨 URL 放到右侧面板打开，在面板里完成页面操作；不要运行 `shimo-net open`，也不要启动 `agent-browser` 的 Chrome。
+2. 内置浏览器面板不可用：先询问用户是否允许改用 `agent-browser`（本地/无头 Chrome）或 `shimo-net open`；用户同意后再执行。
+3. 用户拒绝：不打开外部浏览器，返回 `url` 和需要手动完成的步骤。
 
 表格 API 动作默认不启动 CLI 本地 Chrome：
 
@@ -150,9 +156,9 @@ Agent 执行页面操作时遵循以下顺序：
 shimo-net phase2 <表格> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}' --json
 ```
 
-命令会返回 `url`、`verified:false`、`verifyWith:"host-browser"`；接着用 `agent-browser` 打开这个 `url` 截图即可。只有需要 CLI 本地 Chrome 截图时才加 `--verify`；加上它容易触发 WorkBuddy 的删除文件确认，并出现 Chrome 反复开关或意外退出。
+命令会返回 `url`、`verified:false`、`verifyWith:"host-browser"`；接着用 `present_files` 把这个 `url` 交给 WorkBuddy 内置浏览器。只有明确需要 CLI 本地 Chrome 截图时才加 `--verify`。
 
-`shimo-net` 无法从命令行强制创建 WorkBuddy 内置浏览器，也不能把仓库里的自定义 `cli/SKILL.md` 当作 Computer Use 安装。内置浏览器是 WorkBuddy 的宿主技能，市场技能安装并启用后才可用。
+`shimo-net` 不能直接调用 WorkBuddy 的 `present_files`；打开内置浏览器这一步必须由 Agent 调用宿主工具完成。内置浏览器是 WorkBuddy 自带的面板，不依赖 `agent-browser` 插件。
 
 判断标准是 SkillHub 版 shimo-net-cli 技能出现在「已安装」并处于启用状态；不需要检查 `~/.workbuddy/skills/`，也不要安装仓库自定义技能。
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.11 — 2026-11-18
+
+### 修复
+
+- WorkBuddy 的内置浏览器改为通过宿主 `present_files` 工具展示 URL 打开；不再把 `agent-browser` 当作 WorkBuddy 内置浏览器，也不再因此启动本地 Chrome。
+- `agent-browser` 预检移到“没有 WorkBuddy 内置浏览器的宿主”；WorkBuddy 无需安装 `agent-browser` 就能使用右侧内置浏览器。
+
+
 ## 0.9.10 — 2026-11-17
 
 ### 新增

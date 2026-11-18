@@ -6,7 +6,7 @@ description_zh: 操作 shimo.net（含客户私有部署）时使用：用 shimo
 description_en: Use the shimo-net CLI for shimo.net (including private deployments) to search files and spaces, upload or import, pull or download, audit permissions, create or rename, read documents, and save favorite folders. High-risk permission changes and irreversible actions must be done in the Shimo web UI.
 description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
 whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
-version: 0.9.10
+version: 0.9.11
 agent_created: true
 ---
 
@@ -85,9 +85,23 @@ shimo-net init --origin https://<客户域名>
 
 ## 编辑器与协作能力
 
-### 宿主浏览器预检（WorkBuddy 必做）
+### WorkBuddy 内置浏览器（优先）
 
-如果宿主声称有内置浏览器（WorkBuddy 的 `agent-browser`），在第一次执行表格/页面任务前必须预检，不能直接跑 `phase2`：
+WorkBuddy 右上角的「打开浏览器」是宿主自带的内置浏览器，不需要 `agent-browser` 插件。Agent 用 WorkBuddy 的 `present_files` 工具把 URL 作为 `files` 项展示：
+
+```json
+{"files":["https://shimo.net/sheets/<guid>"],"explanation":"打开表格检查写入结果"}
+```
+
+`files` 是字符串数组；`http/https` URL 会被 WorkBuddy 在右侧内置浏览器预览面板打开。表格 API 写完后，把 `phase2` 返回的 `url` 直接交给 `present_files`。
+
+- 不要用 `shimo-net open` 或 `phase2 --verify` 在 WorkBuddy 里启动本地 Chrome。
+- 需要截图时，面板本身就是结果展示；如果 Agent 不能直接截面板，让用户确认，或使用 WorkBuddy 的截图能力，不要让 CLI 本地 Chrome 冒充内置浏览器。
+- `shimo-net` 不能直接调用 `present_files`，这一步必须由 Agent 调用宿主工具完成。
+
+### 其他宿主：agent-browser 预检
+
+没有 WorkBuddy 内置浏览器的宿主，如果要用 `agent-browser`（本地/无头 Chrome 自动化），第一次执行表格/页面任务前必须预检：
 
 1. `agent-browser --version`；不存在时先询问用户，安装/启用官方 `agent-browser` 插件，并执行它的 setup。
 2. 只装 npm 包不算完成，必须运行 `agent-browser install` 下载浏览器运行时。
@@ -97,13 +111,16 @@ shimo-net init --origin https://<客户域名>
 
 ### 宿主浏览器与 Computer Use 优先级
 
-页面编辑、评论、历史、预览、打印和其他没有稳定 API 的动作，先检查当前 Agent 是否提供内置浏览器和网页操作能力。WorkBuddy 对应的官方市场技能名称是 **agent-browser**（它提供网页打开、点击、输入和截图能力；不要求复制本仓库的 `cli/SKILL.md`）。
+页面编辑、评论、历史、预览、打印和其他没有稳定 API 的动作，先检查当前 Agent 是否提供内置浏览器和网页操作能力：
+
+- **WorkBuddy**：内置浏览器入口是 `present_files` 的 URL 预览，不是 `agent-browser`。
+- **其他宿主**：内置浏览器工具或 `agent-browser`（本地/无头 Chrome）。
 
 按下面顺序处理：
 
-1. **有内置浏览器/网页操作能力**：直接用宿主提供的内置浏览器打开目标文件，在该页面完成操作并截图；不要先运行 `shimo-net open`，也不要先调用系统默认浏览器。表格 API 动作（`sheet-update` / `sheet-append` / `sheet-insert` / `sheet-delete` / `sheet-format` / `sheet-merge`）默认不启动 CLI 本地 Chrome，把视觉核验交给宿主内置浏览器。
-2. **WorkBuddy 没有该能力或技能未启用**：先询问用户是否允许安装/启用 WorkBuddy 市场里的官方 `agent-browser` 技能（已安装时只开启开关）。用户允许后才执行安装或启用，并用一次能力检查确认能打开页面和截图；用户拒绝时停止页面操作并返回市场链接与手动步骤。安装技能属于宿主配置，`shimo-net` 不会自行复制仓库技能或伪造 Computer Use。
-3. **用户允许但宿主仍没有内置浏览器**：才使用 `shimo-net open <链接> --default` 打开本机默认浏览器。CLI 会先从 Keychain / Credential Manager 取得会话，并在 Chromium 系默认浏览器的隔离配置中注入 cookie；非 Chromium 浏览器无法安全注入时如实提示，不要打印 sid/cookie。
+1. **有内置浏览器**：WorkBuddy 用 `present_files` 打开目标 URL；其他宿主用其内置浏览器工具。不要先运行 `shimo-net open`，也不要先调用系统默认浏览器。表格 API 动作默认不启动 CLI 本地 Chrome，视觉核验交给宿主浏览器。
+2. **WorkBuddy 的 `present_files` 不可用，或其他宿主没有内置浏览器**：先询问用户是否允许改用 `agent-browser`（本地/无头 Chrome）或 `shimo-net open`；用户同意后再执行。用户拒绝时停止页面操作并返回 URL 与手动步骤。
+3. **用户允许但没有内置浏览器**：才使用 `agent-browser` 或 `shimo-net open <链接> --default`。CLI 会先从 Keychain / Credential Manager 取得会话，并在 Chromium 系浏览器的隔离配置中注入 cookie；非 Chromium 浏览器无法安全注入时如实提示，不要打印 sid/cookie。
 
 `shimo-net open <链接>` 是 CLI 自己的浏览器会话入口，适合没有宿主内置浏览器的 Agent；它不是 WorkBuddy 内置浏览器的替代检测。Agent 不得因为 CLI 命令可用就跳过宿主能力检查。
 
@@ -117,10 +134,10 @@ shimo-net phase2 <链接|guid|@别名> --action sheet-merge --payload '{"sheetNa
 shimo-net phase2 <链接|guid|@别名> --action sheet-format --payload '…' --verify --json
 shimo-net phase2 <链接|guid|@别名> --action mentions-list --json
 
-> 有内置浏览器的宿主（WorkBuddy `agent-browser`）：不要加 `--verify`，默认由宿主浏览器截图。没有内置浏览器、需要 CLI 截图时才加 `--verify`。`--no-verify` 仍可显式关闭本地浏览器。
+> WorkBuddy 用 `present_files` 打开 `url`；不要加 `--verify`。其他宿主需要 CLI 截图时才加 `--verify`。`--no-verify` 仍可显式关闭本地浏览器。
 ```
 
-`phase2` 是兼容入口。表格 `sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源 `/lizard-api` 接口，不依赖页面 `globalThis.sdk`，因此不会再退回本地生成 XLSX。API 返回成功只代表服务端接受了请求，**不是最终完成条件**。`phase2` 的表格 API 写入默认不启动本地 Chrome，返回 `verified:false`、`verifyWith:"host-browser"`；接下来用宿主内置浏览器（WorkBuddy 的 `agent-browser`）打开 `url` 截图。只有宿主没有内置浏览器、需要 CLI 截图时，才加 `--verify`，由 CLI 读取 Keychain / Credential Manager 的 cookie、注入本地浏览器并截图。页面 SDK 未暴露或动作没有可用 API 时，先按上面的宿主浏览器优先级执行；确认没有内置浏览器后再使用 `shimo-net open <链接> --default`。如果本机凭据存储中没有会话，必须如实报告无法完成视觉核验，不能只凭 HTTP 200 宣称成功。
+`phase2` 是兼容入口。表格 `sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源 `/lizard-api` 接口，不依赖页面 `globalThis.sdk`，因此不会再退回本地生成 XLSX。API 返回成功只代表服务端接受了请求，**不是最终完成条件**。`phase2` 的表格 API 写入默认不启动本地 Chrome，返回 `verified:false`、`verifyWith:"host-browser"`；接下来用宿主内置浏览器打开 `url`：WorkBuddy 用 `present_files`，其他宿主用其内置浏览器。只有宿主没有内置浏览器、需要 CLI 截图时，才加 `--verify`，由 CLI 读取 Keychain / Credential Manager 的 cookie、注入本地浏览器并截图。页面 SDK 未暴露或动作没有可用 API 时，先按上面的宿主浏览器优先级执行；确认没有内置浏览器后再使用 `shimo-net open <链接> --default`。如果本机凭据存储中没有会话，必须如实报告无法完成视觉核验，不能只凭 HTTP 200 宣称成功。
 
 订阅更新：
 
@@ -131,4 +148,4 @@ shimo-net subscriptions --open 1
 
 该命令逐文件查询 `/api/v1/files/{fileGuid}/update_subscription`，先列已订阅文件，再按用户选择打开对应文档；没有服务端全量订阅列表或最近更新正文接口时，不要猜测结果。
 
-浏览器操作固定步骤：先 `whoami --json`；浏览器显示登录页时，先检查本机 Keychain / Windows Credential Manager，再检查本机 Chrome 是否已登录（`shimo-net session harvest --json`）；有会话就由 CLI 注入目标域名完整 cookie jar 并刷新，禁止要求用户二次登录；只有两处都没有会话时才提示用户登录。页面动作先检查宿主内置浏览器；WorkBuddy 未安装或未启用 `agent-browser` 时，先询问用户是否允许安装/启用，获准后再操作并验证截图能力；用户拒绝时不要弹外部浏览器。确认宿主没有内置浏览器且用户允许兜底后才用 `shimo-net open <链接> --default`，不要直接把页面导航到登录地址；没有 API 时使用宿主网页操作或 computer-use 直接操作页面菜单、工具栏和选区；单元格历史必须先让用户说明行号和列号；单元格底色直接通过表格格式菜单操作；写操作先确认目标和影响范围；不要复制 sid；不要把 sid/cookie 写入日志或消息；**每个成功场景必须保存截图并在最终答复中返回绝对路径和 Markdown 图片**；截图失败或仍停留在登录页时必须如实说明并保留失败截图，不能报告完成。
+浏览器操作固定步骤：先 `whoami --json`；浏览器显示登录页时，先检查本机 Keychain / Windows Credential Manager，再检查本机 Chrome 是否已登录（`shimo-net session harvest --json`）；有会话就由 CLI 注入目标域名完整 cookie jar 并刷新，禁止要求用户二次登录；只有两处都没有会话时才提示用户登录。页面动作先检查宿主内置浏览器；WorkBuddy 用 `present_files` 把 URL 放到右侧面板，`present_files` 不可用时先询问用户是否允许改用 `agent-browser` 或本地 Chrome；用户拒绝时不要弹外部浏览器。确认宿主没有内置浏览器且用户允许兜底后才用 `shimo-net open <链接> --default`，不要直接把页面导航到登录地址；没有 API 时使用宿主网页操作或 computer-use 直接操作页面菜单、工具栏和选区；单元格历史必须先让用户说明行号和列号；单元格底色直接通过表格格式菜单操作；写操作先确认目标和影响范围；不要复制 sid；不要把 sid/cookie 写入日志或消息；**每个成功场景必须保存截图并在最终答复中返回绝对路径和 Markdown 图片**；截图失败或仍停留在登录页时必须如实说明并保留失败截图，不能报告完成。
