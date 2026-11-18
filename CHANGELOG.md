@@ -5,6 +5,7 @@
 ### 修复
 
 - 页面动作在编辑器异步挂载时最多重试 **5 次**、每次间隔 2 秒；不再因为第一秒读不到 SDK 就直接报错。
+- SkillHub 技能包补齐 WorkBuddy 要求的作者和中英文使用案例元数据，并在执行前检查 CLI、登录态和宿主浏览器，避免沙箱误报成功。
 - SDK 实际入口改为 `window.smsdk.__DRIVE_SDK__.editor`（`globalThis.sdk` 在该页面为 undefined）：`history-show/hide`、`save-version`、`comments-show/hide`、`comment-add`、`print` 通过 `editor.actions` 打开对应面板。
 - `find`、`replace-all`、`page-width`、`sheet-freeze`、`sheet-sort`、`sheet-filter`、`sheet-validation` 明确标为页面动作，调用时返回可读提示，不再伪装成 SDK 方法。
 

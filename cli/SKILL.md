@@ -2,17 +2,32 @@
 name: shimo-net-cli
 display_name: 石墨办公 CLI
 display_name_en: shimo-net CLI
-description_zh: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名；高风险权限和不可逆操作转石墨网页人工处理。
-description_en: Use the shimo-net CLI for shimo.net (including private deployments) to search files and spaces, upload or import, pull or download, audit permissions, create or rename, read documents, and save favorite folders. High-risk permission changes and irreversible actions must be done in the Shimo web UI.
-description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
-whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
+description_zh: 用 shimo-net 直连 shimo.net，搜索、读取、上传、下载、新建、改名和处理表格；页面编辑通过宿主浏览器，权限变更和彻底删除由人工完成。
+description_en: Use shimo-net with shimo.net to search, read, upload, download, create, rename, and edit sheets. Use the host browser for page actions; handle permission changes and permanent deletion manually.
+description: 用 shimo-net 直连 shimo.net 完成文件和表格操作；需要页面交互时使用宿主浏览器，高风险权限和彻底删除交给人工。
+whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工处理。
+examples_zh:
+  - "帮我搜索石墨里名为‘季度方案’的文件，并返回链接。"
+  - "在这个表格的工作表1 A1:C3 写入课表内容，然后打开页面核对结果。"
+  - "列出我订阅的文件，选择一个打开查看最近更新。"
+examples_en:
+  - "Search Shimo for the file named 'Quarterly Plan' and return its link."
+  - "Write the timetable to Sheet1 A1:C3 and open the page to verify it."
+  - "List my subscribed files and open one to review its latest update."
 version: 0.9.13
-agent_created: true
+author: shimo-office
 ---
 
 # shimo-net CLI
 
 仓库内用根目录 `./shimo`；安装后用 PATH 里的 `shimo-net`。
+
+## 执行前置
+
+1. 先检查 `command -v shimo-net` 和 `shimo-net doctor --json`。命令不存在时，明确说明 CLI 尚未安装；在用户允许后，使用 GitHub Releases 的 latest 安装脚本安装，不要伪造成功结果。
+2. 先运行 `shimo-net whoami --json` 验证会话。只报告是否可用，不输出账号、sid 或 cookie。
+3. WorkBuddy 有内置浏览器时，把返回的石墨 URL 交给 `present_files` 打开并截图；不要启动本机 Chrome，也不要要求安装 agent-browser。
+4. API 写入后必须打开目标页面核对结果；没有页面截图只能报告“已提交，待页面核验”，不能报告操作完成。
 
 ## 检查与登录
 
