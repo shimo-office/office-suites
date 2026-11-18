@@ -106,6 +106,10 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 
 看到 `DSH skills:` 下面有 `shimo-net-cli` 就对了。重启 DSH 或新建一个会话，让技能生效。
 
+## 4.1 浏览器怎么开
+
+DSH 没有内置浏览器工具。优先用 `computer-use`（Orca）操作浏览器；没有则用 `shimo-net open <链接>` 打开本机浏览器。四款 P0 的完整矩阵见 [browser.md](browser.md)。
+
 ## 5. 第一个任务：验证连通
 
 在 DSH 新会话里粘贴：

@@ -124,6 +124,8 @@ shimo-net-cli 发布在 **SkillHub**，不在 WorkBuddy 内置的「技能市场
 
 ### 启用内置浏览器
 
+> 四款 P0 的浏览器矩阵见 [browser.md](browser.md)：WorkBuddy 用内置浏览器，豆包/DSH/Codex 用本机浏览器。
+
 没有 API 的页面操作（例如文字/段落格式、历史、评论添加、表格冻结排序和打印）需要在 WorkBuddy 右侧的内置浏览器中操作。用 `present_files` 打开 URL 即可，面板由 WorkBuddy 自带，不需要安装 `agent-browser`。
 
 WorkBuddy 右上角的「打开浏览器」就是它的内置浏览器。Agent 不直接调面板，而是用 WorkBuddy 的 `present_files` 工具把链接作为 URL 展示：

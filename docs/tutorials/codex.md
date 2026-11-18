@@ -103,6 +103,10 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 
 看到 `Codex skills:` 列表里有 `shimo-net-cli` 就对了。
 
+## 4.1 浏览器怎么开
+
+Codex 没有内置浏览器。用 `shimo-net open <链接>` 打开本机浏览器；Codex 沙箱可能拦截 Keychain，先按上面的沙箱说明处理。四款 P0 的完整矩阵见 [browser.md](browser.md)。
+
 ## 5. 第一个任务：验证连通
 
 在终端执行：

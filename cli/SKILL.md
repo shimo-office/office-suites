@@ -6,7 +6,7 @@ description_zh: 操作 shimo.net（含客户私有部署）时使用：用 shimo
 description_en: Use the shimo-net CLI for shimo.net (including private deployments) to search files and spaces, upload or import, pull or download, audit permissions, create or rename, read documents, and save favorite folders. High-risk permission changes and irreversible actions must be done in the Shimo web UI.
 description: 操作 shimo.net（含客户私有部署）时使用：用 shimo-net 命令行直连，搜索文件与空间、上传/导入、拉取下载、权限巡检、新建改名、读正文、常用文件夹别名。涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时必须转石墨网页人工操作。
 whenToUse: 用户要用石墨 shimo.net 找文件/空间、上传或导入、拉取下载、权限巡检、新建/改名、读文档、记常用文件夹时；高风险权限和不可逆操作必须人工页面处理。
-version: 0.9.11
+version: 0.9.12
 agent_created: true
 ---
 
@@ -98,6 +98,19 @@ WorkBuddy 右上角的「打开浏览器」是宿主自带的内置浏览器，�
 - 不要用 `shimo-net open` 或 `phase2 --verify` 在 WorkBuddy 里启动本地 Chrome。
 - 需要截图时，面板本身就是结果展示；如果 Agent 不能直接截面板，让用户确认，或使用 WorkBuddy 的截图能力，不要让 CLI 本地 Chrome 冒充内置浏览器。
 - `shimo-net` 不能直接调用 `present_files`，这一步必须由 Agent 调用宿主工具完成。
+
+### P0 宿主覆盖
+
+当前 P0 覆盖四款 Agent；其他宿主后续按同一接口补：
+
+| 宿主 | 浏览器路径 |
+|---|---|
+| WorkBuddy | `present_files` 的 URL 预览 → 右侧内置浏览器 |
+| 豆包工作 | 无内置浏览器；`shimo-net open` 本机浏览器 |
+| DeepSeek Harness | 无内置浏览器；`computer-use`（Orca）或 `shimo-net open` |
+| Codex | 无内置浏览器；`shimo-net open` |
+
+不要因为 WorkBuddy 有内置浏览器就假设其他三款也有；也不要因为其他三款用本机浏览器就在 WorkBuddy 里打开本地 Chrome。
 
 ### 其他宿主：agent-browser 预检
 

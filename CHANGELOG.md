@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.12 — 2026-11-18
+
+### 新增
+
+- 浏览器覆盖扩展到 P0 四款 Agent：WorkBuddy 用 `present_files` 打开右侧内置浏览器；豆包工作、DeepSeek Harness、Codex 没有 Agent 可调用的内置浏览器，分别用 `shimo-net open` 或 `computer-use`，不再把 WorkBuddy 的内置浏览器方案套到其他宿主。
+- 新增 [docs/tutorials/browser.md](docs/tutorials/browser.md) 作为四款 Agent 的唯一浏览器矩阵，四篇教程和 `SKILL.md` 都链接到它。
+
+
 ## 0.9.11 — 2026-11-18
 
 ### 修复

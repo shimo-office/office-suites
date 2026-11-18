@@ -15,6 +15,8 @@
 | Codex | 桌面 / CLI / IDE · `~/.codex/skills/` | [codex.md](codex.md) |
 
 > 四款 Agent 的实测结果见 [validation.md](validation.md)（4/4 通过；Codex 需放宽沙箱）。
+>
+> 浏览器打开方式见 [browser.md](browser.md)：WorkBuddy 用内置浏览器，豆包/DSH/Codex 用本机浏览器。
 
 ## 一句话让 Agent 自己配置
 
