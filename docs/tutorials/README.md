@@ -15,15 +15,17 @@
 | Codex | 桌面 / CLI / IDE · `~/.codex/skills/` | [codex.md](codex.md) |
 
 > 四款 Agent 的实测结果见 [validation.md](validation.md)（4/4 通过；Codex 需放宽沙箱）。
+>
+> 浏览器打开方式见 [browser.md](browser.md)：WorkBuddy 用内置浏览器，豆包/DSH/Codex 用本机浏览器。
 
 ## 一句话让 Agent 自己配置
 
-每篇教程开头都有一段可直接复制给 Agent 的 prompt；WorkBuddy 直接使用已安装的官方市场技能，其他 Agent 可运行 `bootstrap.sh` 下载 latest CLI、初始化并打开登录页。手工步骤只作为兜底。
+每篇教程开头都有一段可直接复制给 Agent 的 prompt。先检查本机是否已安装 shimo-net-cli 技能：WorkBuddy 为 SkillHub 版，Codex/DSH 为各自技能目录；已安装就直接使用，没有就安装。只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 latest 安装。手工步骤只作为兜底。
 
 ## 客户独立验收路径
 
 1. 打开已安装的 Agent，截图主界面。
-2. 在终端执行 `shimo-net version`，应看到当前 latest release 版本。
+2. 在终端执行 `shimo-net doctor`，应看到 `ok: true` 和 `结果：🟢 doctor: OK`。
 3. 执行 `shimo-net whoami --json`，应返回账号；不想看账号就只看退出码 0。
 4. 在 Agent 里输入：`用 shimo-net 执行 whoami --json 验证连通；只回复「已连通，账号可用」`，应返回「已连通」。
 5. 再输入：`用 shimo-net info <一个你有权限的链接> 返回名称、类型、链接`，应返回三项。
@@ -37,7 +39,7 @@
 
 ## 说明
 
-- 截图来自本机实际界面，账号信息已脱敏。
+- 教程截图按当前 WorkBuddy / DSH / 豆包 / Codex 界面做 H5 还原示意；账号、文件名、文件链接已脱敏。
 - Codex 默认沙箱会拦截 Keychain，需要配置允许访问 Keychain 的沙箱策略；教程中的 bypass 只用于验证。
 - 豆包工作需选择「本地电脑」，云电脑没有本机 CLI。
 

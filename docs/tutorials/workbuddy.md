@@ -1,17 +1,17 @@
 # WorkBuddy × 石墨办公：从打开到第一个结果
 
-> 适用版本：WorkBuddy 5.9.3（桌面客户端）· shimo-net CLI 最新 release
-> 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 安装市场技能 → 装 CLI → 登录授权 → 跑出第一个真实结果」。
+> 适用版本：WorkBuddy 5.11.3（桌面客户端）· shimo-net CLI 最新版
+> 适用对象：shimo.net 客户及私有化部署客户。照着做，20 分钟内完成「打开 Agent → 检查/安装 SkillHub 技能 → 登录授权 → 跑出第一个真实结果」。
 
 ## 0. 开始前
 
 你只需要准备：
 
 - 已经安装好的 WorkBuddy 桌面端（不需要重新下载）；
-- WorkBuddy 市场中的 [shimo-net 技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)；
+- SkillHub 上的 [shimo-net-cli 技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)（不在 WorkBuddy 内置技能市场里；未安装也没关系，第 0.1 节会让 Agent 检查并安装）；
 - 一个能登录 shimo.net 的账号；
 - macOS 的「终端」，或 Windows 的 PowerShell；
-- 能访问 GitHub（安装 CLI 用）。
+- 能访问 GitHub（兜底安装 CLI 用）。
 
 不需要会写代码；命令都可以直接复制。
 
@@ -20,19 +20,21 @@
 把下面整段发给 WorkBuddy，不要自己开终端：
 
 ```text
-请直接使用已经安装的 WorkBuddy 官方市场版 shimo-net 技能完成配置，不要上传或复制仓库里的 cli/SKILL.md，也不要重复安装技能：
-1. 先检查本机 shimo-net CLI 是否可用；如果没有，再从 GitHub Releases 的 latest 版本安装，不要固定旧版本号。
-2. 如果需要登录，打开 Chrome 登录页；我会完成登录，登录成功后继续。
-3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
+请帮我完成 shimo-net 的安装和配置，不要让我手动开终端：
+1. 先检查本机是否已安装 SkillHub 版 shimo-net-cli 技能；已安装就直接使用，不要重复安装。
+2. 没有安装的话，帮我从 SkillHub 安装 shimo-net-cli 技能，不要在 WorkBuddy 内置技能市场里找。
+3. 如果安装后仍没有可用的 shimo-net CLI，再从 GitHub Releases 的 latest 版本安装。
+4. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
+5. 如果本机有内置浏览器（WorkBuddy 右侧面板），用 present_files 把石墨链接作为 URL 展示，不要用 shimo-net open 打开本地 Chrome。
 如果配置失败，返回完整错误信息。
 ```
 
-市场技能安装后可以直接使用；只有本机没有 CLI 时才下载 latest 版本并初始化。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
+SkillHub 技能装好后可以直接使用；已有 CLI 时不需要重新安装。登录完成后，如果「已安装技能」没刷新，退出 WorkBuddy 再打开一次；如果它问是否允许执行命令，选允许。
 
-> CLI 安装脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh；脚本默认从 GitHub Releases latest 下载。
+> CLI 安装脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh；只有在没有 SkillHub 技能、本机也没有 CLI 时才会用到。
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
-真实执行结果（WorkBuddy 5.9.3，38 秒）：
+配置完成后的对话（WorkBuddy 5.11.3）：
 
 ![WorkBuddy 一句话自配置](images/workbuddy/real-self-setup.jpg)
 
@@ -42,11 +44,10 @@
 
 ## 2. 检查 shimo-net CLI（已安装可跳过）
 
-市场技能安装后先直接使用。如果 WorkBuddy 提示本机没有 `shimo-net`，再打开「终端」安装 GitHub Releases 的 latest 版本：
+先确认 SkillHub 版 shimo-net-cli 技能已安装并启用；已有 `shimo-net` 就直接用。只有本机确实没有 CLI 时，才打开「终端」安装 GitHub Releases 的 latest 版本：
 
 ```bash
 curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- workbuddy
-shimo-net version
 shimo-net doctor --json
 ```
 
@@ -56,19 +57,17 @@ Windows 用 PowerShell 时，下载仓库后执行安装器，或直接安装当
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 powershell -ExecutionPolicy Bypass -File .\install.ps1
-shimo-net version
 shimo-net doctor --json
 ```
 
-正常情况下会看到版本号和配置信息：
+正常情况下会看到配置信息和 doctor 结果：
 
 ![CLI 安装与配置验证](images/common/cli-version.jpg)
 
-你要确认三件事（如果 CLI 已存在，只需确认版本和 doctor）：
+你要确认两件事（如果 CLI 已存在，只需确认 doctor）：
 
-1. `shimo-net version` 输出当前安装的 latest release 版本；
-2. `shimo-net config show` 显示 `https://shimo.net`；
-3. `doctor --json` 的 `ok` 为 `true`，`checks` 五项都是 `ok`；终端最后一行显示 `结果：🟢 doctor: OK`。
+1. `shimo-net config show` 显示 `https://shimo.net`；
+2. `doctor --json` 的 `ok` 为 `true`，`checks` 五项都是 `ok`；终端最后一行显示 `结果：🟢 doctor: OK`。
 
 装完后如果提示 `shimo-net: command not found`，先执行：
 
@@ -86,7 +85,7 @@ export PATH="$HOME/.local/bin:$PATH"
 shimo-net login
 ```
 
-会弹出一个 Chrome 窗口：
+如果本机 Chrome 已登录 shimo.net，CLI 会直接复用登录态，不会弹窗；没有登录态时才打开 Chrome 登录页：
 
 1. 用你的 shimo.net 账号登录；
 2. 看到登录成功提示后，Chrome 会自动关闭；
@@ -108,32 +107,62 @@ shimo-net login
 shimo-net whoami --json
 ```
 
-## 4. 安装 WorkBuddy 市场技能
+## 4. 检查 / 安装 SkillHub 上的 shimo-net-cli 技能（已安装可跳过）
 
-WorkBuddy 已经提供官方 shimo-net 市场技能，不需要上传或复制仓库里的 `cli/SKILL.md`。
+shimo-net-cli 发布在 **SkillHub**，不在 WorkBuddy 内置的「技能市场」里，所以不要在技能市场里搜。如果「已安装」里已经有并已启用，直接跳到第 5 步；没有再按下面步骤安装。
 
-1. 打开 [WorkBuddy 市场技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)；
+> 找不到时先确认入口是 SkillHub 分享页；SkillHub 分享页可以直接安装/添加到 WorkBuddy。
+
+1. 打开 [SkillHub 分享页](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)；
 2. 点击「安装」或「添加到 WorkBuddy」；
 3. 回到左侧栏「专家 · 技能 · 连接器」→「技能」→「已安装」；
-4. 确认市场版 shimo-net 技能已启用。
+4. 确认 SkillHub 版 shimo-net-cli 技能已启用。
 
-装好后打开「已安装技能」，应该看到：
+装好后打开「已安装技能」，确认 shimo-net-cli 已启用：
 
 ![WorkBuddy 已安装技能](images/workbuddy/real-installed.jpg)
 
 ### 启用内置浏览器
 
-没有 API 的页面操作（例如文字/段落格式、历史、评论添加、表格冻结排序和打印）需要 WorkBuddy 的网页操作能力。请在「专家 · 技能 · 连接器 → 技能 → 已安装」确认官方 **agent-browser** 技能已安装并打开开关。它是 WorkBuddy 的内置浏览器能力，负责打开页面、点击菜单、输入内容和截图。
+> 四款 P0 的浏览器矩阵见 [browser.md](browser.md)：WorkBuddy 用内置浏览器，豆包/DSH/Codex 用本机浏览器。
+
+没有 API 的页面操作（例如文字/段落格式、历史、评论添加、表格冻结排序和打印）需要在 WorkBuddy 右侧的内置浏览器中操作。用 `present_files` 打开 URL 即可，面板由 WorkBuddy 自带，不需要安装 `agent-browser`。
+
+WorkBuddy 右上角的「打开浏览器」就是它的内置浏览器。Agent 不直接调面板，而是用 WorkBuddy 的 `present_files` 工具把链接作为 URL 展示：
+
+```json
+{"files":["https://shimo.net/sheets/<guid>"],"explanation":"打开表格检查写入结果"}
+```
+
+`files` 是字符串数组；`http/https` URL 会被 WorkBuddy 在右侧内置浏览器预览面板打开，不会启动本地 Chrome。
+
+> 不要在 WorkBuddy 里用 `shimo-net open` 或 `phase2 --verify` 打开本地 Chrome。`agent-browser` 是本地/无头 Chrome 自动化插件，不是 WorkBuddy 的内置浏览器；WorkBuddy 的内置浏览器入口是 `present_files` 的 URL 预览。
+
+表格 API 写完后，`shimo-net phase2` 返回 `url`，下一步直接：
+
+```text
+present_files({"files":["<返回的 url>"],"explanation":"打开表格检查写入结果"})
+```
+
+需要截图时，内置浏览器面板本身就是结果展示；如果 Agent 不能直接截面板，让用户确认，或使用 WorkBuddy 提供的截图能力，不要用 CLI 本地 Chrome 代替。
 
 Agent 执行页面操作时遵循以下顺序：
 
-1. 已启用 `agent-browser`：直接在 WorkBuddy 内置浏览器打开石墨文件并操作，不能先运行 `shimo-net open`。
-2. 未安装或未启用：先询问「是否允许我安装并启用 WorkBuddy 市场的官方 agent-browser 技能？」；用户允许后再安装/启用并验证一次打开、点击和截图能力，完成后继续任务。技能已经安装时只开启开关，不重复安装。
-3. 用户允许但宿主确认没有内置浏览器：才运行 `shimo-net open <链接> --default` 调起本机默认浏览器。CLI 会尝试注入本机 Keychain 登录态；不能安全注入时如实提示并保留页面结果。用户拒绝安装/启用时，不要擅自弹出外部浏览器。
+1. **WorkBuddy 有内置浏览器**：用 `present_files` 把石墨 URL 放到右侧面板打开，在面板里完成页面操作；不要运行 `shimo-net open`，也不要启动 `agent-browser` 的 Chrome。
+2. 内置浏览器面板不可用：先询问用户是否允许改用 `agent-browser`（本地/无头 Chrome）或 `shimo-net open`；用户同意后再执行。
+3. 用户拒绝：不打开外部浏览器，返回 `url` 和需要手动完成的步骤。
 
-`shimo-net` 无法从命令行强制创建 WorkBuddy 内置浏览器，也不能把仓库里的自定义 `cli/SKILL.md` 当作 Computer Use 安装。内置浏览器是 WorkBuddy 的宿主技能，市场技能安装并启用后才可用。
+表格 API 动作默认不启动 CLI 本地 Chrome：
 
-判断标准是市场版 shimo-net 技能出现在「已安装」并处于启用状态；不需要检查 `~/.workbuddy/skills/`，也不要安装仓库自定义技能。
+```bash
+shimo-net phase2 <表格> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}' --json
+```
+
+命令会返回 `url`、`verified:false`、`verifyWith:"host-browser"`；接着用 `present_files` 把这个 `url` 交给 WorkBuddy 内置浏览器。只有明确需要 CLI 本地 Chrome 截图时才加 `--verify`。
+
+`shimo-net` 不能直接调用 WorkBuddy 的 `present_files`；打开内置浏览器这一步必须由 Agent 调用宿主工具完成。内置浏览器是 WorkBuddy 自带的面板，不依赖 `agent-browser` 插件。
+
+判断标准是 SkillHub 版 shimo-net-cli 技能出现在「已安装」并处于启用状态；不需要检查 `~/.workbuddy/skills/`，也不要安装仓库自定义技能。
 
 装好之后不需要每次手动挑技能：在任务里直接写「用 shimo-net …」，Agent 会按技能描述自动调用。后面的任务都是这种方式。
 
@@ -165,7 +194,7 @@ Agent 执行页面操作时遵循以下顺序：
 在 WorkBuddy 新任务里粘贴（把链接换成你有权限的文档）：
 
 ```text
-用 shimo-net info https://shimo.net/docs/MWn7L07R8jhPEm1p 返回名称、类型、链接；只回复这三项，不要显示账号信息。
+用 shimo-net info https://shimo.net/docs/demo 返回名称、类型、链接；只回复这三项，不要显示账号信息。
 ```
 
 你应该看到文档名称、类型和链接：
@@ -229,10 +258,10 @@ shimo-net phase2 <表格链接> --action sheet-merge \
 全部打勾，才算独立完成：
 
 - [ ] WorkBuddy 能正常打开，能看到任务输入框；
-- [ ] `shimo-net version` 输出当前安装的 latest release 版本；
+- [ ] `shimo-net doctor` 返回 `ok: true`，最后一行是 `结果：🟢 doctor: OK`；
 - [ ] `shimo-net config show` 显示 `https://shimo.net`；
 - [ ] `shimo-net whoami --json` 返回账号；
-- [ ] WorkBuddy「已安装」里能看到并启用官方市场版 shimo-net 技能；
+- [ ] WorkBuddy「已安装」里能看到并启用 SkillHub 版 shimo-net-cli 技能；
 - [ ] 第一个任务返回「已连通，账号可用」；
 - [ ] 第二个任务返回「名称 / 类型 / 链接」三项；
 - [ ] 当前场景里至少完整跑通 1 个（建议 01 找文件、03 文件出处、11 读正文）。
@@ -249,7 +278,7 @@ shimo-net phase2 <表格链接> --action sheet-merge \
 执行 `shimo-net login`，完成 Chrome 登录后重试。不要重复执行 `init`，网址已经记住。
 
 **Q：技能装了但 Agent 不调用？**  
-确认官方市场版 shimo-net 技能已安装并启用，退出 WorkBuddy 再打开；或者直接在任务里写「用 shimo-net 执行 …」，明确点名命令。
+确认 SkillHub 版 shimo-net-cli 技能已安装并启用，退出 WorkBuddy 再打开；或者直接在任务里写「用 shimo-net 执行 …」，明确点名命令。
 
 **Q：Windows 上 Keychain 是什么？**  
 Windows 用「凭据管理器」，CLI 会自动存到 `shimo-net-cli` 这个目标下，不需要手动打开。

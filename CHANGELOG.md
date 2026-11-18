@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.9.13 — 2026-11-18
+
+### 修复
+
+- 页面动作在编辑器异步挂载时最多重试 **5 次**、每次间隔 2 秒；不再因为第一秒读不到 SDK 就直接报错。
+- SkillHub 技能包补齐 WorkBuddy 要求的作者和中英文使用案例元数据，并在执行前检查 CLI、登录态和宿主浏览器，避免沙箱误报成功。
+- SDK 实际入口改为 `window.smsdk.__DRIVE_SDK__.editor`（`globalThis.sdk` 在该页面为 undefined）：`history-show/hide`、`save-version`、`comments-show/hide`、`comment-add`、`print` 通过 `editor.actions` 打开对应面板。
+- `find`、`replace-all`、`page-width`、`sheet-freeze`、`sheet-sort`、`sheet-filter`、`sheet-validation` 明确标为页面动作，调用时返回可读提示，不再伪装成 SDK 方法。
+
+### 文档
+
+- 场景清单、安全边界、安装说明、技能包与能力矩阵对齐当前实现；修正 49/50 计数、`login --new`、`mkdir`/`docx`、`new` 支持 `table/form/mindmap/flowchart`、SkillHub 提示与 LICENSE。
+- 浏览器优先级统一到 [docs/tutorials/browser.md](docs/tutorials/browser.md) 的 P0 矩阵。
+
+
+## 0.9.12 — 2026-11-18
+
+### 新增
+
+- 浏览器覆盖扩展到 P0 四款 Agent：WorkBuddy 用 `present_files` 打开右侧内置浏览器；豆包工作、DeepSeek Harness、Codex 没有 Agent 可调用的内置浏览器，分别用 `shimo-net open` 或 `computer-use`，不再把 WorkBuddy 的内置浏览器方案套到其他宿主。
+- 新增 [docs/tutorials/browser.md](docs/tutorials/browser.md) 作为四款 Agent 的唯一浏览器矩阵，四篇教程和 `SKILL.md` 都链接到它。
+
+
+## 0.9.11 — 2026-11-18
+
+### 修复
+
+- WorkBuddy 的内置浏览器改为通过宿主 `present_files` 工具展示 URL 打开；不再把 `agent-browser` 当作 WorkBuddy 内置浏览器，也不再因此启动本地 Chrome。
+- `agent-browser` 预检移到“没有 WorkBuddy 内置浏览器的宿主”；WorkBuddy 无需安装 `agent-browser` 就能使用右侧内置浏览器。
+
+
+## 0.9.10 — 2026-11-17
+
+### 新增
+
+- `doctor` 增加 `agentBrowser` 路径信息（非阻塞检查），方便确认宿主的内置浏览器依赖是否安装。
+- 技能和 WorkBuddy 教程增加内置浏览器预检：先安装/启用 `agent-browser` 插件和浏览器运行时，用 `agent-browser open` + `screenshot` 验证通过后再执行石墨操作；预检失败先报告缺哪个依赖，不静默退回本地 Chrome。
+
+
+## 0.9.9 — 2026-11-17
+
+### 变更
+
+- `phase2` 的表格 API 写入默认**不再启动 CLI 本地 Chrome**：返回 `verified:false`、`verifyWith:"host-browser"`，由宿主内置浏览器（WorkBuddy `agent-browser`）打开 `url` 截图。
+- 需要 CLI 本地截图时显式加 `--verify`；`--no-verify` 保留为显式跳过，`SHIMO_NET_VERIFY=1` 可全局开启。
+- 页面类动作仍需浏览器；没有内置浏览器时不要加 `--no-verify`，由 CLI 本地 Chrome 或 `shimo-net open` 完成。
+
+
+## 0.9.8 — 2026-11-17
+
+### 修复
+
+- `phase2` 新增 `--no-verify` / `--no-browser` / `SHIMO_NET_NO_BROWSER=1`：表格 API 写入后跳过 CLI 本地 Chrome 核验，返回 `verified:false`、`verifyWith:"agent-browser"`，由 WorkBuddy 内置浏览器打开 `url` 截图。避免 WorkBuddy 里 Chrome 反复开关、Chrome 意外退出，以及 `RlzStore.plist` 的“删除文件命中询问规则”。
+- 带 `--no-verify` 调用页面类动作时明确报错并提示改用内置浏览器，不再启动本地 Chrome。
+
+
 ## 0.9.7 — 2026-11-17
 
 ### 新增

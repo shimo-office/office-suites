@@ -1,7 +1,7 @@
 # DeepSeek Harness × 石墨办公：从打开到第一个结果
 
-> 适用版本：DeepSeek Harness 0.2.1-rc.3（桌面客户端）· shimo-net CLI 最新 release
-> 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开 DSH → 装 CLI → 登录 → 装技能 → 跑出真实结果」。  
+> 适用版本：DeepSeek Harness 0.2.1-rc.3（桌面客户端）· shimo-net CLI 最新版
+> 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开 DSH → 检查/安装技能 → 登录 → 跑出真实结果」。
 
 ## 0. 开始前
 
@@ -15,16 +15,17 @@
 把下面整段发给 DeepSeek Harness，不要自己开终端：
 
 ```text
-请帮我完成 shimo-net 的安装和配置：
-1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- dsh
-2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
-3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
-如果脚本失败，返回完整错误信息。
+请帮我完成 shimo-net 的安装和配置，不要让我手动开终端：
+1. 先检查本机是否已安装 shimo-net-cli 技能（`~/.dsh/skills/shimo-net-cli`）；已安装就直接使用，不要重复安装。
+2. 没有安装的话，帮我安装 shimo-net-cli 技能。
+3. 如果安装后仍没有可用的 shimo-net CLI，再从 GitHub Releases 的 latest 版本安装。
+4. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
+如果配置失败，返回完整错误信息。
 ```
 
-它会下载 CLI、写入技能目录、打开登录页。完成后新建一个 DSH 会话，让技能生效。
+已安装的 DSH 技能会写在 `~/.dsh/skills/shimo-net-cli`；本机已有 CLI 时不需要重新安装。完成后新建一个 DSH 会话，让技能生效。
 
-> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（默认下载 latest release）
+> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（只有在没有技能、本机也没有 CLI 时才会用到）
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
 ## 1. 打开 DeepSeek Harness
@@ -32,7 +33,9 @@
 打开已安装的 DSH，点「新会话」，确认能看到输入框和工作目录选择。
 
 
-## 2. 安装 shimo-net CLI
+## 2. 检查 / 安装 shimo-net CLI（已安装可跳过）
+
+先执行 `shimo-net doctor`；已有就跳到第 3 步登录授权。下面的安装命令只在本机没有 CLI 时使用。
 
 macOS 终端：
 
@@ -40,7 +43,6 @@ macOS 终端：
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 ./install.command
-shimo-net version
 shimo-net doctor --json
 ```
 
@@ -50,11 +52,10 @@ Windows PowerShell：
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 powershell -ExecutionPolicy Bypass -File .\install.ps1
-shimo-net version
 shimo-net doctor --json
 ```
 
-看到版本和配置就对了：
+看到配置和 doctor 结果就对了：
 
 ![CLI 安装与配置验证](images/common/cli-version.jpg)
 
@@ -72,7 +73,7 @@ export PATH="$HOME/.local/bin:$PATH"
 shimo-net login
 ```
 
-Chrome 窗口里登录 shimo.net，成功后回到终端：
+Chrome 窗口里登录 shimo.net；如果已经登录，CLI 会直接复用，不会弹窗。成功后回到终端：
 
 ```bash
 shimo-net whoami --json
@@ -90,9 +91,9 @@ shimo-net login
 shimo-net whoami --json
 ```
 
-## 4. 安装技能
+## 4. 检查 / 安装技能（已安装可跳过）
 
-DSH 从 `~/.dsh/skills` 读取技能，不需要在应用里点安装：
+DSH 从 `~/.dsh/skills` 读取技能，不需要在应用里点安装。先检查 `~/.dsh/skills/shimo-net-cli/SKILL.md`；已有就跳到第 5 步。没有时再执行：
 
 ```bash
 mkdir -p ~/.dsh/skills/shimo-net-cli
@@ -104,6 +105,10 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 ![DSH / Codex 技能目录](images/common/skill-dirs.jpg)
 
 看到 `DSH skills:` 下面有 `shimo-net-cli` 就对了。重启 DSH 或新建一个会话，让技能生效。
+
+## 4.1 浏览器怎么开
+
+DSH 没有内置浏览器工具。优先用 `computer-use`（Orca）操作浏览器；没有则用 `shimo-net open <链接>` 打开本机浏览器。四款 P0 的完整矩阵见 [browser.md](browser.md)。
 
 ## 5. 第一个任务：验证连通
 
@@ -120,7 +125,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 ## 6. 第二个任务：真实操作
 
 ```text
-用 shimo-net info https://shimo.net/docs/MWn7L07R8jhPEm1p 返回名称、类型、链接；只回复这三项，不要显示账号信息。
+用 shimo-net info https://shimo.net/docs/demo 返回名称、类型、链接；只回复这三项，不要显示账号信息。
 ```
 
 ![DSH 执行 info](images/dsh/real-info.jpg)
@@ -156,7 +161,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 ## 8. 验收清单
 
 - [ ] DSH 能打开新会话；
-- [ ] `shimo-net version` 输出当前 latest release 版本；
+- [ ] `shimo-net doctor` 返回 `ok: true`，最后一行是 `结果：🟢 doctor: OK`；
 - [ ] `shimo-net whoami --json` 返回账号；
 - [ ] `~/.dsh/skills/shimo-net-cli/SKILL.md` 存在；
 - [ ] 第一个任务返回「已连通，账号可用」；

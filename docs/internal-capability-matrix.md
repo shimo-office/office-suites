@@ -1,13 +1,13 @@
 # 内部能力确认矩阵
 
-本表汇总当前 Go CLI `0.9.7` 已支持的 28 个场景和 50 项能力。表中的“API”指已在石墨编辑器 API 文档中确认的接口；已封装能力直接由 CLI 调用，未提供稳定接口的功能仍走页面操作。
+本表汇总当前 Go CLI 最新版已支持的 28 个场景和 50 项能力。表中的“API”指已在石墨编辑器 API 文档中确认的接口；已封装能力直接由 CLI 调用，未提供稳定接口的功能仍走页面操作。
 
 已核对的后端接口：[获取文件内容中所有的 @ 人信息列表](https://support.shimo.net/apidoc/docs-site/6000018/api-3470923)、[获取文档中的评论列表](https://support.shimo.net/apidoc/docs-site/6000018/co1.8.20260630/api-3470916)。
 
 ## 结论
 
 - 基础文件管理、权限读取/巡检、读写和下载能力已经由 REST `/api/v1` 命令覆盖，见 [cli/README.md](../cli/README.md) 和 `shimo-net schema`。涉及人员、权限变更和不可逆动作的高风险操作严格保留给网页人工处理。
-- 当前真实回归确认：`phase2` 的同源 API 读取可用；页面 SDK 动作在当前页面未暴露 `globalThis.sdk`，统一转网页 computer-use。`phase2` 是现有兼容命令名。
+- 当前真实回归确认：`phase2` 的表格 API 读写/格式/合并/追加/插删可用；编辑器 SDK 实际入口是 `window.smsdk.__DRIVE_SDK__.editor`，`history-show/hide`、`save-version`、`comments-show/hide`、`comment-add`、`print` 通过 `editor.actions` 打开对应面板；`find`、`replace-all`、`page-width`、`sheet-freeze/sort/filter/validation` 仍未暴露，走页面操作。`phase2` 是现有兼容命令名。
 - 没有已确认 API 的项目优先使用宿主 Agent 内联浏览器；WorkBuddy 先启用官方市场 `agent-browser` 技能。没有内联浏览器时使用 `shimo-net open <链接> --default`，由 CLI 在可安全注入的默认 Chromium 隔离配置中带入 Keychain 会话，再按 `shimo.net/desktop` 的可访问性树或 DOM 完成操作并返回截图路径。
 - SDK 只在编辑器页面和支持的桌面版本中可用。页面没有暴露 SDK、方法不存在或运行时抛错时，CLI 会返回浏览器兜底提示，不会伪造成功。
 
@@ -56,10 +56,10 @@
 | 表格·算与看数 | 公式与定义名称 | 网页操作 | 表格公式栏和名称管理入口 | 读回公式/名称并截图 |
 | 表格·算与看数 | 透视表 | 网页操作 | 当前资料未确认透视表 API | 网页创建后截图 |
 | 表格·算与看数 | 排序、筛选、分组 | 网页操作 | 表格排序/筛选菜单 | 返回范围并截图 |
-| 表格·校验与格式 | 数据验证 | 网页操作 | 表格数据验证菜单 | 读回规则并截图 |
+| 表格·校验与格式 | 数据验证、行高列宽 | 网页操作 | 表格数据验证/行高列宽菜单 | 读回规则并截图 |
 | 表格·校验与格式 | 单元格格式、字体、边框、单元格底色 | API 可用 | `POST /lizard-api/files/{fileGuid}/sheets/attrs`；CLI `sheet-format` | `range` 必须带工作表名（如 `工作表1!A1:C1`）；多属性由 CLI 拆分逐项写入，导出 xlsx 或截图核验 |
 | 表格·校验与格式 | 合并单元格 | API 可用 | `POST /lizard-api/files/{fileGuid}/sheets/mergeCells`；CLI `sheet-merge` | 用 `sheet-merge` 调用后网页截图核验 |
-| 表格·校验与格式 | 行高列宽、数据验证 | 网页操作 | 当前对外稳定 API 未统一 | 由内联浏览器/computer-use 操作并截图 |
+
 | 表格·输出 | 导出与打印 | API 可用 + 网页操作 | [创建导出任务 API](https://support.shimo.net/apidoc/docs-site/6000018/co1.8.20260630/api-3470892) `POST /sdk/v2/api/files/v1/export/{fileId}` 为异步任务；CLI 的 `get` / `pull` 已通过导出 API 下载在线文件；打印走页面入口 | 导出任务完成后下载 `data.downloadUrl`；打印前截图 |
 
 ## 严格人工页面操作（CLI 禁止）

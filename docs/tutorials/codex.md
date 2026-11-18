@@ -1,7 +1,7 @@
 # Codex × 石墨办公：从打开到第一个结果
 
-> 适用版本：Codex CLI 0.144.0-alpha.4 · shimo-net CLI 最新 release
-> 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开 Codex → 装 CLI → 登录 → 装技能 → 跑出真实结果」。  
+> 适用版本：Codex CLI 0.144.0-alpha.4 · shimo-net CLI 最新版
+> 适用对象：shimo.net 客户及私有化部署客户。照做，20 分钟内完成「打开 Codex → 检查/安装技能 → 登录 → 跑出真实结果」。
 
 ## 0. 开始前
 
@@ -15,16 +15,17 @@
 把下面整段发给 Codex，不要自己开终端：
 
 ```text
-请帮我完成 shimo-net 的安装和配置：
-1. 执行：curl -fsSL https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh | bash -s -- codex
-2. 如果弹出 Chrome 登录页，我会登录；登录成功后继续。
-3. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
-如果脚本失败，返回完整错误信息。
+请帮我完成 shimo-net 的安装和配置，不要让我手动开终端：
+1. 先检查本机是否已安装 shimo-net-cli 技能（`~/.codex/skills/shimo-net-cli`）；已安装就直接使用，不要重复安装。
+2. 没有安装的话，帮我安装 shimo-net-cli 技能。
+3. 如果安装后仍没有可用的 shimo-net CLI，再从 GitHub Releases 的 latest 版本安装。
+4. 用 ~/.local/bin/shimo-net whoami --json 验证，只回复「已配置完成，账号可用」，不要显示账号信息。
+如果配置失败，返回完整错误信息。
 ```
 
-它会下载 CLI、写入技能目录、打开登录页。Codex 默认沙箱可能拦截 Keychain；如果脚本报未登录，按第 5 步放宽沙箱后重试。
+已安装的 Codex 技能会写在 `~/.codex/skills/shimo-net-cli`；本机已有 CLI 时不需要重新安装。Codex 默认沙箱可能拦截 Keychain；如果提示未登录，放宽沙箱或先运行 `shimo-net login`。
 
-> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（默认下载 latest release）
+> 脚本公开可审计：https://github.com/shimo-office/office-suites/blob/main/bootstrap.sh（只有在没有技能、本机也没有 CLI 时才会用到）
 > 如果 Agent 不执行命令或网络失败，再按下面的手工步骤做。
 
 ## 1. 打开 Codex
@@ -37,7 +38,9 @@ codex --version
 
 看到版本号即可。本教程用 CLI 演示，IDE / 桌面端里的用法相同。
 
-## 2. 安装 shimo-net CLI
+## 2. 检查 / 安装 shimo-net CLI（已安装可跳过）
+
+先执行 `shimo-net doctor`；已有就跳到第 3 步登录授权。下面的安装命令只在本机没有 CLI 时使用。
 
 macOS 终端：
 
@@ -45,7 +48,6 @@ macOS 终端：
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 ./install.command
-shimo-net version
 shimo-net doctor --json
 ```
 
@@ -55,11 +57,10 @@ Windows PowerShell：
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 powershell -ExecutionPolicy Bypass -File .\install.ps1
-shimo-net version
 shimo-net doctor --json
 ```
 
-看到版本和配置就对了：
+看到配置和 doctor 结果就对了：
 
 ![CLI 安装与配置验证](images/common/cli-version.jpg)
 
@@ -77,7 +78,7 @@ export PATH="$HOME/.local/bin:$PATH"
 shimo-net login
 ```
 
-Chrome 窗口登录 shimo.net，成功后：
+Chrome 窗口登录 shimo.net；如果已经登录，CLI 会直接复用，不会弹窗。成功后：
 
 ```bash
 shimo-net whoami --json
@@ -87,7 +88,9 @@ shimo-net whoami --json
 
 > 登录页会显示账号，教程不截这张图；用 `whoami` 返回作为授权验收。
 
-## 4. 安装技能
+## 4. 检查 / 安装技能（已安装可跳过）
+
+先检查 `~/.codex/skills/shimo-net-cli/SKILL.md`；已有就跳到第 5 步。没有时再执行下面的命令。
 
 ```bash
 mkdir -p ~/.codex/skills/shimo-net-cli
@@ -99,6 +102,10 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 ![Codex 技能目录](images/common/skill-dirs.jpg)
 
 看到 `Codex skills:` 列表里有 `shimo-net-cli` 就对了。
+
+## 4.1 浏览器怎么开
+
+Codex 没有内置浏览器。用 `shimo-net open <链接>` 打开本机浏览器；Codex 沙箱可能拦截 Keychain，先按上面的沙箱说明处理。四款 P0 的完整矩阵见 [browser.md](browser.md)。
 
 ## 5. 第一个任务：验证连通
 
@@ -113,7 +120,7 @@ codex exec --dangerously-bypass-approvals-and-sandbox \
 
 看到 `已连通，账号可用` 就说明 Codex 能执行本机命令、`shimo-net` 在 PATH、登录态有效。
 
-> **重要**：Codex 默认沙箱会拦截 macOS Keychain，普通 `--full-auto` 会得到「未登录」。本教程的验证使用 `--dangerously-bypass-approvals-and-sandbox`；生产环境应配置允许读取 Keychain 的沙箱策略，不要日常使用 bypass。
+> **重要**：Codex 默认沙箱可能拦截 Keychain 和浏览器配置。最新版会先尝试复用本机 Chrome 登录态；如果仍提示「未登录」，再放宽沙箱或运行 `shimo-net login`。生产环境应配置允许读取 Keychain 的沙箱策略，不要日常使用 bypass。
 
 ## 6. 第二个任务：真实操作
 
@@ -153,7 +160,7 @@ codex exec --dangerously-bypass-approvals-and-sandbox \
 ## 8. 验收清单
 
 - [ ] `codex --version` 能输出版本；
-- [ ] `shimo-net version` 输出当前 latest release 版本；
+- [ ] `shimo-net doctor` 返回 `ok: true`，最后一行是 `结果：🟢 doctor: OK`；
 - [ ] `shimo-net whoami --json` 返回账号；
 - [ ] `~/.codex/skills/shimo-net-cli/SKILL.md` 存在；
 - [ ] 第一个任务返回「已连通，账号可用」；

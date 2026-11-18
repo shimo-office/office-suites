@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const version = "0.9.7"
+const version = "0.9.13"
 
 func main() {
 	app := newApp(os.Args[1:])
@@ -44,7 +44,7 @@ func newApp(args []string) *App {
 			a.Relogin = true
 			continue
 		}
-		if arg == "--default" {
+		if arg == "--default" || arg == "--no-verify" || arg == "--no-browser" || arg == "--verify" {
 			a.Bool[arg] = true
 			continue
 		}

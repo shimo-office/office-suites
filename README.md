@@ -46,7 +46,7 @@ shimo-net login
 
 > 安装器会把命令放到 `~/.local/bin/shimo-net`（Windows 为 `%LOCALAPPDATA%\shimo-net\shimo-net.exe`）。有 Go 时本地构建；没有 Go 时自动下载 [release](https://github.com/shimo-office/office-suites/releases) 里的对应平台二进制。如果提示找不到命令，把安装目录加进 `PATH`。
 
-> **已经在 Chrome 里登录过？** 0.9.6 会在 Keychain 没有会话时自动复用 Chrome / Chromium / Edge / Brave 的登录态，验证后写回 Keychain；`shimo-net open <链接>` 和 `--default` 都会注入完整 cookie jar，不需要再登录一次。手动检查：`shimo-net session status --json`。
+> **已经在 Chrome 里登录过？** CLI 会在 Keychain 没有会话时自动复用 Chrome / Chromium / Edge / Brave 的登录态，验证后写回 Keychain；`shimo-net open <链接>` 和 `--default` 都会注入完整 cookie jar，不需要再登录一次。手动检查：`shimo-net session status --json`。
 
 **客户私有部署**只改网址，不另装一套：
 
@@ -69,13 +69,13 @@ shimo-net login
 | 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
 | 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
 
-当前版本为 **0.9.7**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
+当前版本为 **0.9.13**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
 
 ---
 
 ## 在 Agent 里怎么用
 
-CLI 仓库提供通用技能定义 [cli/SKILL.md](cli/SKILL.md)，供没有官方市场技能的 Agent 使用。WorkBuddy 已上线官方市场技能，直接安装市场版本即可，不需要上传或复制仓库里的自定义技能。
+CLI 仓库提供通用技能定义 [cli/SKILL.md](cli/SKILL.md)，供没有 SkillHub 技能的 Agent 使用。WorkBuddy 的 shimo-net-cli 技能发布在 SkillHub（不在内置技能市场），从 SkillHub 分享页安装即可，不需要上传或复制仓库里的自定义技能。
 
 ### 1. 安装技能
 
@@ -90,7 +90,7 @@ cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
 新开一个会话，技能会按描述自动加载。
 </details>
 
-> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。WorkBuddy 直接使用已安装的官方市场技能；其他 Agent 可运行 `bootstrap.sh`，从 Releases latest 下载 CLI、完成初始化和登录。手工步骤只作为兜底。
+> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。先检查本机是否已安装 shimo-net-cli 技能（WorkBuddy 为 SkillHub 版，其他 Agent 为各自技能目录）；已安装就直接使用，没有就安装；只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 Releases latest 安装。手工步骤只作为兜底。
 
 <details>
 <summary><b>Codex</b></summary>
@@ -110,7 +110,7 @@ cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
 <details>
 <summary><b>WorkBuddy</b></summary>
 
-打开 [WorkBuddy 市场技能](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)，点击安装；也可以在 WorkBuddy 左侧栏「专家 · 技能 · 连接器」→「技能」中打开该市场链接安装。安装后在「已安装」里确认市场技能已启用，不需要上传 `cli/SKILL.md`。
+打开 [SkillHub 分享页](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)，点击安装；也可以在 WorkBuddy 左侧栏「专家 · 技能 · 连接器」→「技能」的 SkillHub 入口打开。安装后在「已安装」里确认 shimo-net-cli 已启用，不需要上传 `cli/SKILL.md`。
 </details>
 
 <details>
@@ -179,9 +179,9 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 
 ### 页面操作与浏览器优先级
 
-涉及文字、段落、评论、历史、预览、打印或其他没有稳定 API 的操作时，Agent 必须先检查宿主是否有内置浏览器。WorkBuddy 使用官方市场的 **agent-browser** 技能：先安装并启用它，再在内置浏览器打开文件并用网页操作完成动作、返回截图。内置浏览器可用时不要运行 `shimo-net open`，也不要直接弹出系统默认浏览器。
+涉及文字、段落、评论、历史、预览、打印或其他没有稳定 API 的操作时，Agent 先按 [docs/tutorials/browser.md](docs/tutorials/browser.md) 的 P0 矩阵选浏览器：WorkBuddy 用 `present_files` 打开右侧内置浏览器；豆包工作、DSH、Codex 没有可调用的内置浏览器，用 `shimo-net open` 或 `computer-use`。内置浏览器可用时不要运行 `shimo-net open`。
 
-只有确认宿主没有内置浏览器时，才使用 `shimo-net open <链接> --default` 作为本机默认浏览器兜底。CLI 会读取本机 Keychain / Credential Manager 并在可安全注入的 Chromium 隔离配置中带入登录态；不会输出 sid/cookie。WorkBuddy 已有官方市场技能时，不要上传或复制仓库里的 `cli/SKILL.md`。
+只有确认宿主没有内置浏览器时，才使用 `shimo-net open <链接>` 或 `--default` 作为本机浏览器兜底。CLI 会读取本机 Keychain / Credential Manager 并在可安全注入的 Chromium 配置中带入登录态；不会输出 sid/cookie。WorkBuddy 已装 SkillHub 技能时，不要上传或复制仓库里的 `cli/SKILL.md`。
 
 <details>
 <summary><b>展开完整命令表（28 个场景，50 项能力）</b></summary>
@@ -242,6 +242,7 @@ P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当�
 
 - `shimo-net login` 打开一个 Chrome 专用窗口，登录成功后关闭；会话存进 macOS Keychain（Windows 为 Credential Manager），之后命令不再问密码。
 - 登录过期时，重新执行 `shimo-net login`，**网址不用重配**，然后重试原命令。Agent 指令里已经包含这个重试逻辑。
+- 切账号必须 `shimo-net login --new`；普通 `login` 会优先复用本机 Chrome 会话，不会换账号。
 - `shimo-net logout` 删除本机凭据。
 - 不要把密码、cookie 粘进对话、Issue 或截图。
 - 删除只进回收站；CLI 不提供彻底删除，需要到石墨网页回收站手动操作。
@@ -342,4 +343,4 @@ make test        # Go 单元测试 + 构建 + 冒烟检查
 
 ## 许可
 
-本仓库用于石墨办公套件交付与客户私有部署，默认保留所有权利；对外分发或商用授权请联系石墨办公套件团队。
+本仓库用于石墨办公套件交付与客户私有部署，默认保留所有权利；对外分发或商用授权请联系石墨办公套件团队。完整许可见 [LICENSE](LICENSE)。

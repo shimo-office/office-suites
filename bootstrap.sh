@@ -105,7 +105,7 @@ fi
 
 echo "已配置完成，账号可用"
 case "$AGENT" in
-  workbuddy) echo "请在 WorkBuddy 市场安装官方 shimo-net 技能；本脚本不会安装仓库自定义技能。" ;;
+  workbuddy) echo "请在 SkillHub 安装 shimo-net-cli 技能（不在 WorkBuddy 内置技能市场）；本脚本不会安装仓库自定义技能。" ;;
   dsh)       echo "新建一个 DSH 会话即可使用技能。" ;;
   codex)     echo "新开一个 Codex 任务即可使用技能。" ;;
   doubao)    echo "在豆包「工作」里选择「本地电脑」，直接发任务即可。" ;;
