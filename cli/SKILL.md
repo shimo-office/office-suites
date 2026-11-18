@@ -14,7 +14,7 @@ examples_en:
   - "Search Shimo for the file named 'Quarterly Plan' and return its link."
   - "Write the timetable to Sheet1 A1:C3 and open the page to verify it."
   - "List my subscribed files and open one to review its latest update."
-version: 0.9.13
+version: 0.9.14
 author: shimo-office
 ---
 
@@ -75,11 +75,11 @@ shimo-net init --origin https://<客户域名>
 | 附件下载 | `shimo-net get <链接> [--out <目录>]` |
 | 常用文件夹别名 | `shimo-net fav add <别名> <链接> --note 特征` → 之后用 `@别名` |
 | 只看与我相关的内容 | `shimo-net phase2 <链接> --action mentions-list\|comments-list`、`subscriptions` |
-| 留痕与版本 | `phase2 --action history-show|history-hide|save-version` 打开对应面板；内容由页面展示 |
+| 留痕与版本 | `phase2 --action history-show|history-hide|save-version --verify`（CLI）或宿主浏览器打开面板；无 `--verify` 直接失败 |
 | 文字与段落 | 页面动作：`find` / `replace-all` / `page-width` 未暴露 SDK，用宿主浏览器操作菜单和选区 |
 | 文内表格与图片 | 页面动作：用宿主浏览器在选区插入表格/图片 |
-| 评论与提及 | `comments-list` 读取；`phase2 --action comment-add` 打开评论输入，提交由页面完成 |
-| 预览与打印 | `phase2 --action print` 打开打印面板；导出 PDF 走页面入口 |
+| 评论与提及 | `comments-list` 读取；`phase2 --action comment-add --verify`（CLI）或宿主浏览器打开评论输入，提交由页面完成 |
+| 预览与打印 | `phase2 --action print --verify`（CLI）或宿主浏览器打开打印面板；导出 PDF 走页面入口 |
 | 文档重排全文 | 页面动作：`page-width` 未暴露 SDK，用宿主浏览器调整 |
 | 表格写入 | `phase2 --action sheet-update|sheet-append|sheet-insert|sheet-delete` 直接调用表格 API |
 | 表格整理 | `phase2 --action sheet-format` 写底色/字体/字号；冻结、排序、筛选是页面动作 |
@@ -173,7 +173,8 @@ shimo-net phase2 <链接|guid|@别名> --action mentions-list --json
 
 - `history-show` / `history-hide`、`save-version`、`comments-show` / `comments-hide`、`comment-add`、`print`：通过 `editor.actions` 打开对应面板，内容由页面展示。
 - `find`、`replace-all`、`page-width`、`sheet-freeze`、`sheet-sort`、`sheet-filter`、`sheet-validation`：当前未暴露 SDK，走页面操作；不要谎报已执行。
-- 表格 API 写入后仍要读回 `sheet-values` 或截图核验；`sheet-format` 只保证 `background/color/bold/fontSize`，`numberFormat`、列宽、行高不落库。
+- 页面动作没有 `--verify` 时直接失败，不返回成功；有 `--verify` 时还会检查编辑器是否挂载、截图是否空白，空白截图直接失败。
+- 表格 API 写入后仍要读回 `sheet-values` 或截图核验；`sheet-format` 只接受 `background/color/bold/fontSize/fontFamily/align/valign/italic/underline`，`numberFormat`、列宽、行高会明确报不支持，不再回显 `applied`。
 
 订阅更新：
 

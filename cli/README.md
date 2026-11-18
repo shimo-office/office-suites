@@ -141,7 +141,7 @@ shimo-net phase2 <链接> --action sheet-format --payload '{"sheetName":"工作�
 shimo-net phase2 <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}' --json
 ```
 
-`phase2` 是扩展动作入口（保留该命令名以兼容已有 Agent）：`sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源表格 API。表格 API 写入默认不启动 CLI 本地 Chrome；WorkBuddy 用 `present_files` 打开 `url`；其他宿主按浏览器矩阵；需要 CLI 截图时加 `--verify`，`--no-verify` 可显式关闭。`sheet-format` 的 `range` 必须带工作表名，推荐写成 `{"sheetName":"工作表1","range":"A1:C1",...}`；CLI 会拼成 `工作表1!A1:C1`，并把多个属性拆成多次写入（服务端同时提交 `background+color` 时可能只生效一部分），因此不会因为页面未暴露 `globalThis.sdk` 而退回本地 XLSX。API 成功后仍必须打开目标文件做视觉核验并截图；CLI 会先从 macOS Keychain / Windows Credential Manager 读取 cookie，注入目标域名后刷新页面，不输出 sid/cookie。其他动作如果没有对应 API，先由宿主内置浏览器按页面菜单、工具栏和选区完成操作并返回截图；WorkBuddy 用 `present_files`，其他宿主用 `shimo-net open`。没有截图不能报告完成。
+`phase2` 是扩展动作入口（保留该命令名以兼容已有 Agent）：`sheet-format`、`sheet-merge`、`sheet-values`、`sheet-update` 直接调用稳定的同源表格 API。表格 API 写入默认不启动 CLI 本地 Chrome；WorkBuddy 用 `present_files` 打开 `url`；其他宿主按浏览器矩阵；需要 CLI 截图时加 `--verify`，`--no-verify` 可显式关闭。`sheet-format` 的 `range` 必须带工作表名，推荐写成 `{"sheetName":"工作表1","range":"A1:C1",...}`；CLI 会拼成 `工作表1!A1:C1`，并把多个属性拆成多次写入（服务端同时提交 `background+color` 时可能只生效一部分），因此不会因为页面未暴露 `globalThis.sdk` 而退回本地 XLSX。API 成功后仍必须打开目标文件做视觉核验并截图；CLI 会先从 macOS Keychain / Windows Credential Manager 读取 cookie，注入目标域名后刷新页面，不输出 sid/cookie。页面动作没有 `--verify` 时直接失败；有 `--verify` 时会等编辑器挂载并检查截图，空白截图不算成功。其他动作如果没有对应 API，先由宿主内置浏览器按页面菜单、工具栏和选区完成操作并返回截图；WorkBuddy 用 `present_files`，其他宿主用 `shimo-net open`。没有截图不能报告完成。
 
 订阅更新文件：`shimo-net subscriptions --json` 会扫描逐文件订阅状态；用户选定序号后用 `shimo-net subscriptions --open <序号>` 打开对应文件。打开前先使用宿主内置浏览器；没有内置浏览器时才使用 `shimo-net open <链接> --default`。
 

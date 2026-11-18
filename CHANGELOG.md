@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.14 — 2026-11-18
+
+### 修复
+
+- **假成功**：页面动作（`history-*`、`save-version`、`comments-*`、`comment-add`、`print`）没有 `--verify` 时直接失败；有 `--verify` 时会等待编辑器挂载并校验截图，空白截图返回失败，不再返回 `ok:true` 但没有页面动作。
+- `mentions-list` / `comments-list` 继续走页面同源 fetch，但 `--no-verify` 不再误拦截只读 API。
+- `sheet-format` 只接受真正支持的属性；`columnWidth`、`numberFormat` 等返回明确“不支持”，不再把入参 key 回显到 `applied`。
+- `sheet-update` / `sheet-append` 缺 `range` 或 `resource.values` 时直接报错，不再 204 静默成功。
+- `get --format csv` 明确报不支持，不再静默导出 xlsx。
+- 页面动作最多重试 5 次、每次 2 秒；编辑器未挂载或截图为空白时不报告成功。
+
+
 ## 0.9.13 — 2026-11-18
 
 ### 修复

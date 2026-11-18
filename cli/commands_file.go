@@ -142,6 +142,9 @@ func (a *App) cmdGet() error {
 	if len(a.Pos) == 0 {
 		return errors.New("用法：shimo-net get <链接|guid|@别名> [--out <目录>]")
 	}
+	if f := strings.TrimSpace(a.opt("--format")); f != "" {
+		return fmt.Errorf("get 暂不支持 --format %s；当前按文件类型导出，表格导出 xlsx", f)
+	}
 	guid, err := a.resolveTarget(a.Pos[0])
 	if err != nil {
 		return err

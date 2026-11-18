@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/png"
 	"net/url"
 	"os"
 	"os/exec"
@@ -88,7 +90,12 @@ func (a *App) cmdPhase2() error {
 		shot = absolute
 	}
 	var value any
-	if strings.HasPrefix(method, "http:") {
+	if strings.HasPrefix(method, "api:") {
+		// These endpoints need the editor's same-origin signature headers; run
+		// them through the page fetch path. They are read-only and do not need a
+		// screenshot, so --no-verify must not block them.
+		value, err = runPhase2Browser(target, method, args, "")
+	} else if strings.HasPrefix(method, "http:") {
 		// An API response proves only that the server accepted the mutation. The
 		// user-facing result also requires a visual check in the real editor.
 		// Open the target page in the isolated browser, inject the CLI session
@@ -109,8 +116,12 @@ func (a *App) cmdPhase2() error {
 			_, err = runPhase2Browser(target, "browser.verify", nil, shot)
 		}
 	} else {
-		if explicitNoBrowser(a) {
-			return errors.New("该页面动作需要浏览器；请用宿主内置浏览器（WorkBuddy agent-browser）打开页面操作并截图，或去掉 --no-verify 使用 CLI 本地浏览器")
+		// Page actions cannot be proven without a browser and a non-blank
+		// screenshot. Refuse to return a success envelope when no CLI browser
+		// verification was requested; the host (for example WorkBuddy's
+		// present_files panel) must perform the page action instead.
+		if !cliBrowserVerification(a) {
+			return errors.New("页面动作需要 --verify（CLI 本地浏览器）或宿主内置浏览器；本次未执行，不返回成功")
 		}
 		value, err = runPhase2Browser(target, method, args, shot)
 	}
@@ -118,7 +129,11 @@ func (a *App) cmdPhase2() error {
 		return err
 	}
 	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value}
-	if !cliBrowserVerification(a) {
+	if strings.HasPrefix(method, "api:") {
+		out["verified"] = true
+		out["verifyWith"] = "page-fetch"
+		out["note"] = "只读 API 通过页面同源 fetch 执行；无需截图"
+	} else if !cliBrowserVerification(a) {
 		out["verified"] = false
 		out["verifyWith"] = "host-browser"
 		out["note"] = "默认不启动 CLI 本地浏览器；请用宿主内置浏览器（WorkBuddy agent-browser）打开 url 截图；需要 CLI 截图时加 --verify"
@@ -190,6 +205,18 @@ func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
 			return nil, errors.New("range 必须带工作表名，例如 \"工作表1!A1:C1\"，或在 payload 中提供 sheetName")
 		}
 	}
+	if (httpMethod == "POST" || httpMethod == "PUT") && strings.HasSuffix(path, "/sheets/values") {
+		if strings.TrimSpace(str(payload, "range")) == "" {
+			return nil, errors.New("sheet-update/sheet-append 必须提供 range，例如 \"工作表1!A1:D4\"")
+		}
+		resource, ok := payload["resource"].(map[string]any)
+		if !ok {
+			return nil, errors.New("sheet-update/sheet-append 必须提供 resource.values；裸 values 会被服务端静默忽略")
+		}
+		if _, ok := resource["values"]; !ok {
+			return nil, errors.New("sheet-update/sheet-append 的 resource 必须包含 values")
+		}
+	}
 	if httpMethod == "POSTROW" || httpMethod == "DELETEROW" {
 		sheetName := strings.TrimSpace(str(payload, "sheetName"))
 		index := strings.TrimSpace(str(payload, "index"))
@@ -249,8 +276,12 @@ func (a *App) runSheetFormat(guid string, args []any) (any, error) {
 	if !ok || len(attrs) == 0 {
 		return nil, errors.New("sheet-format 必须在 attrs 中提供至少一个属性，例如 {\"background\":\"#D32F2F\"}")
 	}
+	supported := map[string]bool{"background": true, "color": true, "bold": true, "fontSize": true, "fontFamily": true, "align": true, "valign": true, "italic": true, "underline": true}
 	keys := make([]string, 0, len(attrs))
 	for k := range attrs {
+		if !supported[k] {
+			return nil, fmt.Errorf("sheet-format 不支持属性 %s；支持 background/color/bold/fontSize/fontFamily/align/valign/italic/underline", k)
+		}
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -380,6 +411,9 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	// must not be accepted as visual proof.  Wait for a real document body
 	// before running the action or capturing the result.
 	waitPageReady(ws, 30*time.Second)
+	if strings.HasPrefix(method, "actions.") && !waitEditorReady(ws, 10*time.Second) {
+		return nil, errors.New("页面已打开但编辑器未加载完成（等待 10 秒）；未执行页面动作")
+	}
 	argsJSON, _ := json.Marshal(args)
 	expr := phase2Expression(method, string(argsJSON), guidFromURL(target))
 	// The editor mounts asynchronously after the document shell is ready. A
@@ -422,9 +456,18 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 		return nil, fmt.Errorf("页面 editor SDK/API 不可用（已重试 %d 次；可改用 shimo-net open 后由 computer-use 按网页操作）：%w", editorAttempts, lastErr)
 	}
 	if screenshot != "" {
-		if err := capturePhase2Screenshot(ws, screenshot); err != nil {
-			return nil, err
+		for attempt := 0; attempt < 3; attempt++ {
+			if err := capturePhase2Screenshot(ws, screenshot); err != nil {
+				return nil, err
+			}
+			if screenshotHasContent(screenshot) {
+				return value, nil
+			}
+			if attempt < 2 {
+				time.Sleep(1200 * time.Millisecond)
+			}
 		}
+		return nil, errors.New("截图内容为空白，页面未渲染完成；不返回成功")
 	}
 	return value, nil
 }
@@ -506,6 +549,56 @@ func waitPageReady(ws *WSConn, timeout time.Duration) {
 		}
 		time.Sleep(300 * time.Millisecond)
 	}
+}
+
+func waitEditorReady(ws *WSConn, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	id := 1200
+	for time.Now().Before(deadline) {
+		res, err := ws.Call(id, "Runtime.evaluate", map[string]any{
+			"expression":    `!!(window.smsdk?.__DRIVE_SDK__?.editor) || !!globalThis.sdk`,
+			"returnByValue": true,
+		}, 5*time.Second)
+		id++
+		if err == nil {
+			if result, ok := res["result"].(map[string]any); ok && boolv(result, "value") {
+				return true
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return false
+}
+
+func screenshotHasContent(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return false
+	}
+	b := img.Bounds()
+	stepX, stepY := b.Dx()/40, b.Dy()/40
+	if stepX < 1 {
+		stepX = 1
+	}
+	if stepY < 1 {
+		stepY = 1
+	}
+	total, colored := 0, 0
+	for y := b.Min.Y; y < b.Max.Y; y += stepY {
+		for x := b.Min.X; x < b.Max.X; x += stepX {
+			r, g, bl, _ := img.At(x, y).RGBA()
+			total++
+			if r>>8 < 245 || g>>8 < 245 || bl>>8 < 245 {
+				colored++
+			}
+		}
+	}
+	return total > 0 && colored*100 >= total
 }
 
 func capturePhase2Screenshot(ws *WSConn, path string) error {
