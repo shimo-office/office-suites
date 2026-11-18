@@ -14,7 +14,7 @@ examples_en:
   - "Search Shimo for the file named 'Quarterly Plan' and return its link."
   - "Write the timetable to Sheet1 A1:C3 and open the page to verify it."
   - "List my subscribed files and open one to review its latest update."
-version: 0.9.14
+version: 0.9.15
 author: shimo-office
 ---
 
@@ -82,7 +82,7 @@ shimo-net init --origin https://<客户域名>
 | 预览与打印 | `phase2 --action print --verify`（CLI）或宿主浏览器打开打印面板；导出 PDF 走页面入口 |
 | 文档重排全文 | 页面动作：`page-width` 未暴露 SDK，用宿主浏览器调整 |
 | 表格写入 | `phase2 --action sheet-update|sheet-append|sheet-insert|sheet-delete` 直接调用表格 API |
-| 表格整理 | `phase2 --action sheet-format` 写底色/字体/字号；冻结、排序、筛选是页面动作 |
+| 表格整理 | `phase2 --action sheet-format` 写底色/字体颜色/加粗/斜体/下划线；冻结、排序、筛选是页面动作 |
 | 表格清洗 | 页面动作：表格数据工具，CLI 动作白名单没有 |
 | 表格算与看数 | 页面动作：公式/透视表/排序筛选走页面 |
 | 表格校验与格式 | `phase2 --action sheet-format|sheet-merge` 直接调用表格 API；数据验证仍用页面 |
@@ -120,7 +120,7 @@ WorkBuddy 右上角的「打开浏览器」是宿主自带的内置浏览器，�
 
 | 宿主 | 浏览器路径 |
 |---|---|
-| WorkBuddy | `present_files` 的 URL 预览 → 右侧内置浏览器 |
+| WorkBuddy | `present_files` 的 URL 预览 → 右侧内置浏览器（需已有 shimo.net 会话） |
 | 豆包工作 | 无内置浏览器；`shimo-net open` 本机浏览器 |
 | DeepSeek Harness | 无内置浏览器；`computer-use`（Orca）或 `shimo-net open` |
 | Codex | 无内置浏览器；`shimo-net open` |
@@ -174,7 +174,7 @@ shimo-net phase2 <链接|guid|@别名> --action mentions-list --json
 - `history-show` / `history-hide`、`save-version`、`comments-show` / `comments-hide`、`comment-add`、`print`：通过 `editor.actions` 打开对应面板，内容由页面展示。
 - `find`、`replace-all`、`page-width`、`sheet-freeze`、`sheet-sort`、`sheet-filter`、`sheet-validation`：当前未暴露 SDK，走页面操作；不要谎报已执行。
 - 页面动作没有 `--verify` 时直接失败，不返回成功；有 `--verify` 时还会检查编辑器是否挂载、截图是否空白，空白截图直接失败。
-- 表格 API 写入后仍要读回 `sheet-values` 或截图核验；`sheet-format` 只接受 `background/color/bold/fontSize/fontFamily/align/valign/italic/underline`，`numberFormat`、列宽、行高会明确报不支持，不再回显 `applied`。
+- 表格 API 写入后仍要读回 `sheet-values` 或截图核验；`sheet-format` 只接受已验证可落地的 `background/color/bold/italic/underline`；`fontSize`、`fontFamily`、`align`、`valign`、`numberFormat`、列宽、行高都会明确报不支持。
 
 订阅更新：
 

@@ -166,10 +166,10 @@
 | 21 | 预览与打印 | 预览这份文档；打印当前内容 | 页面动作：`print` 打开打印面板；导出 PDF 走页面/导出入口 |
 | 22 | 文档重排全文 | 设置标题层级和页面宽度 | 页面动作：`page-width` 当前未暴露 SDK，走页面菜单 |
 | 23 | 表格写入 | 把这批数据追加到表尾；插入三行 | API：`sheet-update` / `sheet-append` / `sheet-insert` / `sheet-delete` / `sheet-merge`；写完用 `sheet-values` 读回 |
-| 24 | 表格整理 | 冻结首行；按金额排序、筛选并设置单元格底色 | `sheet-format` API 写底色/字体/字号；冻结/排序/筛选/列宽是页面动作；`numberFormat`、列宽当前不落库 |
+| 24 | 表格整理 | 冻结首行；按金额排序、筛选并设置单元格底色 | `sheet-format` API 写底色/字体颜色/加粗/斜体/下划线；冻结/排序/筛选/列宽是页面动作；`fontSize/fontFamily/align/valign/numberFormat`、列宽当前不落库 |
 | 25 | 表格清洗 | 删除重复项；按分隔符拆列 | 页面动作：表格数据工具；CLI 动作白名单没有 |
 | 26 | 表格算与看数 | 填公式；查看透视表 | 页面动作：排序/筛选/公式/透视表走页面 |
-| 27 | 表格校验与格式 | 给这一列加数据验证；调整列宽 | 页面动作：`sheet-validation` 未暴露 SDK；`sheet-format` 只保证 background/color/bold/fontSize |
+| 27 | 表格校验与格式 | 给这一列加数据验证；调整列宽 | 页面动作：`sheet-validation` 未暴露 SDK；`sheet-format` 只保证 background/color/bold/italic/underline |
 | 28 | 表格输出 | 导出当前表格；打印这张表 | API：`get` 异步导出；`--format csv` 目前仍导出 xlsx（已知限制）；打印走页面 |
 
 通用：`whoami` / `doctor` / `schema` / `login` / `logout`；全局 `--json`。

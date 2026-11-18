@@ -276,11 +276,15 @@ func (a *App) runSheetFormat(guid string, args []any) (any, error) {
 	if !ok || len(attrs) == 0 {
 		return nil, errors.New("sheet-format 必须在 attrs 中提供至少一个属性，例如 {\"background\":\"#D32F2F\"}")
 	}
-	supported := map[string]bool{"background": true, "color": true, "bold": true, "fontSize": true, "fontFamily": true, "align": true, "valign": true, "italic": true, "underline": true}
+	// Only attributes verified to land in the exported xlsx are accepted.
+	// fontSize/fontFamily/align/valign were returned as "applied" by the server
+	// but did not change the exported cell style, so they are rejected instead
+	// of producing another trusted-looking false success.
+	supported := map[string]bool{"background": true, "color": true, "bold": true, "italic": true, "underline": true}
 	keys := make([]string, 0, len(attrs))
 	for k := range attrs {
 		if !supported[k] {
-			return nil, fmt.Errorf("sheet-format 不支持属性 %s；支持 background/color/bold/fontSize/fontFamily/align/valign/italic/underline", k)
+			return nil, fmt.Errorf("sheet-format 不支持属性 %s；已验证可落地的只有 background/color/bold/italic/underline", k)
 		}
 		keys = append(keys, k)
 	}

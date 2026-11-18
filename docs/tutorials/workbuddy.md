@@ -134,7 +134,7 @@ WorkBuddy 右上角的「打开浏览器」就是它的内置浏览器。Agent �
 {"files":["https://shimo.net/sheets/<guid>"],"explanation":"打开表格检查写入结果"}
 ```
 
-`files` 是字符串数组；`http/https` URL 会被 WorkBuddy 在右侧内置浏览器预览面板打开，不会启动本地 Chrome。
+`files` 是字符串数组；`http/https` URL 会被 WorkBuddy 在右侧内置浏览器预览面板打开，不会启动本地 Chrome。面板必须已有 shimo.net 会话；如果打开是登录页，先在面板登录一次再重试，不能让 Agent 在登录页上执行动作。
 
 > 不要在 WorkBuddy 里用 `shimo-net open` 或 `phase2 --verify` 打开本地 Chrome。`agent-browser` 是本地/无头 Chrome 自动化插件，不是 WorkBuddy 的内置浏览器；WorkBuddy 的内置浏览器入口是 `present_files` 的 URL 预览。
 

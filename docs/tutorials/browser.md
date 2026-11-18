@@ -20,6 +20,7 @@ WorkBuddy 的内置浏览器入口是 `present_files`，不是 `agent-browser`�
 - `http/https` URL 会由 WorkBuddy 在右侧内置浏览器面板打开。
 - 不要在 WorkBuddy 里用 `shimo-net open` 或 `phase2 --verify` 启动本地 Chrome。
 - `agent-browser` 是本地/无头 Chrome 自动化插件，不是 WorkBuddy 的内置浏览器。
+- 内置浏览器必须已有 shimo.net 会话；如果打开是登录页，先在面板登录一次（或改用 `shimo-net open`），不要让 Agent 在登录页上执行页面动作。
 
 ## 豆包工作
 
@@ -44,6 +45,10 @@ shimo-net open https://shimo.net/sheets/<guid>
 ## Codex
 
 Codex 没有内置浏览器。用 `shimo-net open <url>` 打开本机浏览器。Codex 默认沙箱可能拦截 Keychain 和浏览器配置；先按 [codex.md](codex.md) 的沙箱说明放宽，或运行 `shimo-net login`。
+
+## 表格读回的边界
+
+`sheet-values` 只返回有值单元格：`sheet-insert` 插入的空行、`sheet-merge` 后行号位移都不可见，不能单独用读回判断插入/合并是否成功。表格写操作按 `sheet-values → 导出 xlsx 看 XML → 截图` 三层核验；`applied` 不是物证。
 
 ## 通用规则
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.15 — 2026-11-18
+
+### 修复
+
+- `sheet-format` 只保留导出 xlsx 已验证落地的 `background/color/bold/italic/underline`；`fontSize`、`fontFamily`、`align`、`valign` 从白名单移除并明确报不支持，不再出现“白名单内合法假成功”。
+- 文档补充内置浏览器会话前提：WorkBuddy 面板打开是登录页时先登录一次，不能让 Agent 在登录页执行页面动作。
+- 文档补充表格读回边界：`sheet-values` 看不到插入的空行和 merge 位移，必须导出 xlsx 看 XML 或用截图核验，`applied` 不是物证。
+
+
 ## 0.9.14 — 2026-11-18
 
 ### 修复
