@@ -20,7 +20,7 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
     try {
         Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
     } catch {
-        Write-Error "下载失败。请安装 Go 1.22+ 后重试，或手动从 release 页面下载：$url"
+        Write-Error "下载失败。请安装 Go 1.26.11+ 后重试，或手动从 release 页面下载：$url"
         exit 1
     }
 }

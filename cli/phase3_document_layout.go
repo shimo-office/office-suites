@@ -166,7 +166,7 @@ func (a *App) cmdPhase3DocumentLayout() (runErr error) {
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("文稿布局动作验收通过：%s\n证据：%s\n", spec.Action, dir)
+	fmt.Printf("文稿布局动作验收通过：%s\n证据：%s\n", spec.Action, terminalText(dir))
 	return nil
 }
 

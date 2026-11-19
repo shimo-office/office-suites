@@ -524,7 +524,7 @@ func (a *App) cmdPhase3SlidesWithOpen(openEditor func(string) (*phase3EditorBrow
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("幻灯片页面动作验收通过：%s\n证据：%s\n", action, dir)
+	fmt.Printf("幻灯片页面动作验收通过：%s\n证据：%s\n", action, terminalText(dir))
 	if limitation, ok := result["exportLimitation"].(string); ok {
 		fmt.Println(limitation)
 	}

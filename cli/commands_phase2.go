@@ -166,9 +166,9 @@ func (a *App) cmdPhase2() error {
 		fmt.Printf("只读 API 已读取：%s\n", action)
 	} else if screenshot, ok := out["screenshot"].(string); ok {
 		if strings.HasPrefix(method, "actions.") {
-			fmt.Printf("仅切换面板显示并截图，未保存、未提交、未打印：%s\n截图：%s\n", action, screenshot)
+			fmt.Printf("仅切换面板显示并截图，未保存、未提交、未打印：%s\n截图：%s\n", action, terminalText(screenshot))
 		} else {
-			fmt.Printf("动作已执行并截图，请核对页面结果：%s\n截图：%s\n", action, screenshot)
+			fmt.Printf("动作已执行并截图，请核对页面结果：%s\n截图：%s\n", action, terminalText(screenshot))
 		}
 	} else {
 		fmt.Printf("API 请求已完成，结果待页面核验：%s\n", action)

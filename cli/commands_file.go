@@ -87,7 +87,9 @@ func fetchToFile(u, dest string) (int64, error) {
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Get(u)
 	if err != nil {
-		return 0, err
+		// net/url.Error embeds the complete URL, including bearer-like download
+		// signatures. Never propagate it into CLI errors or persistent evidence.
+		return 0, errors.New("下载请求失败：请检查网络或重新获取下载链接")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
@@ -101,7 +103,7 @@ func fetchToFile(u, dest string) (int64, error) {
 	defer f.Close()
 	n, err := io.Copy(f, resp.Body)
 	if err != nil {
-		return n, err
+		return n, errors.New("下载内容读取失败：请检查网络及本地存储后重试")
 	}
 	// Preserve an existing regular file's permissions without following symlinks.
 	if previous, statErr := os.Lstat(dest); statErr == nil && previous.Mode().IsRegular() {
@@ -201,7 +203,7 @@ func (a *App) cmdGet() error {
 	if a.JSON {
 		return a.printJSON(got)
 	}
-	fmt.Printf("已下载：%s（%v bytes）\n", str(got, "file"), got["bytes"])
+	fmt.Printf("已下载：%s（%v bytes）\n", terminalText(str(got, "file")), got["bytes"])
 	return nil
 }
 
@@ -241,7 +243,7 @@ func (a *App) cmdPull() error {
 		if err != nil {
 			failed++
 			if !a.JSON {
-				fmt.Printf("✗ %s：%v\n", str(f, "name"), err)
+				fmt.Printf("✗ %s：%v\n", terminalText(str(f, "name")), terminalText(err.Error()))
 			}
 			manifest = append(manifest, map[string]any{"guid": str(f, "guid"), "name": str(f, "name"), "url": str(f, "url"), "error": err.Error()})
 			continue
@@ -250,14 +252,14 @@ func (a *App) cmdPull() error {
 			skipped++
 			manifest = append(manifest, got)
 			if !a.JSON {
-				fmt.Printf("- %s：%s\n", str(f, "name"), str(got, "reason"))
+				fmt.Printf("- %s：%s\n", terminalText(str(f, "name")), terminalText(str(got, "reason")))
 			}
 			continue
 		}
 		downloaded++
 		manifest = append(manifest, got)
 		if !a.JSON {
-			fmt.Printf("✓ %s → %s (%v bytes)\n", str(f, "name"), filepath.Base(str(got, "file")), got["bytes"])
+			fmt.Printf("✓ %s → %s (%v bytes)\n", terminalText(str(f, "name")), terminalText(filepath.Base(str(got, "file"))), got["bytes"])
 		}
 	}
 	manifestPath := filepath.Join(outDir, "manifest.json")
@@ -273,7 +275,7 @@ func (a *App) cmdPull() error {
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("\n当前层下载完成：%d 个文件，跳过 %d 个目录；位置：%s（清单：manifest.json）\n", downloaded, skipped, outDir)
+	fmt.Printf("\n当前层下载完成：%d 个文件，跳过 %d 个目录；位置：%s（清单：manifest.json）\n", downloaded, skipped, terminalText(outDir))
 	return nil
 }
 
@@ -381,8 +383,8 @@ func (a *App) cmdRead() error {
 	if a.JSON {
 		return a.printJSON(r)
 	}
-	fmt.Printf("《%s》（%s，%v 字%s）\n\n", str(r, "name"), str(r, "typeLabel"), r["chars"], map[bool]string{true: "，截断", false: ""}[boolv(r, "truncated")])
-	fmt.Println(str(r, "text"))
+	fmt.Printf("《%s》（%s，%v 字%s）\n\n", terminalText(str(r, "name")), terminalText(str(r, "typeLabel")), r["chars"], map[bool]string{true: "，截断", false: ""}[boolv(r, "truncated")])
+	fmt.Println(terminalContent(str(r, "text")))
 	if boolv(r, "truncated") {
 		fmt.Println("\n…（已截断，加 --max-chars 20000 看更多）")
 	}

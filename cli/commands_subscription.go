@@ -40,7 +40,7 @@ func (a *App) cmdSubscriptions() error {
 	}
 	fmt.Printf("已订阅文件：%d 个（最多扫描 %d 个文件，仅在扫描范围内排序）\n\n", len(files), limit)
 	for i, f := range files {
-		fmt.Printf("%d. %s [%s]\n   %s\n   最近更新：%s\n", i+1, str(f, "name"), typeLabel(f), str(f, "url"), fmtTime(f["updatedAt"]))
+		fmt.Printf("%d. %s [%s]\n   %s\n   最近更新：%s\n", i+1, terminalText(str(f, "name")), terminalText(typeLabel(f)), terminalText(str(f, "url")), terminalText(fmtTime(f["updatedAt"])))
 	}
 	fmt.Println("查看某个文件：shimo-net subscriptions --open <序号|guid>")
 	return nil

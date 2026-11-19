@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.26.11"
       - name: Build
         shell: bash
         env:
@@ -72,6 +72,6 @@ jobs:
           mkdir -p dist
           cp bootstrap.sh dist/bootstrap.sh
           cp docs/agent/SKILL.md dist/SKILL.md
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: dist/*
