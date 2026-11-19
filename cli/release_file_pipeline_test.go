@@ -136,11 +136,6 @@ func TestReleaseFileGetAndPullProductionBoundaries(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if kind == "pull-manifest-error" {
-				if err := os.Mkdir(filepath.Join(outDir, "manifest.json"), 0700); err != nil {
-					t.Fatal(err)
-				}
-			}
 			if err := os.WriteFile(dest, []byte("原内容"), 0600); err != nil {
 				t.Fatal(err)
 			}
@@ -162,7 +157,18 @@ func TestReleaseFileGetAndPullProductionBoundaries(t *testing.T) {
 					if kind == "pull-list-error" {
 						return phase3Response(403, `{}`), nil
 					}
-					if kind == "pull-empty" || kind == "pull-manifest-error" {
+					if kind == "pull-manifest-error" {
+						// Change the directory after listing starts, so the real
+						// exclusive metadata creation fails on every platform.
+						if err := os.Rename(outDir, filepath.Join(t.TempDir(), "saved")); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.WriteFile(outDir, []byte("blocked metadata directory"), 0600); err != nil {
+							t.Fatal(err)
+						}
+						return phase3Response(200, `{"list":[]}`), nil
+					}
+					if kind == "pull-empty" {
 						return phase3Response(200, `{"list":[]}`), nil
 					}
 					return phase3Response(200, `{"list":[{"guid":"abcdefgh","name":"中文.txt","isCloudFile":true},{"guid":"folderid","name":"目录","isFolder":true}]}`), nil
@@ -207,6 +213,12 @@ func TestReleaseFileGetAndPullProductionBoundaries(t *testing.T) {
 				if err == nil {
 					t.Fatalf("false success: %s", out)
 				}
+				if kind == "pull-manifest-error" {
+					var partial *commandError
+					if !errors.As(err, &partial) || !partial.NoReplay || partial.Result["ok"] != false {
+						t.Fatalf("metadata failure must be structured and non-replayable: %v", err)
+					}
+				}
 				if kind == "get-download-error" {
 					b, _ := os.ReadFile(dest)
 					if string(b) != "原内容" {
@@ -221,6 +233,12 @@ func TestReleaseFileGetAndPullProductionBoundaries(t *testing.T) {
 			if kind != "pull-empty" {
 				if kind == "get-bin" {
 					dest = filepath.Join(outDir, "中文.bin")
+				} else {
+					original, e := os.ReadFile(dest)
+					if e != nil || string(original) != "原内容" {
+						t.Fatalf("existing file was overwritten: %q %v", original, e)
+					}
+					dest = filepath.Join(outDir, "中文 (2).txt")
 				}
 				b, e := os.ReadFile(dest)
 				if e != nil || string(b) != "下载中文😀" {
@@ -228,7 +246,7 @@ func TestReleaseFileGetAndPullProductionBoundaries(t *testing.T) {
 				}
 			}
 			if strings.HasPrefix(kind, "pull") {
-				b, e := os.ReadFile(filepath.Join(outDir, "manifest.json"))
+				b, e := os.ReadFile(issuePullManifestPath(t, outDir))
 				if e != nil {
 					t.Fatal(e)
 				}

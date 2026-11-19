@@ -52,8 +52,8 @@ shimo-net <command> [位置参数] [--option value] [--json]
 | `restore <guid>` | 恢复回收站中的目标。 |
 | `audit <目录> [--limit 200]` | 只读权限巡检；未知权限单独分组，未知或截断时非 0 退出，不计作私有。 |
 | `read <链接> [--max-chars 12000]` | 按实际导出格式解析正文；可从 md 回退 docx，回退 PDF 时明确拒绝解析并提示 get。超长内容会截断。 |
-| `get <链接> [--out 目录]` | 附件原样下载，在线文件按类型首选格式导出，失败可回退 PDF；以 `exportType` 和实际扩展名为准。默认 `./shimo-pull`，明确拒绝 `--format csv`。 |
-| `pull <目录> [--out 目录] [--since 7d] [--limit N]` | 仅下载文件夹/空间当前层，默认 `./shimo-pull`；子目录记入 manifest 为 skipped，不递归。默认不限当前层数量；有失败项非 0 退出，保留已下载文件、manifest 与逐项错误。 |
+| `get <链接> [--out 目录]` | 附件原样下载，在线文件按类型首选格式导出，失败可回退 PDF；以 `exportType` 和实际扩展名为准。默认 `./shimo-pull`，同名或已有本地目标自动加序号保留，明确拒绝 `--format csv`。 |
+| `pull <目录> [--out 目录] [--since 7d] [--limit N]` | 仅下载文件夹/空间当前层，默认 `./shimo-pull`；子目录记入 manifest 为 skipped，不递归。默认不限当前层数量；文件名冲突自动加序号；结束前核对落盘文件大小。清单使用独立隐藏文件，以结果 `manifest` 字段为准，不覆盖云端 `manifest.json` 或旧清单。有失败项非 0 退出，保留已下载文件、清单与逐项错误。 |
 | `subscriptions [--limit 200] [--depth 3] [--open 序号或guid] [--default]` | limit 是扫描文件数上限，不是返回条数；仅对扫描范围内的订阅文件按更新时间排序，先列再选择。`--open` 会启动本地浏览器，先按浏览器规则确定该方式适用；无服务端全量“最近正文”接口。 |
 
 位置可以是 `desktop`、可访问空间/文件夹链接或 `@别名`。上传原文件与导入在线格式是不同操作；PDF 扫描件等不支持直接导入时，可上传为云文件，不冒称已转成可编辑正文。
