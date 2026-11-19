@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,6 +32,7 @@ type browserCookie struct {
 	Path    string  `json:"path"`
 	Expires float64 `json:"expires"`
 	Session bool    `json:"session"`
+	Secure  bool    `json:"secure"`
 }
 
 type browserProfile struct {
@@ -51,6 +51,7 @@ type browserRoot struct {
 var harvestMu sync.Mutex
 var harvestDone bool
 var harvestCookie string
+var harvestOrigin string
 var harvestErr error
 
 func harvestDisabled() bool {
@@ -58,30 +59,62 @@ func harvestDisabled() bool {
 	return v == "1" || v == "true" || v == "yes"
 }
 
-// authCookie returns the best available session.  It first uses the explicit
-// sources (env / Keychain / 0600 file) and only then bridges a browser login.
-func authCookie() (string, error) {
-	if c, err := readCookie(); err == nil && c != "" {
+// Only the absence of stored credentials permits automatic browser discovery.
+// An expired, unreadable or origin-mismatched record requires explicit login.
+func authCookieForOrigin(origin string) (string, error) {
+	c, err := readCookieForOrigin(origin)
+	if err == nil && c != "" {
 		return c, nil
 	}
-	if c, err := harvestChromeSession(false); err == nil && c != "" {
-		_ = writeCred(originForHarvest(), c)
+	if !errors.Is(err, errNoStoredCredential) {
+		return "", err
+	}
+	if c, err := harvestChromeSessionForOrigin(origin, false); err == nil && c != "" {
+		if err := writeCred(origin, c); err != nil {
+			return "", err
+		}
 		return c, nil
 	}
-	return "", errors.New("未登录：本机 Keychain 没有会话，也没有找到已登录的 Chrome/Chromium；请先运行 shimo-net login")
+	return "", errors.New("未登录：没有已存凭据或可复用的浏览器会话；请运行 shimo-net login")
 }
 
-// harvestChromeSession caches the result for the lifetime of the process.  A
-// forced call is used after an HTTP 401 (the cached Keychain cookie may be
-// stale even though Chrome has a fresh one).
-func harvestChromeSession(force bool) (string, error) {
+func authCookie() (string, error) {
+	return authCookieForOrigin(originForHarvest())
+}
+
+func (a *App) requestCookie() (string, error) {
+	if explicitNoBrowser(a) {
+		return readCookieForOrigin(a.Origin)
+	}
+	return authCookieForOrigin(a.Origin)
+}
+
+func resetHarvestCache() {
 	harvestMu.Lock()
 	defer harvestMu.Unlock()
-	if harvestDone && !force {
+	harvestDone = false
+	harvestCookie = ""
+	harvestOrigin = ""
+	harvestErr = nil
+}
+
+// Results are cached only for the same origin. Forced discovery is reserved
+// for explicit login/session harvest, never an automatic response to HTTP 401.
+func harvestChromeSessionForOrigin(origin string, force bool) (string, error) {
+	if _, err := canonicalCredentialOrigin(origin); err != nil {
+		return "", err
+	}
+	if harvestDisabled() {
+		return "", errors.New("已通过 SHIMO_NET_DISABLE_HARVEST 关闭浏览器登录态复用")
+	}
+	harvestMu.Lock()
+	defer harvestMu.Unlock()
+	if harvestDone && !force && sameCredentialOrigin(harvestOrigin, origin) {
 		return harvestCookie, harvestErr
 	}
-	cookie, label, err := harvestFromBrowsers()
+	cookie, label, err := harvestFromBrowsers(origin)
 	harvestDone = true
+	harvestOrigin = origin
 	harvestCookie, harvestErr = cookie, err
 	if err == nil && cookie != "" {
 		fmt.Fprintf(os.Stderr, "已从 %s 复用登录态，无需二次登录\n", label)
@@ -96,7 +129,7 @@ func originForHarvest() string {
 	return defaultOrigin
 }
 
-func harvestFromBrowsers() (string, string, error) {
+func harvestFromBrowsers(origin string) (string, string, error) {
 	if harvestDisabled() {
 		return "", "", errors.New("已通过 SHIMO_NET_DISABLE_HARVEST 关闭浏览器登录态复用")
 	}
@@ -104,10 +137,9 @@ func harvestFromBrowsers() (string, string, error) {
 	if len(profiles) == 0 {
 		return "", "", errors.New("没有找到可复用的 Chromium 浏览器配置")
 	}
-	host := hostOf(originForHarvest())
 	var lastErr error
 	for _, p := range profiles {
-		cookie, err := cookiesFromProfile(p, host)
+		cookie, err := cookiesFromProfile(p, origin)
 		if err != nil {
 			lastErr = err
 			continue
@@ -115,14 +147,14 @@ func harvestFromBrowsers() (string, string, error) {
 		if cookie == "" {
 			continue
 		}
-		if _, err := (&App{Origin: originForHarvest()}).usersMeWithCookie(cookie); err != nil {
+		if _, err := (&App{Origin: origin}).usersMeWithCookie(cookie); err != nil {
 			lastErr = err
 			continue
 		}
 		return cookie, p.Label, nil
 	}
 	if lastErr == nil {
-		lastErr = errors.New("浏览器里没有找到可用的 shimo.net 登录态")
+		lastErr = errors.New("浏览器里没有找到目标网址的可用登录态")
 	}
 	return "", "", lastErr
 }
@@ -265,7 +297,7 @@ func browserBinary(kind string) string {
 	return ""
 }
 
-func cookiesFromProfile(p browserProfile, host string) (string, error) {
+func cookiesFromProfile(p browserProfile, origin string) (string, error) {
 	tmp, err := os.MkdirTemp("", "shimo-net-harvest-")
 	if err != nil {
 		return "", err
@@ -288,14 +320,8 @@ func cookiesFromProfile(p browserProfile, host string) (string, error) {
 		_ = os.WriteFile(filepath.Join(tmp, "Local State"), b, 0o600)
 	}
 
-	noSandbox := os.Getenv("SHIMO_NET_NO_SANDBOX") != ""
+	noSandbox := browserSandboxDisabled()
 	cmd, port, err := startHarvestBrowser(p.Binary, tmp, noSandbox)
-	if err != nil && !noSandbox {
-		// Sandboxed agent environments (and some managed Macs) cannot start the
-		// Chrome sandbox.  Retry once outside the sandbox; the profile copy is
-		// throw-away and the command only reads cookies.
-		cmd, port, err = startHarvestBrowser(p.Binary, tmp, true)
-	}
 	if err != nil {
 		return "", err
 	}
@@ -310,7 +336,7 @@ func cookiesFromProfile(p browserProfile, host string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return cookieJarForHost(cookies, host), nil
+	return cookieJarForOrigin(cookies, origin), nil
 }
 
 func startHarvestBrowser(binary, profileDir string, noSandbox bool) (*exec.Cmd, int, error) {
@@ -320,6 +346,7 @@ func startHarvestBrowser(binary, profileDir string, noSandbox bool) (*exec.Cmd, 
 		"--headless=new",
 		"--user-data-dir=" + profileDir,
 		"--remote-debugging-port=0",
+		"--remote-debugging-address=127.0.0.1",
 		"--no-first-run",
 		"--no-default-browser-check",
 		"--disable-gpu",
@@ -394,9 +421,27 @@ func readBrowserCookies(port int) ([]browserCookie, error) {
 			Path:    str(m, "path"),
 			Expires: num(m, "expires"),
 			Session: boolv(m, "session"),
+			Secure:  boolv(m, "secure"),
 		})
 	}
 	return out, nil
+}
+
+// Browser cookie metadata has no port binding. Honor its Secure bit and use
+// exact host matching; persisted credentials are additionally bound to origin.
+func cookieJarForOrigin(cookies []browserCookie, origin string) string {
+	canonical, err := canonicalCredentialOrigin(origin)
+	if err != nil {
+		return ""
+	}
+	filtered := make([]browserCookie, 0, len(cookies))
+	for _, cookie := range cookies {
+		if cookie.Secure && !strings.HasPrefix(canonical, "https://") {
+			continue
+		}
+		filtered = append(filtered, cookie)
+	}
+	return cookieJarForHost(filtered, hostOf(origin))
 }
 
 func cookieJarForHost(cookies []browserCookie, host string) string {
@@ -410,7 +455,7 @@ func cookieJarForHost(cookies []browserCookie, host string) string {
 		if c.Name == "" || c.Value == "" {
 			continue
 		}
-		if c.Domain != host && c.Domain != "."+host {
+		if strings.ToLower(strings.TrimPrefix(c.Domain, ".")) != host {
 			continue
 		}
 		if !c.Session && c.Expires > 0 && c.Expires < now {
@@ -439,11 +484,12 @@ func (a *App) cmdSession() error {
 	}
 	switch a.Pos[0] {
 	case "status":
+		_, source, _ := credentialForOrigin(a.Origin)
 		out := map[string]any{
 			"origin":   a.Origin,
 			"env":      os.Getenv("SHIMO_NET_COOKIE") != "",
-			"keychain": keychainAvailable() && keychainLoad() != "",
-			"file":     readCredFile() != nil && readCredFile().Cookie != "",
+			"keychain": source == "keychain",
+			"file":     source == "file",
 			"harvest":  !harvestDisabled(),
 			"profiles": len(browserProfiles()),
 		}
@@ -455,10 +501,11 @@ func (a *App) cmdSession() error {
 		fmt.Printf("浏览器复用：%v（发现 %v 个浏览器配置）\n", out["harvest"], out["profiles"])
 		return nil
 	case "harvest":
-		harvestMu.Lock()
-		harvestDone = false
-		harvestMu.Unlock()
-		cookie, err := harvestChromeSession(true)
+		if os.Getenv("SHIMO_NET_COOKIE") != "" && !a.has("--no-save") {
+			return errors.New("SHIMO_NET_COOKIE 正在覆盖本机账号；请先取消环境变量再保存浏览器会话，或用 --no-save 仅验证")
+		}
+		resetHarvestCache()
+		cookie, err := harvestChromeSessionForOrigin(a.Origin, true)
 		if err != nil {
 			return err
 		}
@@ -472,14 +519,21 @@ func (a *App) cmdSession() error {
 			}
 		}
 		out := map[string]any{"ok": true, "source": "browser", "saved": !a.has("--no-save"),
-			"cookieCount": len(strings.Split(cookie, "; ")), "account": map[string]any{
+			"storage": "none", "cookieCount": len(strings.Split(cookie, "; ")), "account": map[string]any{
 				"id": str(me, "id"), "name": str(me, "name"), "email": str(me, "email")}}
+		if !a.has("--no-save") {
+			c := readCredFile()
+			if c == nil {
+				return errors.New("保存后无法读取凭据存储元数据")
+			}
+			out["storage"] = c.Storage
+		}
 		if a.JSON {
 			return a.printJSON(out)
 		}
 		fmt.Printf("已复用浏览器登录态：%s <%s>（%d 个 cookie）\n", str(me, "name"), str(me, "email"), out["cookieCount"])
 		if !a.has("--no-save") {
-			fmt.Println("已写入本机 Keychain，后续命令可直接使用")
+			fmt.Printf("已写入%s，后续命令可直接使用\n", credentialStorageLabel(out["storage"].(string)))
 		}
 		return nil
 	default:
@@ -487,12 +541,15 @@ func (a *App) cmdSession() error {
 	}
 }
 
-// setCookieDomain returns the cookie domain used for CDP injection.  A leading
-// dot makes the session available on the main host and its subdomains.
-func cookieDomainFor(target string) string {
-	u, err := url.Parse(target)
-	if err != nil || u.Hostname() == "" {
-		return ""
+func credentialStorageLabel(storage string) string {
+	if storage == "keychain" {
+		if runtime.GOOS == "windows" {
+			return "Windows Credential Manager"
+		}
+		return "macOS Keychain"
 	}
-	return "." + u.Hostname()
+	if storage == "file" {
+		return "本机凭据文件（0600）"
+	}
+	return "未知凭据存储"
 }

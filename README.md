@@ -1,346 +1,49 @@
-<div align="center">
-
 # shimo-net
 
-**石墨办公套件 CLI：把 shimo.net 和客户私有化部署，接进终端和 Agent。**
-
-找文件 · 导入交付 · 拉取归档 · 权限巡检 · 周报 · 上传下载
-
-支持 shimo.net 公有云与客户自部署的「石墨办公套件」。产品介绍与私有化部署：[shimo.net/products/office-suites](https://shimo.net/products/office-suites)
+石墨办公套件 CLI：把 shimo.net 与客户私有部署接入终端和 Agent，用于文件管理、内容读取和有限编辑操作。
 
 [![Release](https://img.shields.io/github/v/release/shimo-office/office-suites?label=release)](https://github.com/shimo-office/office-suites/releases)
 [![CI](https://github.com/shimo-office/office-suites/actions/workflows/ci.yml/badge.svg)](https://github.com/shimo-office/office-suites/actions/workflows/ci.yml)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](#环境要求)
 
-</div>
+## 30 秒安装
 
-![shimo.net CLI 终端演示](docs/images/demo.png)
-
-不用打开浏览器一层层翻文件夹，也不用记链接。找文件、导文档、拉取、权限巡检、出周报，都可以用一句命令完成；涉及人员、权限变更和不可逆动作时，必须转到石墨网页由人工确认和操作。
-
----
-
-## 30 秒上手
-
-**macOS / Linux**
+macOS / Linux：
 
 ```bash
 git clone https://github.com/shimo-office/office-suites.git
 cd office-suites
 ./install.command
-
-shimo-net init            # 第一次：确认产品网址（默认 shimo.net）
-shimo-net login           # 打开 Chrome 登录一次
-shimo-net search "报价政策"
+shimo-net init
+shimo-net login
+shimo-net whoami --json
 ```
 
-**Windows（PowerShell）**
+Windows PowerShell 在仓库目录执行：
 
 ```powershell
-git clone https://github.com/shimo-office/office-suites.git
-cd office-suites
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 shimo-net init
 shimo-net login
+shimo-net whoami --json
 ```
 
-> 安装器会把命令放到 `~/.local/bin/shimo-net`（Windows 为 `%LOCALAPPDATA%\shimo-net\shimo-net.exe`）。有 Go 时本地构建；没有 Go 时自动下载 [release](https://github.com/shimo-office/office-suites/releases) 里的对应平台二进制。如果提示找不到命令，把安装目录加进 `PATH`。
+安装器有 Go 时构建当前源码，否则下载最新 Release。也可使用仓库内的 `bootstrap.sh` 配置 Agent；具体步骤、跨平台要求、会话复用与 `login --new` 切账号见 [安装说明](docs/install.md)。WorkBuddy 的 shimo-net-cli 技能从 SkillHub 安装，见 [WorkBuddy 教程](docs/agent/workbuddy.md)。
 
-> **已经在 Chrome 里登录过？** CLI 会在 Keychain 没有会话时自动复用 Chrome / Chromium / Edge / Brave 的登录态，验证后写回 Keychain；`shimo-net open <链接>` 和 `--default` 都会注入完整 cookie jar，不需要再登录一次。手动检查：`shimo-net session status --json`。
+## 文档导航
 
-**客户私有部署**只改网址，不另装一套：
-
-```bash
-shimo-net init --origin https://<客户域名>
-shimo-net login
-```
-
----
-
-## 它能帮你做什么
-
-| 以前 | 现在 |
+| 要做什么 | 权威文档 |
 |---|---|
-| 在石墨里翻好几层文件夹找一份表 | `shimo-net search "报价政策"`，直接给链接 |
-| 把 md 导成在线文档 | `shimo-net import 方案.md --to @team`，权限变更转到石墨网页人工操作 |
-| 把整个文件夹下载下来归档 | `shimo-net pull @project --out ./归档`，附 `manifest.json` |
-| 检查空间里谁开了公开链接 | `shimo-net audit @team`，列出公开项并给收回建议 |
-| 周五翻文档手写周报 | `shimo-net ls @team --since 7d` + `shimo-net read`，出一页纸 |
-| 上传附件时选错空间 | `shimo-net upload 报告.pdf`，先问传到哪里再传 |
-| 每次都要复制粘贴常用文件夹链接 | `shimo-net fav add ai <链接>`，以后直接 `@ai` |
+| 安装、登录、切账号、私有部署、排错 | [安装说明](docs/install.md) |
+| 查找办公场景、自然语言话术、浏览器选择规则 | [场景清单](docs/scenarios.md) |
+| 查询命令、参数、JSON、退出码与 @别名 | [命令参考](docs/cli-reference.md) |
+| 配置 Agent | [技能包](docs/agent/SKILL.md) · [WorkBuddy](docs/agent/workbuddy.md) · [DSH](docs/agent/dsh.md) · [豆包工作](docs/agent/doubao.md) · [Codex](docs/agent/codex.md) |
+| 查看能力计数和实测边界 | [能力矩阵](docs/internal/capability-matrix.md) · [扩展编辑验收记录](docs/phase3-acceptance.md) |
+| 浏览全部文档 | [文档导航](docs/README.md) |
 
-当前版本为 **0.9.13**，可用的 28 个场景（覆盖 50 项能力）见 [cli/scenarios.md](cli/scenarios.md)。订阅更新文件可用 `shimo-net subscriptions --json` 列表，再按序号打开对应文档。
+版本以 `shimo-net version` 为准，变更见 [CHANGELOG](CHANGELOG.md)。能力数量由目录生成，不在教程中重复维护。扩展编辑的环境阻塞和待验收项以验收记录为准，文档整理不代表这些项目已通过。
 
----
+## 安全与许可
 
-## 在 Agent 里怎么用
+文件锁定、限制编辑、高级权限、成员级授权、彻底删除必须由用户在网页人工操作；CLI 删除只进入回收站。收回与其他权限变更同样由人工完成，详情见 [安全策略](SECURITY.md)。不要在对话、日志或截图中暴露 cookie。
 
-CLI 仓库提供通用技能定义 [cli/SKILL.md](cli/SKILL.md)，供没有 SkillHub 技能的 Agent 使用。WorkBuddy 的 shimo-net-cli 技能发布在 SkillHub（不在内置技能市场），从 SkillHub 分享页安装即可，不需要上传或复制仓库里的自定义技能。
-
-### 1. 安装技能
-
-<details>
-<summary><b>DeepSeek Harness</b></summary>
-
-```bash
-mkdir -p ~/.dsh/skills/shimo-net-cli
-cp cli/SKILL.md ~/.dsh/skills/shimo-net-cli/SKILL.md
-```
-
-新开一个会话，技能会按描述自动加载。
-</details>
-
-> **不想手动配置**：把教程开头的「一句话让 Agent 自己配置」整段发给 Agent。先检查本机是否已安装 shimo-net-cli 技能（WorkBuddy 为 SkillHub 版，其他 Agent 为各自技能目录）；已安装就直接使用，没有就安装；只有本机确实没有可用 CLI 时，才运行 `bootstrap.sh` 从 Releases latest 安装。手工步骤只作为兜底。
-
-<details>
-<summary><b>Codex</b></summary>
-
-```bash
-mkdir -p ~/.codex/skills/shimo-net-cli
-cp cli/SKILL.md ~/.codex/skills/shimo-net-cli/SKILL.md
-```
-
-在项目 `AGENTS.md` 里加一句：
-
-```text
-涉及石墨 / shimo.net 时，优先用 `shimo-net` 命令；先 `whoami`，401 就 `login` 后重试。
-```
-</details>
-
-<details>
-<summary><b>WorkBuddy</b></summary>
-
-打开 [SkillHub 分享页](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)，点击安装；也可以在 WorkBuddy 左侧栏「专家 · 技能 · 连接器」→「技能」的 SkillHub 入口打开。安装后在「已安装」里确认 shimo-net-cli 已启用，不需要上传 `cli/SKILL.md`。
-</details>
-
-<details>
-<summary><b>豆包工作</b></summary>
-
-在「技能」→「上传技能」选择 `cli/SKILL.md`；如果当前版本只支持录制，用「录制技能」录一遍 `shimo-net` 命令，再把参数改成变量。
-</details>
-
-<details>
-<summary><b>其他 Agent</b></summary>
-
-任何能执行 shell 的 Agent 都可以直接用。把 `shimo-net` 装进 `PATH`，再给它这段约束：
-
-```text
-涉及石墨时用 shimo-net 命令，全部加 --json。
-先跑 whoami；401 就执行 login 后重试原命令。
-写操作先给目标链接和影响范围，确认后再执行；涉及人员、权限变更和不可逆动作必须转网页人工处理。
-删除只进回收站；不要尝试彻底删除。
-```
-</details>
-
-### 2. 直接说
-
-| 你说 | Agent 会做 |
-|---|---|
-| 找一下「Q4 规划」，把链接发我 | `search` → 返回标题 + 链接 + 路径 |
-| 把这个 md 导到 AI 方案，给团队看 | `import` → 出链接 → 打开石墨网页人工设置权限 |
-| 把 @project 里的东西拉下来归档 | `pull` → 本地目录 + `manifest.json` |
-| 看看这个空间里哪些文件是公开的 | `audit` → 公开清单 + 收回建议 |
-| 把这周更新的文档读一遍，出一页纸 | `ls --since 7d` + `read` → 周报 + 原文链接 |
-
-### 3. 给 Agent 的指令模板
-
-```text
-用 shimo-net 帮我完成「<目标>」。
-
-1. 先跑 `shimo-net whoami --json`；如果返回 401 / 未登录，执行 `shimo-net login`，成功后重试原命令。
-2. 缺参数先问我，不要猜文件名、位置或权限。
-3. 写操作先给我目标链接和影响范围，我确认后再执行。
-4. 涉及文件锁定、限制编辑、高级权限、成员级授权和彻底删除时，禁止使用 CLI，必须打开石墨网页人工确认和操作。
-5. 结果给我可点开的链接或本地路径，并用 `info` / `ls` / `audit` 读回验证。
-```
-
----
-
-## 图文教程
-
-P0 四款 × 实际系统与入口：真实入口 / 授权 / 结果截图 + 当前场景文字步骤：
-
-| 工具 | 入口 | 教程 |
-|---|---|---|
-| WorkBuddy | 技能 → 已安装 | [图文教程](docs/tutorials/workbuddy.md) |
-| 豆包工作 | 技能 | [图文教程](docs/tutorials/doubao.md) |
-| DeepSeek Harness | `~/.dsh/skills/` | [图文教程](docs/tutorials/dsh.md) |
-| Codex | `~/.codex/skills/` | [图文教程](docs/tutorials/codex.md) |
-
-完整目录见 [docs/tutorials/](docs/tutorials/README.md)；四款连通验证结果见 [validation.md](docs/tutorials/validation.md)。
-
-> 当前场景是功能范围；逐场景真实验收进度见 [validation.md](docs/tutorials/validation.md#当前场景的验收状态)，不能据此宣称全部能力已验收。
-
-> 实测注意：Codex 默认沙箱会拦截 macOS Keychain，需要放宽 sandbox 或显式授权。四款 Agent 的实测记录见 [validation.md](docs/tutorials/validation.md)。
-
----
-
-## 常用命令
-
-### 页面操作与浏览器优先级
-
-涉及文字、段落、评论、历史、预览、打印或其他没有稳定 API 的操作时，Agent 先按 [docs/tutorials/browser.md](docs/tutorials/browser.md) 的 P0 矩阵选浏览器：WorkBuddy 用 `present_files` 打开右侧内置浏览器；豆包工作、DSH、Codex 没有可调用的内置浏览器，用 `shimo-net open` 或 `computer-use`。内置浏览器可用时不要运行 `shimo-net open`。
-
-只有确认宿主没有内置浏览器时，才使用 `shimo-net open <链接>` 或 `--default` 作为本机浏览器兜底。CLI 会读取本机 Keychain / Credential Manager 并在可安全注入的 Chromium 配置中带入登录态；不会输出 sid/cookie。WorkBuddy 已装 SkillHub 技能时，不要上传或复制仓库里的 `cli/SKILL.md`。
-
-<details>
-<summary><b>展开完整命令表（28 个场景，50 项能力）</b></summary>
-
-| 场景 | 命令 |
-|---|---|
-| 搜索 | `shimo-net search "<关键词>" [--limit 20]` |
-| 空间 / 目录 | `shimo-net spaces [--limit 300]`、`shimo-net ls <链接\|@别名> [--since 7d]` |
-| 文件出处 | `shimo-net info <链接\|@别名>` |
-| 导入 + 权限 | `shimo-net import <文件> --to <位置>`；权限必须在石墨网页人工设置 |
-| 拉取文件夹 | `shimo-net pull <链接\|@别名> [--out <目录>] [--since 7d]`（省略 `--out` 时用 `./shimo-pull`） |
-| 新建 | `shimo-net new <名称> --type doc\|docx\|sheet\|slide --to <位置>`；`doc`=文档，`docx`=文稿 |
-| 改名 | `shimo-net rename <链接> "<新名字>"` |
-| 删除 / 回收站 / 恢复 | `shimo-net delete`、`shimo-net trash`、`shimo-net restore <guid>` |
-| 权限巡检 | `shimo-net audit <文件夹\|@别名> [--limit 200]` |
-| 批量改权限 | CLI 禁止处理；打开石墨网页逐项人工确认和设置 |
-| 读正文 | `shimo-net read <链接> [--max-chars 12000]` |
-| 周报 | `shimo-net ls <链接> --since 7d` + `shimo-net read` |
-| 附件下载 | `shimo-net get <链接> [--out <目录>]`（省略时用 `./shimo-pull`） |
-| 上传 | `shimo-net upload <文件> [--to desktop\|空间\|文件夹\|@别名]` |
-| 常用文件夹 | `shimo-net fav add <别名> <链接> --note 特征` → `@别名` |
-| 只看与我相关的内容 | `shimo-net phase2 <链接> --action mentions-list\|comments-list`；订阅用 `shimo-net subscriptions --json` |
-| 留痕与版本 | `shimo-net open <链接>` 后用 computer-use 操作历史面板 |
-| 文字与段落 | `shimo-net open <链接>` 后用 computer-use 操作菜单和选区 |
-| 文内表格与图片 | `shimo-net open <链接>` 后由 computer-use 插入、调整并截图 |
-| 评论与提及 | `comments-list` 读取；添加评论和 @ 提及走页面操作 |
-| 预览与打印 | `shimo-net open <链接>` 后用 computer-use 操作预览/打印 |
-| 文档重排全文 | `shimo-net open <链接>` 后由 computer-use 调整标题、段落和页面样式 |
-| 表格写入 | `shimo-net phase2 <链接> --action sheet-update|sheet-append|sheet-insert|sheet-delete --payload …` 直接调用表格 API |
-| 表格整理 | `shimo-net open <链接>` 后用 computer-use 操作冻结、排序、筛选和单元格底色 |
-| 表格清洗 | `shimo-net open <链接>` 后由 computer-use 操作 |
-| 表格算与看数 | `shimo-net open <链接>` 后由 computer-use 操作公式、定义名称和透视表 |
-| 表格校验与格式 | `shimo-net phase2 <链接> --action sheet-format|sheet-merge --payload …` 直接调用表格 API；数据验证仍用页面 |
-| 表格输出 | 导出使用异步导出 API，打印用 `open` + computer-use |
-| 订阅更新 | `shimo-net subscriptions --json` 列出已订阅文件；`--open <序号\|guid>` 打开用户选定文件 |
-| 打开文档 | `shimo-net open <链接\|guid>` 使用注入 Keychain 会话的 CLI 浏览器；`--default` 使用系统默认浏览器 |
-
-通用：`init` / `login` / `logout` / `whoami` / `doctor` / `schema` / `version` / `open` / `phase2` / `subscriptions`。
-</details>
-
-### 权限（仅查看；变更必须人工页面操作）
-
-`private` · `enterprise_readonly` · `enterprise_commentable` · `enterprise_editable` · `readonly` · `commentable` · `editable`
-
-后三档是**公开链接**，任何拿到链接的人都能访问。CLI 可以读取当前权限，但不执行限制编辑、高级权限、成员级授权或其他权限变更。
-
-### 上传和导入不一样
-
-| | `upload` | `import` |
-|---|---|---|
-| 结果 | 原样云文件 | 转在线文档 / 文稿 / 表格 / 幻灯片 |
-| 适合 | 附件、压缩包、图片 | md、doc(x)、xls(x)、ppt(x) |
-| 位置 | 不给 `--to` 会先列出可选位置 | 必须给 `--to`，权限改动到石墨网页人工操作 |
-
----
-
-## 登录、凭据与安全
-
-- `shimo-net login` 打开一个 Chrome 专用窗口，登录成功后关闭；会话存进 macOS Keychain（Windows 为 Credential Manager），之后命令不再问密码。
-- 登录过期时，重新执行 `shimo-net login`，**网址不用重配**，然后重试原命令。Agent 指令里已经包含这个重试逻辑。
-- 切账号必须 `shimo-net login --new`；普通 `login` 会优先复用本机 Chrome 会话，不会换账号。
-- `shimo-net logout` 删除本机凭据。
-- 不要把密码、cookie 粘进对话、Issue 或截图。
-- 删除只进回收站；CLI 不提供彻底删除，需要到石墨网页回收站手动操作。
-- 批量读取 / 导出会消耗服务端资源，建议控制并发和批量大小；权限变更不由 CLI 执行。
-
-Windows 使用 Credential Manager。非 macOS 或 Keychain 不可用时，会回退到 `~/.shimo-net-cli/credentials.json`（目录 `0700`、文件 `0600`）。CI 可用 `SHIMO_NET_COOKIE`，但不要写进日志。详见 [SECURITY.md](SECURITY.md)。
-
----
-
-## 私有部署
-
-```bash
-# 方式一：写入配置（推荐）
-shimo-net init --origin https://<客户域名>
-shimo-net login
-
-# 方式二：临时环境变量，优先级最高
-SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami
-```
-
-私有化环境与 `shimo.net` 的数据不互通；切换域名后需要重新登录。
-
----
-
-## 工作原理
-
-```mermaid
-flowchart LR
-  U["你 / Agent"] -->|一句话或一条命令| C["shimo-net"]
-  C -->|登录一次| K[(Keychain / Credential Manager)]
-  C -->|HTTPS| S["shimo.net / 客户私有部署"]
-  S -->|链接 · 文件 · 权限| C
-```
-
-`shimo-net` 是石墨办公 CLI：直连 `/api/v1`，把 28 个常用场景和 50 项能力封装成命令；不依赖浏览器插件，也不需要常驻服务。数据命令都支持 `--json`，方便 Agent 和脚本读取。
-
----
-
-## 环境要求
-
-| 项 | 要求 |
-|---|---|
-| 操作系统 | macOS 12+；Linux；Windows 10/11 |
-| 运行时 | 不需要 Python / Node；从源码构建需要 Go 1.22+ |
-| 浏览器 | Google Chrome / Chromium / Microsoft Edge（登录与 `open`） |
-| 网络 | 能访问 `shimo.net` 或客户私有部署域名 |
-
----
-
-## 常见问题
-
-<details>
-<summary><b>提示 <code>shimo-net: command not found</code></b></summary>
-
-把 `~/.local/bin` 加进 `PATH`：
-
-```bash
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-</details>
-
-<details>
-<summary><b>登录窗口打不开 / 一直等不到登录</b></summary>
-
-确认已安装 Chrome / Chromium / Edge；公司网络限制弹窗时，先手动打开 `https://<你的域名>/login` 登录一次，再执行 `shimo-net login`。
-</details>
-
-<details>
-<summary><b>401 / 登录过期</b></summary>
-
-执行 `shimo-net login`，成功后重试原命令；网址已经记住，不需要重新配置。Agent 场景可以在命令后加 `--relogin`，让 CLI 自动登录并重试。
-</details>
-
-<details>
-<summary><b>导入失败</b></summary>
-
-只支持 `md / doc(x) / xls(x) / ppt(x)`；扫描版 PDF 需要先转文字，或改用 `upload` 原样上传。
-</details>
-
----
-
-## 文档与开发
-
-- [图文教程（P0 四款）](docs/tutorials/README.md)
-- [CLI 详细用法](cli/README.md)
-- [安装与使用说明](cli/安装使用说明.md)
-- [场景与自然语言示例](cli/scenarios.md)
-- [Agent 技能定义](cli/SKILL.md)
-- [安全策略](SECURITY.md) · [更新记录](CHANGELOG.md)
-
-```bash
-make test        # Go 单元测试 + 构建 + 冒烟检查
-./shimo schema   # 查看完整命令 / 参数 / JSON 结构
-```
-
----
-
-## 许可
-
-本仓库用于石墨办公套件交付与客户私有部署，默认保留所有权利；对外分发或商用授权请联系石墨办公套件团队。完整许可见 [LICENSE](LICENSE)。
+本仓库默认保留所有权利；分发或商业使用需获得授权，见 [LICENSE](LICENSE)。产品及私有化部署介绍：[石墨办公套件](https://shimo.net/products/office-suites)。

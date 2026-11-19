@@ -1,0 +1,231 @@
+{
+  "source": "https://shimo.net/files/gvB6xj6GgxHVNNv4",
+  "revisions": [
+    {
+      "caseId": "29.2",
+      "reason": "原始需求第88行列明分栏，没有要求创建独立分节或限定多节隔离。采用单节文稿仍逐项覆盖六类明确子功能；多节能力不作已实现声明。",
+      "before": {
+        "naturalLanguage": "把第一段设为标题 1，正文首行缩进 2 字符、1.5 倍行距；列表用编号，本节分两栏并加浅灰底纹。",
+        "steps": [
+          "在单节测试文稿中建立标题、正文和两项列表。",
+          "逐项设置标题、首行缩进、行距、编号。",
+          "将单节测试文稿设为两栏，指定正文段落加 #EEEEEE 底纹。",
+          "记录每个子动作的结果，刷新并导出。"
+        ],
+        "expected": [
+          "标题样式、缩进单位和值、lineRule 与行距均符合请求。",
+          "编号具有真实编号定义及引用，两个列表项顺序正确。",
+          "测试文稿的唯一节为两栏，段落底纹为 #EEEEEE；不是仅工具栏显示已选择。",
+          "所有六类子动作均有证据；任何一个缺失均不能判整项通过。"
+        ],
+        "evidenceRequired": [
+          "command-log",
+          "before.docx",
+          "after.docx",
+          "target-node-assertions.json",
+          "before.png",
+          "after.png",
+          "reload.png"
+        ]
+      },
+      "after": {
+        "naturalLanguage": "把第一段设为标题 1，正文首行缩进 2 字符、1.5 倍行距；列表用编号，将这份单节测试文稿分两栏，并给指定正文段落加浅灰底纹。",
+        "steps": [
+          "在单节测试文稿中建立标题、正文和两项列表。",
+          "逐项设置标题、首行缩进、行距、编号。",
+          "将单节测试文稿设为两栏，指定正文段落加 #EEEEEE 底纹。",
+          "记录每个子动作的结果，刷新并导出。"
+        ],
+        "expected": [
+          "标题样式、缩进单位和值、lineRule 与行距均符合请求。",
+          "编号具有真实编号定义及引用，两个列表项顺序正确。",
+          "测试文稿的唯一节为两栏，段落底纹为 #EEEEEE；不是仅工具栏显示已选择。",
+          "所有六类子动作均有证据；任何一个缺失均不能判整项通过。"
+        ],
+        "evidenceRequired": [
+          "command-log",
+          "before.docx",
+          "after.docx",
+          "target-node-assertions.json",
+          "before.png",
+          "after.png",
+          "reload.png"
+        ]
+      },
+      "statusPolicy": "保持待测；旧失败物证保留，不因修改样例自动判通过。"
+    },
+    {
+      "caseId": "36.2",
+      "reason": "原始需求第112行仅列明查找替换与演示设置。初版自拟第2–3页范围并非用户指定；官方设置提供循环放映和使用计时。改用真实设置验证，不用隐藏页冒充页范围，也不宣称范围设置可用。",
+      "before": {
+        "naturalLanguage": "把整套演示中的“旧版测试”全部换成“新版测试”，设置只放映第 2 至 3 页。",
+        "steps": [
+          "基线记录旧词数量和页面分布。",
+          "跨全部页替换，在实际演示设置中开启循环放映、关闭使用计时。",
+          "启动放映验证手动翻页及末页返回首页，刷新并复核设置，导出。"
+        ],
+        "expected": [
+          "旧词为 0，新增新词数量与基线一致。",
+          "循环放映开启、使用计时关闭的设置重新打开后保持；实际放映可手动翻页且末页返回首页。"
+        ],
+        "evidenceRequired": [
+          "command-log",
+          "before.pptx",
+          "after.pptx",
+          "target-node-assertions.json",
+          "before.png",
+          "after.png",
+          "reload.png",
+          "slideshow-settings-evidence"
+        ]
+      },
+      "after": {
+        "naturalLanguage": "把整套演示中的“旧版测试”全部换成“新版测试”，开启循环放映并关闭自动使用计时。",
+        "steps": [
+          "基线记录旧词数量和页面分布。",
+          "跨全部页替换，在实际演示设置中开启循环放映、关闭使用计时。",
+          "启动放映验证手动翻页及末页返回首页，刷新并复核设置，导出。"
+        ],
+        "expected": [
+          "旧词为 0，新增新词数量与基线一致。",
+          "循环放映开启、使用计时关闭的设置重新打开后保持；实际放映可手动翻页且末页返回首页。"
+        ],
+        "evidenceRequired": [
+          "command-log",
+          "before.pptx",
+          "after.pptx",
+          "target-node-assertions.json",
+          "before.png",
+          "after.png",
+          "reload.png",
+          "slideshow-settings-evidence"
+        ]
+      },
+      "statusPolicy": "保持待测；旧失败物证保留，不因修改样例自动判通过。"
+    },
+    {
+      "caseId": "39.2",
+      "reason": "原始需求第121行要求建图表、调样式，未指定蓝色。初版蓝色系列是自拟样例；当前官方SDK提供11套themeColor调色板，未确认任意单色设置。以真实原生配色变更验证调样式，仍要求创建与后续变更各自持久化和真实渲染证据，不宣称任意蓝色可用。",
+      "before": {
+        "naturalLanguage": "做一个按优先级统计需求数量的柱状图，把系列颜色改成蓝色并加入测试仪表盘。",
+        "steps": [
+          "用已知 P0/P1 数量的记录作为数据源。",
+          "创建图表，设置分组字段和计数聚合。",
+          "调整蓝色系列样式并加入仪表盘。",
+          "刷新读取图表配置与汇总值。"
+        ],
+        "expected": [
+          "图表绑定正确数据表，聚合计数等于基线人工计算结果。",
+          "样式与仪表盘关系持久化；不是插入静态图片。"
+        ],
+        "evidenceRequired": [
+          "command-log",
+          "before-structure.json",
+          "after-structure.json",
+          "before.png",
+          "after.png",
+          "reload.png",
+          "chart-config.json",
+          "chart-data.json",
+          "dashboard.png"
+        ]
+      },
+      "after": {
+        "naturalLanguage": "做一个按优先级统计需求数量的柱状图，加入测试仪表盘，再换成页面中另一套可选配色。",
+        "steps": [
+          "用已知 P0/P1 数量的记录作为数据源。",
+          "创建图表，设置分组字段和计数聚合。",
+          "调整另一套可选配色系列样式并加入仪表盘。",
+          "刷新读取图表配置与汇总值。"
+        ],
+        "expected": [
+          "图表绑定正确数据表，聚合计数等于基线人工计算结果。",
+          "样式与仪表盘关系持久化；更换原生配色前后配置与实际渲染颜色一致且发生变化，不是插入静态图片。"
+        ],
+        "evidenceRequired": [
+          "command-log",
+          "before-structure.json",
+          "after-structure.json",
+          "before.png",
+          "after.png",
+          "reload.png",
+          "chart-config.json",
+          "chart-data.json",
+          "dashboard.png"
+        ]
+      },
+      "statusPolicy": "保持待测；创建默认图表不能覆盖调整样式，必须重新实测。"
+    },
+    {
+      "caseId": "35.3",
+      "reason": "原始需求第109行列明音视频插入、下载、参数设置，未指定两者都单击播放。独立核对官方4273 bundle与音频设置核心后确认音频有trigger参数，视频有原生play/download但无对应触发设置入口。纠正派生样例，保留两类真实插入、播放、下载和音频参数持久化，不冒充视频触发配置已实现。",
+      "before": {
+        "naturalLanguage": "在测试页插入短音频和短视频，设为单击播放，把两份媒体下载到本地。",
+        "steps": [
+          "用本地可公开测试音视频，记录哈希与时长。",
+          "分别插入音频、视频；音频设置原生单击播放参数，视频使用原生播放控件。",
+          "播放验证，再下载对应媒体。",
+          "刷新并导出演示。"
+        ],
+        "expected": [
+          "两类媒体都有有效引用或嵌入资源，页面能实际播放。",
+          "音频播放参数重新打开后保持；两份下载文件均可解码且身份/内容与输入一致。视频按原生控件播放，不声称不存在的视频触发参数。",
+          "媒体图标或占位图片不算插入成功。"
+        ],
+        "evidenceRequired": [
+          "command-log",
+          "before.pptx",
+          "after.pptx",
+          "target-node-assertions.json",
+          "before.png",
+          "after.png",
+          "reload.png",
+          "input-media-sha256.json",
+          "downloaded-media/",
+          "playback-evidence"
+        ]
+      },
+      "after": {
+        "naturalLanguage": "在测试页插入短音频和短视频，将音频设为单击播放，用原生控件播放视频，再把两份媒体下载到本地。",
+        "steps": [
+          "用本地可公开测试音视频，记录哈希与时长。",
+          "分别插入音频、视频；音频设置原生单击播放参数，视频使用原生播放控件。",
+          "播放验证，再下载对应媒体。",
+          "刷新并导出演示。"
+        ],
+        "expected": [
+          "两类媒体都有有效引用或嵌入资源，页面能实际播放。",
+          "音频播放参数重新打开后保持；两份下载文件均可解码且身份/内容与输入一致。视频按原生控件播放，不声称不存在的视频触发参数。",
+          "媒体图标或占位图片不算插入成功。"
+        ],
+        "evidenceRequired": [
+          "command-log",
+          "before.pptx",
+          "after.pptx",
+          "target-node-assertions.json",
+          "before.png",
+          "after.png",
+          "reload.png",
+          "input-media-sha256.json",
+          "downloaded-media/",
+          "playback-evidence"
+        ]
+      },
+      "statusPolicy": "保持待测；必须分别实测两类媒体，不因改样例自动通过。"
+    },
+    {
+      "caseId": "37.2",
+      "kind": "user-authorized-release-scope-deferral",
+      "decision": {
+        "requestedBy": "user",
+        "requestedAt": "2026-11-19",
+        "quote": "暂时没有开放入口，先做保留项，后续开放后再支持，不算阻塞",
+        "scope": "仅关联字段子功能；已完成的增删改及类型转换保留原实测证据",
+        "releaseBlocking": false
+      },
+      "requirementsChanged": false,
+      "statusPolicy": "整行显示保留以避免关联被误报通过，已验收子动作保持证据；原需求complete仍false，本次releaseScopeComplete独立计算且不能跳过G1–G5。"
+    }
+  ],
+  "recordedDate": "2026-11-18"
+}

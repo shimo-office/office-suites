@@ -5,10 +5,13 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
   build:
+    needs: verify
     strategy:
       matrix:
         include:
@@ -54,18 +57,21 @@ jobs:
           path: dist/*
   release:
     needs: build
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
+          pattern: shimo-net_*
           path: dist
           merge-multiple: true
       - name: Add bootstrap assets
         run: |
           mkdir -p dist
           cp bootstrap.sh dist/bootstrap.sh
-          cp cli/SKILL.md dist/SKILL.md
+          cp docs/agent/SKILL.md dist/SKILL.md
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*

@@ -1,14 +1,13 @@
 package main
 
+import "strconv"
+
 func schema() map[string]any {
-	scenarios := []string{"搜索", "空间/目录", "文件出处", "导入+权限", "拉取", "新建", "改名", "删除/回收站/恢复",
-		"权限巡检", "批量改权限", "读正文摘要", "周报", "附件下载", "上传（问位置）", "常用文件夹别名",
-		"只看与我相关的", "留痕与版本", "文字与段落", "文内表格与图片", "评论与提及", "预览与打印",
-		"文档·重排全文", "表格·写入", "表格·整理成能用的表", "表格·清洗", "表格·算与看数", "表格·校验与格式", "表格·输出"}
+	scenarios := append([]string(nil), capabilityScenarioNames...)
 	cmds := []map[string]any{
 		{"name": "init", "usage": "shimo-net init [--origin https://域名] [--login]", "desc": "初始化产品网址并校验接口可达"},
 		{"name": "config", "usage": "shimo-net config [show|set <url>|clear]", "desc": "查看/修改产品网址（config.json）"},
-		{"name": "login", "usage": "shimo-net login [--origin https://域名] [--new]", "desc": "Chrome 登录并保存凭据；--new 强制切换账号，不复用本机会话"},
+		{"name": "login", "usage": "shimo-net login [--origin https://域名] [--new]", "desc": "浏览器登录并按 origin 保存凭据；--new 使用全新临时配置，不复用旧账号"},
 		{"name": "logout", "usage": "shimo-net logout", "desc": "退出并删除本机凭据"},
 		{"name": "search", "usage": "shimo-net search <keyword> [--limit 20]", "desc": "搜文件/文件夹/空间，返回地址"},
 		{"name": "spaces", "usage": "shimo-net spaces [--limit 300]", "desc": "列出我参与的空间"},
@@ -16,7 +15,7 @@ func schema() map[string]any {
 		{"name": "info", "usage": "shimo-net info <链接|guid|@别名>", "desc": "文件类型/权限/所在路径"},
 		{"name": "upload", "usage": "shimo-net upload <本地文件> [--to desktop|空间|文件夹|@别名]", "desc": "原样上传云文件；不给 --to 会列出可选位置"},
 		{"name": "import", "usage": "shimo-net import <本地文件> --to <位置> [--title NAME]", "desc": "md→文档, doc→文稿, xlsx→表格, pptx→幻灯片；权限需人工页面操作"},
-		{"name": "new", "usage": "shimo-net new <name> [--type doc|docx|sheet|slide] [--to <位置>]", "desc": "新建空白文件；doc=文档（document），docx=文稿（documentPro）"},
+		{"name": "new", "usage": "shimo-net new <name> [--type doc|docx|sheet|slide|table|form|mindmap|flowchart] [--to <位置>]", "desc": "新建空白文件；doc=文档（document），docx=文稿（documentPro）"},
 		{"name": "mkdir", "usage": "shimo-net mkdir <名称> [--to <父文件夹|@别名>]", "desc": "新建文件夹"},
 		{"name": "rename", "usage": "shimo-net rename <链接|guid|@别名> <新名字>", "desc": "改名"},
 		{"name": "share", "usage": "shimo-net share …", "desc": "已禁用；限制编辑、高级权限、成员级授权必须人工页面操作"},
@@ -25,16 +24,21 @@ func schema() map[string]any {
 		{"name": "trash", "usage": "shimo-net trash", "desc": "回收站列表"},
 		{"name": "restore", "usage": "shimo-net restore <guid>", "desc": "从回收站恢复"},
 		{"name": "read", "usage": "shimo-net read <链接|guid|@别名> [--max-chars 12000]", "desc": "读正文（文档 md；文稿/表格/幻灯片本地解析）"},
-		{"name": "pull", "usage": "shimo-net pull <链接|@别名> [--out <dir>] [--since 7d] [--limit N]", "desc": "下载整个文件夹（默认全部）"},
+		{"name": "pull", "usage": "shimo-net pull <链接|@别名> [--out <dir>] [--since 7d] [--limit N]", "desc": "下载当前层文件并记录跳过的子目录；有失败项非 0 退出"},
 		{"name": "get", "usage": "shimo-net get <链接|guid|@别名> [--out <dir>]", "desc": "下载单个文件"},
 		{"name": "fav", "usage": "shimo-net fav <list|add|rm|show> …", "desc": "常用文件夹别名（下次直接说 @别名）"},
-		{"name": "open", "usage": "shimo-net open <链接|guid|@别名> [--default]", "desc": "打开链接；默认使用 CLI 已登录的 Chrome 配置，--default 使用操作系统默认浏览器"},
-		{"name": "phase2", "usage": "shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--verify|--no-verify]", "desc": "调用同源 API；表格格式/合并/读写直接走稳定接口；默认不启动本地浏览器，由宿主内置浏览器核验；需要 CLI 截图时加 --verify"},
-		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "扫描逐文件订阅状态，列出最近更新文件并可打开浏览器"},
-		{"name": "session", "usage": "shimo-net session <status|harvest> [--no-save]", "desc": "查看登录态来源；从本机 Chrome 复用登录态"},
+		{"name": "open", "usage": "shimo-net open <链接|guid|@别名> [--default]", "desc": "打开链接；使用独立 open-profile，不注入会话或开启调试端口；--default 选择默认浏览器应用"},
+		{"name": "editor", "usage": "shimo-net editor <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--verify|--no-verify]", "desc": "调用同源 API；历史/评论展示需 --verify；保存版本、提交评论、打印须持久页面操作"},
+		{"name": "phase2", "usage": "shimo-net phase2 …", "aliasOf": "editor", "desc": "editor 的兼容命令别名"},
+		{"name": "purge", "usage": "shimo-net purge <链接>", "desc": "按设计拒绝；彻底删除须到网页回收站人工操作"},
+		{"name": "version", "usage": "shimo-net version [--json]", "desc": "输出 CLI 版本"},
+		{"name": "phase3", "usage": "shimo-net phase3 <链接|guid|@别名> --action <动作> [--payload JSON] [--read-range 工作表!A1:D4] [--out 目录] [--verify]", "desc": "三期实施中：固定文稿/幻灯片/应用表格/表单动作，逐项验收状态另列；artifact 仅检查本地包结构"},
+		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "limit 限制扫描文件数，仅对扫描到的订阅文件排序；可打开浏览器"},
+		{"name": "session", "usage": "shimo-net session <status|harvest> [--no-save]", "desc": "查看登录态来源；显式从本机 Chromium 系浏览器复用登录态"},
 		{"name": "whoami", "usage": "shimo-net whoami [--json]", "desc": "当前账号"},
 		{"name": "doctor", "usage": "shimo-net doctor [--json]", "desc": "自检（运行时/Chrome/凭据/origin）"},
 	}
+	editor := map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActionsMeaning": "historically exercised API routes, not verification of the current invocation", "browserRequiredActions": []string{"mentions-list", "comments-list"}, "verifiedActions": []string{"mentions-list", "comments-list", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "sheet-append", "sheet-insert", "sheet-delete"}, "pageOnlyActions": keys(phase2PageOnlyActions), "transport": "same-origin-api", "fallback": "按 docs/scenarios.md#浏览器优先级 选择宿主能力；内置浏览器优先，外部浏览器需用户授权"}
 	return map[string]any{
 		"name": "shimo-net", "version": version, "transport": "cli", "runtime": "go",
 		"auth":       map[string]any{"login": "shimo-net login", "whoami": "shimo-net whoami", "storage": "macOS Keychain / Windows Credential Manager", "service": keychainService, "envOverride": "SHIMO_NET_COOKIE"},
@@ -43,8 +47,32 @@ func schema() map[string]any {
 		"commands":   cmds,
 		"shareModes": keys(shareModes), "shareModeLabels": shareModes,
 		"importTypes": importTypes, "createTypes": createTypes,
-		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": 50, "manualOnly": manualOnlyOperations,
-		"phase2":        map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActions": []string{"mentions-list", "comments-list", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "sheet-append", "sheet-insert", "sheet-delete"}, "pageOnlyActions": keys(phase2PageOnlyActions), "transport": "same-origin-api", "fallback": "WorkBuddy 用 present_files 打开内置浏览器；豆包/DSH/Codex 用 shimo-net open；页面动作按 docs/tutorials/browser.md 的 P0 矩阵"},
+		"scenarios": scenarios, "scenarioCount": len(scenarios), "capabilityCount": capabilityCount, "capabilityCatalog": "docs/internal/capabilities.json", "capabilityCatalogSHA256": capabilityCatalogSHA256, "manualOnly": manualOnlyOperations,
+		"editor": editor,
+		"phase2": editor,
+		"phase3": map[string]any{
+			"status": "implementation-in-progress", "requiredScenes": "29–42", "requiredCapabilities": 28,
+			"readOnlyActions":    []string{"document-layout-inspect", "table-inspect", "form-inspect", "form-draft", "form-results", "slide-inspect", "slide-design-inspect"},
+			"viewActions":        []string{"document-goto", "form-preview", "form-respondent"},
+			"exportActions":      []string{"slide-print-pdf"},
+			"editorActions":      []string{"document-format", "document-graphic", "document-table", "document-table-style", "document-mention", "document-paragraph", "document-page", "document-theme", "document-replace", "slide-add", "slide-duplicate", "slide-hide", "slide-delete", "slide-text-insert", "slide-text-format", "slide-placeholder-fill", "slide-layout", "slide-replace-all", "slide-shape-format", "slide-table-edit", "slide-title-animate", "slide-show-settings", "slide-theme", "slide-media-insert", "table-create", "table-duplicate", "table-delete", "table-update", "table-field-add", "table-field-update", "table-field-convert", "table-field-delete", "table-record-add", "table-record-update", "table-reference-add", "table-reference-set", "table-view-create", "table-view-update", "table-view-delete", "table-chart-create", "table-chart-style", "form-edit", "form-settings", "form-publish", "form-submit"},
+			"editorActionStatus": "bounded implementation; per-capability live acceptance recorded separately",
+			"documentGraphicTargets": map[string]any{
+				"mutuallyExclusive": true,
+				"metadata":          []string{"name", "description"},
+				"position":          []string{"paragraph", "expectedParagraph", "drawing"},
+				"positionIndexBase": 1,
+				"positionScope":     "paragraph-only body; complete paragraph text and every drawing count/type/geometry must match export and native editor before selection",
+			},
+			"documentGraphicPreset": map[string]any{
+				"parameter": "preset", "values": []int{1, 2, 3, 4, 5, 6},
+				"scope": "native shapes only; selects a visible toolbar option after checking its actual value and preview; cannot combine with direct formatting",
+			},
+			"spreadsheetRegressionActions": []string{"sheet-update", "sheet-append", "sheet-insert", "sheet-delete", "sheet-format", "sheet-merge"},
+			"spreadsheetScope":             "requested spreadsheet action only; not phase3 application-table acceptance",
+			"localArtifactScope":           "package structure only; actionVerified=false", "automaticMutationReplay": false,
+			"acceptance": "docs/phase3-acceptance.md",
+		},
 		"subscriptions": map[string]any{"status": "supported", "endpoint": "GET /api/v1/files/{fileGuid}/update_subscription", "mode": "scan accessible files; no server-side all-subscriptions endpoint"},
 		"errors":        map[string]any{"format": "非 0 退出码 + stderr 文本；--json 时 stderr 为 {\"ok\":false,\"error\":\"...\"}"},
 	}
@@ -59,22 +87,22 @@ func keys(m map[string]string) []string {
 }
 
 func helpText() string {
-	return `shimo-net ` + version + ` —— shimo.net 接口（28 个场景，覆盖 50 项能力）
+	return `shimo-net ` + version + ` —— shimo.net 接口（` + strconv.Itoa(len(capabilityScenarioNames)) + ` 个场景，` + strconv.Itoa(capabilityCount) + ` 项能力；含 API、页面操作和人工禁用目录）
 
 用法:
   shimo-net init [--origin URL]                    初始化产品网址并校验可达
   shimo-net config [show|set URL|clear]            查看 / 修改产品网址
-  shimo-net login [--origin URL] [--new]            登录；--new 强制切换账号（Chrome → Keychain / 凭据管理器）
+  shimo-net login [--origin URL] [--new]            登录；--new 全新临时配置，凭据按 origin 隔离
   shimo-net logout                                 退出并删除本机凭据
   shimo-net whoami | doctor                        账号 / 自检
-  shimo-net session status|harvest                 查看登录态来源 / 从 Chrome 复用登录态
+  shimo-net session status|harvest                 查看登录态来源 / 从本机浏览器复用登录态
   shimo-net search <关键词> [--limit 20]            1 搜索
   shimo-net spaces [--limit 300]                   2 我的空间清单
   shimo-net ls <链接|@别名> [--since 7d]             2/12 列目录
   shimo-net info <链接|@别名>                       3 文件类型/权限/路径
   shimo-net upload <本地文件> [--to <位置>]          14 上传（不给 --to 会问：桌面/空间/文件夹）
   shimo-net import <本地文件> --to <位置>            4 导入并转在线文档；权限需页面人工操作
-  shimo-net pull <文件夹|空间> [--out <目录>]          5 拉取（默认全部；--limit N 可限制）
+  shimo-net pull <文件夹|空间> [--out <目录>]          5 拉取当前层文件（子目录记为跳过；--limit N 可限制）
   shimo-net new <名称> [--type doc|docx|sheet|slide|table|form|mindmap|flowchart]  6 新建（doc=文档，docx=文稿）
   shimo-net mkdir <名称> [--to <父文件夹>]             6 新建文件夹
   shimo-net rename <链接> <新名字>                   7 改名
@@ -85,35 +113,33 @@ func helpText() string {
   shimo-net get <链接> [--out <目录>]                13 下载单个文件
   shimo-net fav <list|add|rm|show> …                15 常用文件夹别名（下次直接 @别名）
   shimo-net version                                输出版本
-  shimo-net open <链接|guid> [--default]            用已登录的浏览器打开；--default 使用系统默认浏览器
+  shimo-net open <链接|guid> [--default]            用独立配置打开，不注入会话；--default 选择默认浏览器应用
   shimo-net purge <链接>                            彻底删除（按设计拒绝，请到网页回收站操作）
-  shimo-net phase2 <链接> --action sheet-format --payload '{"range":"A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}'
-  shimo-net phase2 <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}'
-  shimo-net phase2 <链接> --action sheet-values --payload '{"range":"工作表1!A1:C5"}'
-  shimo-net phase2 <链接> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
-  shimo-net phase2 <链接> --action sheet-append --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
-  shimo-net phase2 <链接> --action mentions-list|comments-list  同源 API；页面动作按 P0 浏览器矩阵执行
-  shimo-net subscriptions [--limit 200] [--depth 3]   列已订阅文件；--open 序号|guid 后打开
-  16 只看与我相关的                              mentions-list / comments-list / subscriptions
-  17 留痕与版本                                  history / save-version
-  18 文字与段落                                  find / replace-all / 浏览器操作
-  19 文内表格与图片                              editor SDK / 浏览器操作
-  20 评论与提及                                  comments-list / 浏览器操作
-  21 预览与打印                                  print / 浏览器操作
-  22 文档重排全文                                页面样式 / 浏览器操作
-  23 表格写入                                    sheet-append / sheet-update / sheet-insert / sheet-delete
-  24 表格整理                                    sheet-freeze / sheet-sort / sheet-filter
-  25 表格清洗                                    浏览器操作
-  26 表格算与看数                                SDK / 浏览器操作
-  27 表格校验与格式                              sheet-validation / sheet-format / sheet-merge
-  28 表格输出                                    异步导出 API / print / 浏览器操作
+  shimo-net editor <链接> --action sheet-format --payload '{"range":"工作表1!A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}'
+  shimo-net phase3 <链接> --action sheet-update --payload '{"range":"工作表1!A1:B2","resource":{"values":[["产品","价格"],["A",10]]}}' --read-range 工作表1!A1:B2 --out ./evidence --json
+  shimo-net phase3 artifact ./export.docx --json
+  shimo-net phase3 <应用表格链接> --action table-inspect [--table 数据表guid] --json
+  shimo-net phase3 <表单链接> --action form-inspect|form-results [--out 目录] --json
+  扩展动作的逐项状态见 docs/phase3-acceptance.md；只读检查和本地包检查不代表整体验收通过
+  shimo-net editor <链接> --action sheet-merge --payload '{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}'
+  shimo-net editor <链接> --action sheet-values --payload '{"range":"工作表1!A1:C5"}'
+  shimo-net editor <链接> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
+  shimo-net editor <链接> --action sheet-append --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
+  shimo-net editor <链接> --action mentions-list|comments-list  同源 API；页面动作按 docs/scenarios.md 浏览器优先级执行
+  shimo-net subscriptions [--limit 200] [--depth 3]   limit 为扫描文件数上限，仅排序扫描结果；--open 序号|guid 后打开
+
+场景目录（执行方式与限制以能力源为准）:
+` + capabilityScenarioHelp + `
+
   shimo-net schema                                  命令/参数/JSON 结构
+
+兼容命令: phase2 是 editor 的兼容别名。
 
 人工页面操作（CLI 禁止）: 文件锁定 / 限制编辑 / 高级权限 / 成员级授权 / 彻底删除
 
 权限（仅用于读取当前值）: private | enterprise_readonly | enterprise_commentable | enterprise_editable
       readonly | commentable | editable
 
-全局: --json；SHIMO_NET_ORIGIN 指定私有部署域名；--relogin 遇 401 自动登录后重试
+全局: --json；SHIMO_NET_ORIGIN 指定私有部署域名；--relogin 仅允许只读命令在显式新登录后重试；所有写命令及 phase3 禁止自动重放
 `
 }

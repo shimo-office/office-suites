@@ -16,11 +16,20 @@ import (
 )
 
 type WSConn struct {
-	conn net.Conn
-	rd   *bufio.Reader
+	conn    net.Conn
+	rd      *bufio.Reader
+	onEvent func(map[string]any)
 }
 
 func dialWS(rawURL string) (*WSConn, error) {
+	return dialWSWithTimeout(rawURL, 15*time.Second)
+}
+
+func dialWSWithTimeout(rawURL string, timeout time.Duration) (*WSConn, error) {
+	if timeout <= 0 {
+		return nil, errors.New("WebSocket 握手预算已耗尽")
+	}
+	deadline := time.Now().Add(timeout)
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, err
@@ -34,8 +43,12 @@ func dialWS(rawURL string) (*WSConn, error) {
 	if path == "" {
 		path = "/"
 	}
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 15*time.Second)
+	conn, err := (&net.Dialer{Deadline: deadline}).Dial("tcp", net.JoinHostPort(host, port))
 	if err != nil {
+		return nil, err
+	}
+	if err := conn.SetDeadline(deadline); err != nil {
+		_ = conn.Close()
 		return nil, err
 	}
 	keyBytes := make([]byte, 16)
@@ -55,6 +68,10 @@ func dialWS(rawURL string) (*WSConn, error) {
 	if !strings.Contains(strings.SplitN(resp, "\r\n", 2)[0], " 101 ") {
 		_ = conn.Close()
 		return nil, fmt.Errorf("WebSocket 握手失败：%s", strings.SplitN(resp, "\r\n", 2)[0])
+	}
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		_ = conn.Close()
+		return nil, err
 	}
 	return &WSConn{conn: conn, rd: rd}, nil
 }
@@ -76,21 +93,35 @@ func readHTTPHead(rd *bufio.Reader) (string, error) {
 func (w *WSConn) Close() { _ = w.conn.Close() }
 
 func (w *WSConn) Call(id int, method string, params any, timeout time.Duration) (map[string]any, error) {
+	if timeout <= 0 {
+		return nil, errors.New("WebSocket RPC 预算已耗尽，未发送请求")
+	}
+	// One deadline covers request transmission, response reading, and pong writes.
+	// A failed read/write can leave a partial frame; close instead of reusing it.
+	if err := w.conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+		w.Close()
+		return nil, err
+	}
+	defer func() { _ = w.conn.SetDeadline(time.Time{}) }()
 	if params == nil {
 		params = map[string]any{}
 	}
 	if err := w.sendJSON(map[string]any{"id": id, "method": method, "params": params}); err != nil {
+		w.Close()
 		return nil, err
 	}
-	_ = w.conn.SetReadDeadline(time.Now().Add(timeout))
 	for {
 		msg, err := w.readMessage()
 		if err != nil {
+			w.Close()
 			return nil, err
 		}
 		var m map[string]any
 		if json.Unmarshal(msg, &m) != nil {
 			continue
+		}
+		if m["id"] == nil && str(m, "method") != "" && w.onEvent != nil {
+			w.onEvent(m)
 		}
 		if int(num(m, "id")) != id {
 			continue
@@ -130,7 +161,11 @@ func (w *WSConn) writeFrame(opcode byte, payload []byte) error {
 	for i, b := range payload {
 		masked[i] = b ^ mask[i%4]
 	}
-	_, err := w.conn.Write(append(append(header, mask...), masked...))
+	frame := append(append(header, mask...), masked...)
+	written, err := w.conn.Write(frame)
+	if err == nil && written != len(frame) {
+		return io.ErrShortWrite
+	}
 	return err
 }
 
@@ -176,7 +211,9 @@ func (w *WSConn) readMessage() ([]byte, error) {
 		}
 		switch opcode {
 		case 0x9:
-			_ = w.writeFrame(0xA, payload)
+			if err := w.writeFrame(0xA, payload); err != nil {
+				return nil, err
+			}
 			continue
 		case 0x8:
 			return nil, errors.New("WebSocket 关闭")

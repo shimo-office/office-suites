@@ -1,0 +1,1036 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-19",
+  "source": {
+    "url": "https://shimo.net/files/gvB6xj6GgxHVNNv4",
+    "title": "石墨办公套件私有部署CLI功能清单-V1.pdf",
+    "phase": "三期",
+    "targetDate": "2026-11-24",
+    "reportedCapabilityCount": 29,
+    "enumeratedCapabilityCount": 28,
+    "sceneCount": 14,
+    "countDiscrepancy": "源文件标题标注29项，但场景29–42逐行列明28项（文稿9、幻灯片10、应用表格5、表单4）。保留原编号及全部列明功能，额外第29项需需求方澄清，不自行补造。",
+    "sha256": "12d3a7386172a5c8990b34d704eca32d8b46ce851920881a120d9343c816e23a",
+    "retrievedAt": "2026-11-18"
+  },
+  "statusDefinitions": {
+    "pending": "尚未执行或证据不足，不能计为通过",
+    "passed": "真实目标执行且全部断言通过，命令、持久化读回和物证齐全",
+    "failed": "已执行但目标结果不符合断言或验证失败",
+    "blocked": "具体环境/权限/服务能力阻塞，记录原始错误与恢复条件",
+    "deferred": "用户明确保留的后续子功能；不计通过，不阻塞本次发布，原始需求与未完成事实保留。"
+  },
+  "globalRequirements": [
+    "所有测试只使用本次专用测试对象，基线与结果文件必须关联同一目标GUID。",
+    "API优先；已获用户允许的Chrome UI自动化用于无API能力，每个子动作后读回。",
+    "每项中所有列明子动作均须覆盖；单个样例成功不能代表整项完成。",
+    "写入前确认编辑权限；检测到他人正在编辑时中止，禁止写后才报告冲突。",
+    "记录运行时间、CLI版本/构建标识、目标GUID、实际命令、退出码、原始结果和证据路径；不保存cookie/sid。",
+    "写入已提交但验证失败时明确标注可能已生效，禁止自动重放非幂等动作。",
+    "重新加载或重新打开后复核持久化结果。",
+    "模拟测试、本地结构检查和演示视频不算线上功能通过。"
+  ],
+  "globalNegativeCases": [
+    {
+      "id": "G1",
+      "naturalLanguage": "用无编辑权限的目标执行写入。",
+      "expected": "写前拒绝，目标内容不变，返回明确权限错误。",
+      "status": "pending"
+    },
+    {
+      "id": "G2",
+      "naturalLanguage": "另一个账号正在编辑同一文件时执行写入。",
+      "expected": "按需求中止并提示重试；不得继续覆盖。需实际双账号或可靠服务端冲突信号。",
+      "status": "pending",
+      "reason": "2026-11-19已取得第二账号并完成专用文稿双账号拒写及单账号成功对照；模板状态不代表运行结果，实际记录以run-manifest.json为准。"
+    },
+    {
+      "id": "G3",
+      "naturalLanguage": "服务端受理但数据没变、导出物为空或结果与请求不一致。",
+      "expected": "非0退出，不返回verified:true；保留失败证据。离线注入测试与线上验收分开记录。",
+      "status": "pending"
+    },
+    {
+      "id": "G4",
+      "naturalLanguage": "写入已受理，随后的验证返回401或导出失败。",
+      "expected": "报告可能已写入及失败阶段；--relogin不得重放追加、删除、发布等非幂等操作。",
+      "status": "pending"
+    },
+    {
+      "id": "G5",
+      "naturalLanguage": "截图停留在登录页、空白页面或编辑器尚未加载。",
+      "expected": "不计为成功物证；返回具体失败原因和可恢复条件。",
+      "status": "pending"
+    }
+  ],
+  "scenes": [
+    {
+      "number": 29,
+      "title": "文稿 · 排版",
+      "documentType": "documentPro",
+      "batch": "A",
+      "capabilities": [
+        {
+          "id": "29.1",
+          "requirement": "字符格式 · 字体、字号、颜色、上下标",
+          "naturalLanguage": "把测试段落设为宋体 14 磅、红色；把 x2 的 2 设为上标，H2O 的 2 设为下标。",
+          "steps": [
+            "在独立文稿内写入唯一文本标记、x2 与 H2O。",
+            "只选择指定测试段落设置字体、字号、颜色。",
+            "分别选择两个数字 2 设置上标、下标。",
+            "刷新并重新导出文稿。"
+          ],
+          "expected": [
+            "目标字符的有效字体为宋体、字号 14 磅、颜色 #FF0000。",
+            "x2 与 H2O 的目标数字分别为 superscript 和 subscript。",
+            "非目标段落的正文和格式保持不变，刷新后仍存在。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "29.2",
+          "requirement": "段落格式 · 标题、缩进、行距、编号、分栏、底纹",
+          "naturalLanguage": "把第一段设为标题 1，正文首行缩进 2 字符、1.5 倍行距；列表用编号，将这份单节测试文稿分两栏，并给指定正文段落加浅灰底纹。",
+          "steps": [
+            "在单节测试文稿中建立标题、正文和两项列表。",
+            "逐项设置标题、首行缩进、行距、编号。",
+            "将单节测试文稿设为两栏，指定正文段落加 #EEEEEE 底纹。",
+            "记录每个子动作的结果，刷新并导出。"
+          ],
+          "expected": [
+            "标题样式、缩进单位和值、lineRule 与行距均符合请求。",
+            "编号具有真实编号定义及引用，两个列表项顺序正确。",
+            "测试文稿的唯一节为两栏，段落底纹为 #EEEEEE；不是仅工具栏显示已选择。",
+            "所有六类子动作均有证据；任何一个缺失均不能判整项通过。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "29.3",
+          "requirement": "主题字体与页面颜色",
+          "naturalLanguage": "把主题正文中文字体改为宋体，页面背景改为浅蓝色 #EAF3FF。",
+          "steps": [
+            "读取原主题字体和页面背景。",
+            "修改主题字体及页面颜色。",
+            "刷新后重读设置并导出。"
+          ],
+          "expected": [
+            "主题字体定义或等价持久化设置已改变，继承该主题的正文实际生效。",
+            "页面背景持久化为 #EAF3FF，并与段落底纹区分。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 30,
+      "title": "文稿 · 文内表格",
+      "documentType": "documentPro",
+      "batch": "A",
+      "capabilities": [
+        {
+          "id": "30.1",
+          "requirement": "表格结构 · 插删行列、合并拆分、均分",
+          "naturalLanguage": "在测试表插一行和一列，删掉标记为删除的行列；合并再拆分 A1:B1，最后均分行高和列宽。",
+          "steps": [
+            "准备每格有唯一标记的 3×3 表格，导出基线。",
+            "逐步插行、插列、删指定行、删指定列，每步保存证据。",
+            "合并 A1:B1 后导出，再拆分并导出。",
+            "均分指定行高及列宽，刷新重读。"
+          ],
+          "expected": [
+            "每次结构变化后的行列数、文本位置与预期映射一致。",
+            "合并和拆分分别检查 gridSpan/vMerge 或实际持久化结构。",
+            "目标行高/列宽均分；只看最终回到原结构不能证明中间动作。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "intermediate-exports/"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "30.2",
+          "requirement": "表格样式 · 边框、底纹、填充、属性",
+          "naturalLanguage": "给表头加蓝底白字，外边框黑色 1 磅，单元格内边距设为 0.2 厘米，表格居中。",
+          "steps": [
+            "读取表格及单元格当前样式。",
+            "设置表头底纹、字体色、边框和单元格内边距。",
+            "通过表格属性设置居中，刷新并导出。"
+          ],
+          "expected": [
+            "目标表格边框宽度/颜色、表头底纹/字体色与请求一致。",
+            "单元格内边距及表格对齐属性持久化；非目标表格不变。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 31,
+      "title": "文稿 · 图形",
+      "documentType": "documentPro",
+      "batch": "A",
+      "capabilities": [
+        {
+          "id": "31.1",
+          "requirement": "图形布局 · 环绕、缩放、布局、旋转、对齐",
+          "naturalLanguage": "把测试图片设为四周环绕、宽 6 厘米、旋转 90 度并水平居中，位置固定在指定段落旁。",
+          "steps": [
+            "使用带明显方向标记的测试图片并记录原始位置尺寸。",
+            "逐项设置四周环绕、宽度、锚定布局、旋转和对齐。",
+            "刷新、导出，核对目标图片关系 ID。"
+          ],
+          "expected": [
+            "目标图形存在真实媒体引用，宽度 6 厘米且旋转 90 度。",
+            "环绕、锚定位置和对齐持久化；截图中可见方向与布局变化。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "31.2",
+          "requirement": "图形样式 · 预设样式、线条、填充",
+          "naturalLanguage": "给测试矩形套用一个页面中可见的预设样式，再设蓝色填充、红色 2 磅轮廓。",
+          "steps": [
+            "列出实际可用预设样式并选定一个，记录名称。",
+            "应用预设并保存中间证据。",
+            "修改线条颜色/宽度和填充，刷新并导出。"
+          ],
+          "expected": [
+            "预设样式真实作用于指定图形；不得编造不存在的预设名。",
+            "目标图形填充 #0000FF、轮廓 #FF0000/2 磅，刷新后保持。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "preset-applied.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 32,
+      "title": "文稿 · 设置与审阅",
+      "documentType": "documentPro",
+      "batch": "A",
+      "capabilities": [
+        {
+          "id": "32.1",
+          "requirement": "页面设置与查找替换 · 页边距、页面定位",
+          "naturalLanguage": "页边距设为上下 2 厘米、左右 1.5 厘米；定位第 2 页，把全文“旧版测试”替换为“新版测试”。",
+          "steps": [
+            "准备至少两页文稿，记录旧词准确出现次数。",
+            "设置四边页边距并定位第 2 页。",
+            "执行全文替换，刷新并导出。"
+          ],
+          "expected": [
+            "页边距导出值经单位换算与请求一致。",
+            "页面定位截图显示第 2 页及该页唯一标记。",
+            "旧词出现次数为 0，新词增加数等于基线旧词次数，其他正文不变。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "page-2.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "32.2",
+          "requirement": "@ 提及",
+          "naturalLanguage": "在测试段落后 @ 当前登录的我自己，保留这次提及的定位。",
+          "steps": [
+            "从真实成员选择器或 API 获取当前用户，禁止伪造用户 ID。",
+            "在指定段落插入对当前用户的提及。",
+            "刷新后读取提及对象及段落位置。"
+          ],
+          "expected": [
+            "保存的是带用户 ID 的真实提及，而非普通文本“@姓名”。",
+            "提及目标是当前用户；段落位置和显示名正确。",
+            "若动作会向他人通知，必须先取得该具体收件人的发送授权。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.docx",
+            "after.docx",
+            "mention-readback.json",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 33,
+      "title": "幻灯片 · 批量改版",
+      "documentType": "presentation",
+      "batch": "B",
+      "capabilities": [
+        {
+          "id": "33.1",
+          "requirement": "主题与版式 · 整套换模板",
+          "naturalLanguage": "把测试演示整套换成一个页面中可选主题，再把第 2 页改为标题加正文版式。",
+          "steps": [
+            "创建含不同版式的 3 页演示，记录原主题、版式与文本。",
+            "选择实际存在的主题应用整套。",
+            "仅第 2 页切换为标题加正文版式。",
+            "刷新并导出。"
+          ],
+          "expected": [
+            "全部幻灯片的主题/母版关系符合所选主题。",
+            "第 2 页版式关系确实改变，其他页版式不被误改。",
+            "原文字内容没有丢失；截图与导出结构一致。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "33.2",
+          "requirement": "页面增删、复制、隐藏",
+          "naturalLanguage": "新增一页测试页，复制第 2 页，隐藏副本，再删除刚新增的空白测试页。",
+          "steps": [
+            "记录 3 页基线的页面 ID 和顺序。",
+            "依次新增、复制、隐藏和删除，逐步读回 ID/顺序。",
+            "刷新并导出最终结果。"
+          ],
+          "expected": [
+            "新增后页数 +1；复制后 +1 且副本内容一致。",
+            "隐藏属性只作用于副本，放映时跳过。",
+            "仅删除目标新增页；最终页数、页面顺序和隐藏状态正确。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "intermediate-page-structure.json",
+            "slideshow.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 34,
+      "title": "幻灯片 · 填内容",
+      "documentType": "presentation",
+      "batch": "B",
+      "capabilities": [
+        {
+          "id": "34.1",
+          "requirement": "文本格式 · 字体、字号、填充、轮廓",
+          "naturalLanguage": "把第 1 页测试标题设为 Arial 28 磅，蓝色文字填充、红色 1 磅轮廓。",
+          "steps": [
+            "选择含唯一标记的标题文本。",
+            "逐项设置字体、字号、文字填充和文字轮廓。",
+            "刷新并导出。"
+          ],
+          "expected": [
+            "指定文本 run 的有效字体、字号、填充及轮廓与请求一致。",
+            "区分文字轮廓与文本框形状边框；非目标文本不变。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "34.2",
+          "requirement": "插入与占位符 · 标题、正文框填内容",
+          "naturalLanguage": "给封面标题占位符填“三期验收”，正文占位符填两行要点，再插一个文本框写“补充说明”。",
+          "steps": [
+            "识别真实标题/正文占位符 ID。",
+            "填入标题和两段正文。",
+            "插入独立文本框，刷新并导出。"
+          ],
+          "expected": [
+            "三个文本目标各有正确内容，段落分隔保存。",
+            "占位符类型/关系保留；新增的是独立文本框，不能仅改页面标题冒充。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 35,
+      "title": "幻灯片 · 图形、表格与媒体",
+      "documentType": "presentation",
+      "batch": "B",
+      "capabilities": [
+        {
+          "id": "35.1",
+          "requirement": "图形处理 · 边框、填充、层级、对齐、旋转",
+          "naturalLanguage": "把测试矩形填成蓝色、红色边框，移到圆形后面，水平居中并旋转 45 度。",
+          "steps": [
+            "准备部分重叠的矩形和圆形，记录形状 ID。",
+            "设置矩形边框/填充、层级、对齐、旋转。",
+            "刷新并导出。"
+          ],
+          "expected": [
+            "目标 shape 的颜色、边框、旋转值符合请求。",
+            "形状树顺序或等价层级数据证明位于圆形后方；位置值与居中一致。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "35.2",
+          "requirement": "表格处理 · 插删、合并拆分、边框、填充",
+          "naturalLanguage": "给第 2 页表格插一行、删指定列，合并再拆分两个表头格，表头蓝底、黑色边框。",
+          "steps": [
+            "准备各格有唯一标记的 3×3 表格。",
+            "逐次插入和删除，核对文本映射。",
+            "合并、拆分各保存中间结构。",
+            "设置边框与填充，刷新并导出。"
+          ],
+          "expected": [
+            "每步表格行列数、单元格跨度和文本位置符合预期。",
+            "目标表头填充和表格边框持久化；合并/拆分分别有证据。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "intermediate-exports/"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "35.3",
+          "requirement": "音视频 · 插入、下载、参数设置",
+          "naturalLanguage": "在测试页插入短音频和短视频，将音频设为单击播放，用原生控件播放视频，再把两份媒体下载到本地。",
+          "steps": [
+            "用本地可公开测试音视频，记录哈希与时长。",
+            "分别插入音频、视频；音频设置原生单击播放参数，视频使用原生播放控件。",
+            "播放验证，再下载对应媒体。",
+            "刷新并导出演示。"
+          ],
+          "expected": [
+            "两类媒体都有有效引用或嵌入资源，页面能实际播放。",
+            "音频播放参数重新打开后保持；两份下载文件均可解码且身份/内容与输入一致。视频按原生控件播放，不声称不存在的视频触发参数。",
+            "媒体图标或占位图片不算插入成功。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "input-media-sha256.json",
+            "downloaded-media/",
+            "playback-evidence"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 36,
+      "title": "幻灯片 · 出片",
+      "documentType": "presentation",
+      "batch": "B",
+      "capabilities": [
+        {
+          "id": "36.1",
+          "requirement": "批量操作与动画 · 整套改、批量加动画",
+          "naturalLanguage": "把 3 页测试标题统一为 24 磅，再给每页标题加同一种实际可用的入场动画。",
+          "steps": [
+            "记录每页标题 ID。",
+            "一次操作对全部目标页统一字号。",
+            "选择页面实际提供的入场动画，批量应用到各页标题。",
+            "逐页预览，刷新并导出。"
+          ],
+          "expected": [
+            "3 页指定标题均为 24 磅，其他文本不变。",
+            "每页均保存针对正确形状 ID 的动画/时序数据，且预览实际播放。",
+            "切换动画与对象动画分别识别，不得以其中一种冒充另一种。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "animation-preview-evidence"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "36.2",
+          "requirement": "查找替换与演示设置",
+          "naturalLanguage": "把整套演示中的“旧版测试”全部换成“新版测试”，开启循环放映并关闭自动使用计时。",
+          "steps": [
+            "基线记录旧词数量和页面分布。",
+            "跨全部页替换，在实际演示设置中开启循环放映、关闭使用计时。",
+            "启动放映验证手动翻页及末页返回首页，刷新并复核设置，导出。"
+          ],
+          "expected": [
+            "旧词为 0，新增新词数量与基线一致。",
+            "循环放映开启、使用计时关闭的设置重新打开后保持；实际放映可手动翻页且末页返回首页。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before.pptx",
+            "after.pptx",
+            "target-node-assertions.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "slideshow-settings-evidence"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "36.3",
+          "requirement": "打印",
+          "naturalLanguage": "把测试演示打印成 PDF，每页一张幻灯片，给我生成的文件。",
+          "steps": [
+            "打开真实打印流程并选择每页一张。",
+            "输出到 PDF 文件，不发送到物理打印机。",
+            "检查 PDF 页数、正文和渲染效果。"
+          ],
+          "expected": [
+            "生成非空、可解析 PDF，页数对应打印选定的幻灯片数。",
+            "每页可见标题和内容，无白页、截断或错序。",
+            "仅打开打印面板不能判通过。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "print-settings-evidence",
+            "printed.pdf",
+            "pdf-page-checks.json",
+            "pdf-render/"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 37,
+      "title": "应用表格 · 建表建字段",
+      "documentType": "table",
+      "batch": "C",
+      "capabilities": [
+        {
+          "id": "37.1",
+          "requirement": "数据表管理 · 新建、删除、复制、重命名、说明",
+          "naturalLanguage": "在测试应用表格里建“需求池”，写说明、复制成“需求池副本”，把副本改名，再删除副本。",
+          "steps": [
+            "在专用测试应用表格内新建数据表。",
+            "设置说明，复制包含测试记录的表。",
+            "重命名副本，检查原表未变。",
+            "仅删除本次副本，重新打开确认。"
+          ],
+          "expected": [
+            "每个数据表有独立 ID；名称和说明真实保存。",
+            "副本字段/记录与源一致且不会联动误改。",
+            "最终只删除指定副本；原表和其他数据表保留。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before-structure.json",
+            "after-structure.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "intermediate-table-structure.json"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "37.2",
+          "requirement": "字段配置 · 增删改、类型、关联",
+          "naturalLanguage": "给需求池加文本、数字、单选字段，改一个字段名称与类型，再关联到测试人员表，删除临时字段。",
+          "steps": [
+            "准备有记录的测试人员表。",
+            "新增文本/数字/单选和临时字段，设置选项。",
+            "修改测试字段名称、类型，检查转换结果。",
+            "建立关联字段并写入已存在记录的关联，删除临时字段。",
+            "刷新并读回全部字段定义。"
+          ],
+          "expected": [
+            "字段 ID、类型、选项和名称准确，删除只影响指定字段。",
+            "关联字段保存目标数据表/记录引用，不是普通字符串。",
+            "类型转换丢值或不支持时明确失败，不能隐藏。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before-structure.json",
+            "after-structure.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "field-schema.json",
+            "relation-readback.json"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 38,
+      "title": "应用表格 · 录数据",
+      "documentType": "table",
+      "batch": "C",
+      "capabilities": [
+        {
+          "id": "38.1",
+          "requirement": "记录操作 · 批量新增、按条件改值",
+          "naturalLanguage": "批量新增 3 条测试需求，把状态为待办且优先级为 P0 的记录改为进行中。",
+          "steps": [
+            "基线读取所有记录 ID。",
+            "一次批量新增具有唯一编号的 3 条记录。",
+            "仅按状态=待办且优先级=P0 更新。",
+            "刷新读回，并检查重复执行或重试策略。"
+          ],
+          "expected": [
+            "新增条数恰为 3，字段类型和值正确。",
+            "符合条件的记录均更新，其他记录完全不变。",
+            "发生部分失败时逐条报告，重试不得重复新增。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before-structure.json",
+            "after-structure.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "record-diff.json"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 39,
+      "title": "应用表格 · 看数据",
+      "documentType": "table",
+      "batch": "C",
+      "capabilities": [
+        {
+          "id": "39.1",
+          "requirement": "视图配置 · 表格、看板、日历",
+          "naturalLanguage": "给需求池建表格、按状态分组的看板和按截止日期展示的日历视图。",
+          "steps": [
+            "准备不同状态与截止日期的测试记录。",
+            "创建三种视图并设置字段映射。",
+            "逐视图打开，刷新并读取配置。"
+          ],
+          "expected": [
+            "3 个独立视图 ID 和类型准确；看板状态分组正确，日历日期映射正确。",
+            "视图中展示的记录与底层测试数据一致，不只出现视图标题。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before-structure.json",
+            "after-structure.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "table-view.png",
+            "kanban-view.png",
+            "calendar-view.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "39.2",
+          "requirement": "仪表盘与图表 · 建图表、调样式",
+          "naturalLanguage": "做一个按优先级统计需求数量的柱状图，加入测试仪表盘，再换成页面中另一套可选配色。",
+          "steps": [
+            "用已知 P0/P1 数量的记录作为数据源。",
+            "创建图表，设置分组字段和计数聚合。",
+            "调整另一套可选配色系列样式并加入仪表盘。",
+            "刷新读取图表配置与汇总值。"
+          ],
+          "expected": [
+            "图表绑定正确数据表，聚合计数等于基线人工计算结果。",
+            "样式与仪表盘关系持久化；更换原生配色前后配置与实际渲染颜色一致且发生变化，不是插入静态图片。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before-structure.json",
+            "after-structure.json",
+            "before.png",
+            "after.png",
+            "reload.png",
+            "chart-config.json",
+            "chart-data.json",
+            "dashboard.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 40,
+      "title": "表单 · 出题",
+      "documentType": "form",
+      "batch": "C",
+      "capabilities": [
+        {
+          "id": "40.1",
+          "requirement": "问题项与逻辑规则 · 加题、排序、跳转逻辑",
+          "naturalLanguage": "建文本、单选、评分三道测试题，调整题序；单选选“需要跟进”才显示补充说明题。",
+          "steps": [
+            "新增三种题型及补充说明题，设置选项。",
+            "交换两道题的顺序并保存。",
+            "建立依赖单选答案的显示或跳转规则，明确规则类型。",
+            "在预览中分别走“需要跟进”和“不需要”两条分支。",
+            "重新打开编辑器并读回结构。"
+          ],
+          "expected": [
+            "题目 ID、类型、选项、顺序真实持久化。",
+            "两条分支显示/跳转符合规则，未命中分支不应误显示。",
+            "不能仅凭编辑器中出现规则文本判通过。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before-structure.json",
+            "after-structure.json",
+            "preview.png",
+            "reload.png",
+            "branch-followup.png",
+            "branch-no-followup.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 41,
+      "title": "表单 · 设置与发布",
+      "documentType": "form",
+      "batch": "C",
+      "capabilities": [
+        {
+          "id": "41.1",
+          "requirement": "表单设置与结果页 · 截止时间、提示语",
+          "naturalLanguage": "把测试表单截止时间设为 2026-11-20 18:00（上海时间），提交后显示“测试已收到”。",
+          "steps": [
+            "记录当前设置。",
+            "设置明确时区的截止时间和提交成功提示语。",
+            "保存、重开设置并在测试填写流程查看结果页。"
+          ],
+          "expected": [
+            "截止时间按 Asia/Shanghai 保存为对应时间点，无时区偏移。",
+            "成功提交后的结果页显示指定提示语，刷新设置保持。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before-structure.json",
+            "after-structure.json",
+            "preview.png",
+            "reload.png",
+            "settings-readback.json",
+            "submission-result.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        },
+        {
+          "id": "41.2",
+          "requirement": "预览与发布",
+          "naturalLanguage": "预览这份测试表单，确认逻辑后发布，给我实际能打开的填写链接。",
+          "steps": [
+            "先在预览中验证问题与跳转规则。",
+            "确认发布范围符合现有授权，涉及权限扩张时转人工。",
+            "发布后从返回链接进入真实填写页，确认不是编辑页或旧版本。",
+            "重新打开管理页确认发布状态。"
+          ],
+          "expected": [
+            "预览与发布是两个独立结果；存在真实发布状态和填写链接。",
+            "填写页题目/顺序/逻辑与发布版本一致。",
+            "无发布权限或权限需人工设置时标阻塞，不能用编辑链接冒充。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "before-structure.json",
+            "after-structure.json",
+            "preview.png",
+            "reload.png",
+            "publish-readback.json",
+            "respondent-page.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    },
+    {
+      "number": 42,
+      "title": "表单 · 看结果",
+      "documentType": "form",
+      "batch": "C",
+      "capabilities": [
+        {
+          "id": "42.1",
+          "requirement": "结果统计 · 答卷汇总与导出",
+          "naturalLanguage": "汇总测试表单的 3 份测试答卷，核对各选项数量，再导出 CSV。",
+          "steps": [
+            "仅在专用测试表单提交 3 份已知、无敏感信息的答卷，记录答案基线。",
+            "读取结果总数、各选项统计及评分结果。",
+            "导出 CSV，按答卷 ID/唯一测试标记核对。"
+          ],
+          "expected": [
+            "答卷总数为 3，分布和计算结果与已知输入一致。",
+            "CSV 可解析、编码正确、字段与答卷对应完整，没有额外或重复记录。",
+            "无答卷不能用空导出代表统计功能全通过。"
+          ],
+          "evidenceRequired": [
+            "command-log",
+            "seed-responses.json",
+            "statistics-readback.json",
+            "results.csv",
+            "csv-assertions.json",
+            "results.png"
+          ],
+          "status": "pending",
+          "actualCommand": null,
+          "observedResult": null,
+          "evidence": [],
+          "executedAt": null,
+          "reason": "尚未绑定本次真实执行证据；待实现与复测。"
+        }
+      ]
+    }
+  ]
+}

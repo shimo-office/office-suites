@@ -137,15 +137,15 @@ func (a *App) cmdImport() error {
 	}
 	cloud, err := a.uploadFile(local, parent)
 	if err != nil {
-		return err
+		return &commandError{Message: "导入的上传阶段失败；请先核查目标目录，禁止自动重放：" + err.Error(), Result: map[string]any{"stage": "upload", "mutationMayHaveApplied": true}, NoReplay: true}
 	}
 	tid, err := a.importFile(str(cloud, "guid"), typ)
 	if err != nil {
-		return err
+		return &commandError{Message: "文件已上传，但导入未确认完成：" + err.Error(), Result: map[string]any{"stage": "import", "uploaded": true, "cloudGuid": str(cloud, "guid")}, NoReplay: true}
 	}
 	done, err := a.importProgress(tid, 120*time.Second)
 	if err != nil {
-		return err
+		return &commandError{Message: "导入任务已提交，但完成状态未确认：" + err.Error(), Result: map[string]any{"stage": "import-progress", "uploaded": true, "cloudGuid": str(cloud, "guid"), "taskId": tid}, NoReplay: true}
 	}
 	guid := nestedString(done, "file", "guid")
 	if guid == "" {
@@ -153,10 +153,14 @@ func (a *App) cmdImport() error {
 	}
 	info, err := a.fileInfo(guid)
 	if err != nil {
-		return err
+		return &commandError{Message: fmt.Sprintf("导入任务完成（guid %s），但读取文件信息失败：%v", guid, err), Result: map[string]any{"stage": "readback", "guid": guid, "taskId": tid, "cloudGuid": str(cloud, "guid")}, NoReplay: true}
 	}
 	if title := a.opt("--title"); title != "" {
-		_, _ = a.renameFile(guid, title)
+		if _, err := a.renameFile(guid, title); err != nil {
+			return &commandError{Message: fmt.Sprintf("已导入 %q（guid %s），但改名失败：%v；请核查该文件后单独重试 rename，不要重新导入", str(info, "name"), guid, err),
+				Result: map[string]any{"imported": true, "renamed": false, "requestedTitle": title, "name": str(info, "name"), "guid": guid, "type": str(info, "type"), "url": a.urlOf(withGUID(info, guid)), "stage": "rename"}, NoReplay: true}
+		}
+		info = withGUID(info, guid)
 		info["name"] = title
 	}
 	result := map[string]any{"ok": true, "name": str(info, "name"), "guid": guid, "type": str(info, "type"),
@@ -184,7 +188,7 @@ func (a *App) cmdNew() error {
 	}
 	shimoType := createTypes[typ]
 	if shimoType == "" {
-		return fmt.Errorf("不支持的新建类型：%s（可用：doc=文档 / docx=文稿 / sheet=表格 / slide=幻灯片 / table=表格 / form=表单 / mindmap=思维导图 / flowchart=流程图）", typ)
+		return fmt.Errorf("不支持的新建类型：%s（可用：doc=文档 / docx=文稿 / sheet=电子表格 / slide=幻灯片 / table=应用表格 / form=表单 / mindmap=思维导图 / flowchart=流程图）", typ)
 	}
 	parent, err := a.resolveTarget(firstNonEmpty(a.opt("--to"), "desktop"))
 	if err != nil {

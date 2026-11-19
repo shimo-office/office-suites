@@ -60,7 +60,7 @@ fi
 
 SKILL_DIR=""
 case "$AGENT" in
-  # WorkBuddy has an official market skill. Do not install the repository
+  # WorkBuddy has an SkillHub skill. Do not install the repository
   # custom skill into its private skills directory.
   workbuddy) SKILL_DIR="" ;;
   dsh)       SKILL_DIR="$HOME/.dsh/skills/shimo-net-cli" ;;

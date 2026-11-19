@@ -43,26 +43,16 @@ func (a *App) probeOrigin(origin string) (int, error) {
 }
 
 func (a *App) cmdInit() error {
-	if v := a.opt("--origin"); v != "" {
-		if err := a.setOrigin(v); err != nil {
-			return err
-		}
-	} else {
-		if err := a.ensureOrigin(); err != nil {
-			return err
-		}
-		if readConfig()["origin"] == nil {
-			if err := a.setOrigin(a.Origin); err != nil {
-				return err
-			}
-		}
+	origin := a.opt("--origin")
+	if origin == "" {
+		origin = a.Origin
 	}
-	status, err := a.probeOrigin(a.Origin)
+	status, err := a.validateAndSaveOrigin(origin)
 	if err != nil {
 		return err
 	}
-	if status != 200 && status != 401 && status != 403 {
-		return fmt.Errorf("网址可达但接口返回 HTTP %d，请确认是石墨办公套件地址：%s", status, a.Origin)
+	if a.JSON && !a.has("--login") {
+		return a.printJSON(map[string]any{"ok": true, "origin": a.Origin, "status": status, "configFile": configPath()})
 	}
 	fmt.Printf("产品网址：%s\n", a.Origin)
 	fmt.Printf("配置已保存：%s\n", configPath())
@@ -71,6 +61,21 @@ func (a *App) cmdInit() error {
 		return a.cmdLogin()
 	}
 	return nil
+}
+
+func (a *App) validateAndSaveOrigin(value string) (int, error) {
+	origin, err := normalizeOrigin(value)
+	if err != nil {
+		return 0, err
+	}
+	status, err := a.probeOrigin(origin)
+	if err != nil {
+		return status, err
+	}
+	if status != 200 && status != 401 && status != 403 {
+		return status, fmt.Errorf("网址可达但接口返回 HTTP %d，请确认是石墨办公套件地址：%s", status, origin)
+	}
+	return status, a.setOrigin(origin)
 }
 
 func (a *App) cmdConfig() error {
@@ -105,12 +110,12 @@ func (a *App) cmdConfig() error {
 		if v == "" {
 			return errors.New("用法：shimo-net config set <https://产品域名>")
 		}
-		if err := a.setOrigin(v); err != nil {
-			return err
-		}
-		status, err := a.probeOrigin(a.Origin)
+		status, err := a.validateAndSaveOrigin(v)
 		if err != nil {
 			return err
+		}
+		if a.JSON {
+			return a.printJSON(map[string]any{"ok": true, "origin": a.Origin, "status": status, "configFile": configPath()})
 		}
 		fmt.Printf("已保存：%s（HTTP %d）\n", a.Origin, status)
 		return nil
@@ -159,16 +164,13 @@ func (a *App) usersMe() (map[string]any, error) {
 func (a *App) cmdDoctor() error {
 	// Resolve the effective session first.  On a machine that only has a Chrome
 	// login, this triggers the browser bridge before the checks are built.
-	_, _ = authCookie()
+	_, _ = a.requestCookie()
 	chrome, _ := findChrome()
 	storageLabel := "macOS Keychain"
 	if runtime.GOOS == "windows" {
 		storageLabel = "Windows Credential Manager"
 	}
 	storage := map[string]string{"keychain": storageLabel, "file": "本机文件 0600", "env": "环境变量 SHIMO_NET_COOKIE"}[credSource()]
-	if storage == "" {
-		storage = "浏览器复用（Chrome/Chromium）"
-	}
 	if storage == "" {
 		storage = "未登录"
 	}
@@ -211,13 +213,10 @@ func (a *App) cmdDoctor() error {
 	o["checks"] = checks
 
 	if a.JSON {
-		if err := a.printJSON(o); err != nil {
-			return err
-		}
 		if !ok {
-			return errors.New("doctor: 有检查项未通过")
+			return &commandError{Message: "doctor: 有检查项未通过", Result: o, NoReplay: true}
 		}
-		return nil
+		return a.printJSON(o)
 	}
 	for _, k := range []string{"version", "runtime", "chrome", "agentBrowser", "home", "origin", "originSource", "configFile", "credentialsFile", "storage", "account"} {
 		if v := o[k]; v != nil {
@@ -419,11 +418,25 @@ func (a *App) listFolder(target string, limit int) ([]map[string]any, error) {
 		if next == "" {
 			break
 		}
-		next = strings.Replace(next, a.Origin, "", 1)
-		if !strings.HasPrefix(next, "/") {
-			next = "/" + next
+		base, _ := url.Parse(strings.TrimRight(a.Origin, "/") + "/api/v1" + path)
+		ref, err := url.Parse(next)
+		if err != nil {
+			return nil, fmt.Errorf("文件夹分页链接无效：%w", err)
 		}
-		path = next
+		resolved := base.ResolveReference(ref)
+		if resolved.User != nil || resolved.Fragment != "" || !sameCredentialOrigin(resolved.String(), a.Origin) {
+			return nil, errors.New("文件夹分页链接必须属于当前登录站点")
+		}
+		originURL, _ := url.Parse(a.Origin)
+		nextPath := strings.TrimPrefix(resolved.Path, strings.TrimRight(originURL.Path, "/"))
+		nextPath = strings.TrimPrefix(nextPath, "/api/v1")
+		if nextPath != "/files" {
+			return nil, errors.New("文件夹分页链接不是文件列表接口")
+		}
+		path = nextPath
+		if resolved.RawQuery != "" {
+			path += "?" + resolved.RawQuery
+		}
 	}
 	return out, nil
 }
@@ -538,28 +551,37 @@ func (a *App) cmdAudit() error {
 	}
 	wg.Wait()
 	sort.Slice(results, func(i, j int) bool { return str(results[i], "name") < str(results[j], "name") })
-	groups := map[string][]map[string]any{"public": {}, "enterprise": {}, "private": {}}
+	groups := map[string][]map[string]any{"public": {}, "enterprise": {}, "private": {}, "unknown": {}}
 	for _, r := range results {
 		mode := str(r, "shareMode")
 		switch {
 		case mode == "readonly" || mode == "commentable" || mode == "editable":
 			groups["public"] = append(groups["public"], r)
-		case strings.HasPrefix(mode, "enterprise"):
+		case mode == "enterprise_readonly" || mode == "enterprise_commentable" || mode == "enterprise_editable":
 			groups["enterprise"] = append(groups["enterprise"], r)
-		default:
+		case mode == "private":
 			groups["private"] = append(groups["private"], r)
+		default:
+			groups["unknown"] = append(groups["unknown"], r)
 		}
 	}
 	truncated := limit > 0 && len(files) >= limit
-	o := map[string]any{"target": a.Pos[0], "count": len(results), "limit": limit, "truncated": truncated, "groups": groups, "results": results}
+	o := map[string]any{"target": a.Pos[0], "count": len(results), "limit": limit, "truncated": truncated, "groups": groups, "results": results, "complete": !truncated && len(groups["unknown"]) == 0}
+	var incomplete error
+	if len(groups["unknown"]) > 0 || truncated {
+		incomplete = &commandError{Message: fmt.Sprintf("权限巡检不完整：未知 %d 项，截断=%t；不能将未核实权限视为私有", len(groups["unknown"]), truncated), Result: o, NoReplay: true}
+	}
 	if a.JSON {
+		if incomplete != nil {
+			return incomplete
+		}
 		return a.printJSON(o)
 	}
 	fmt.Printf("权限巡检：%d 个文件\n", len(results))
 	if truncated {
 		fmt.Printf("注意：已达到 --limit %d，结果可能被截断；需要完整巡检请调大 --limit。\n", limit)
 	}
-	fmt.Printf("  公开链接：%d   企业内：%d   私有：%d\n\n", len(groups["public"]), len(groups["enterprise"]), len(groups["private"]))
+	fmt.Printf("  公开链接：%d   企业内：%d   私有：%d   未知：%d\n\n", len(groups["public"]), len(groups["enterprise"]), len(groups["private"]), len(groups["unknown"]))
 	if len(groups["public"]) > 0 {
 		fmt.Println("公开可访问（建议收回或确认）：")
 		for _, f := range groups["public"] {
@@ -583,7 +605,7 @@ func (a *App) cmdAudit() error {
 		}
 		fmt.Printf("\n权限变更禁止由 CLI 执行，请打开石墨网页逐项确认并收回：%s\n", strings.Join(links, " "))
 	}
-	return nil
+	return incomplete
 }
 
 func (a *App) resolveTarget(spec string) (string, error) {

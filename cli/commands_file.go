@@ -10,18 +10,28 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
-func (a *App) exportFile(guid, prefer string) (map[string]string, error) {
+func (a *App) exportFile(guid, prefer string, fileType ...string) (map[string]string, error) {
 	alts := map[string][]string{
 		"document":     {"md", "docx", "pdf"},
 		"documentPro":  {"docx", "pdf"},
 		"spreadsheet":  {"xlsx", "pdf"},
 		"presentation": {"pptx", "pdf"},
 	}
-	types := append([]string{prefer}, alts[prefer]...)
+	// Only default get/read exports opt into a type-specific fallback. Callers
+	// that require one exact format (including verification exports) keep it.
+	types := []string{prefer}
+	if len(fileType) > 0 {
+		for _, typ := range alts[fileType[0]] {
+			if typ != prefer {
+				types = append(types, typ)
+			}
+		}
+	}
 	last := ""
 	for _, typ := range types {
 		r, err := a.authRequest("/files/export/"+url.PathEscape(guid), "POST", map[string]any{"type": typ}, nil, nil)
@@ -83,12 +93,31 @@ func fetchToFile(u, dest string) (int64, error) {
 	if resp.StatusCode != 200 {
 		return 0, fmt.Errorf("下载失败：HTTP %d", resp.StatusCode)
 	}
-	f, err := os.Create(dest)
+	f, err := os.CreateTemp(filepath.Dir(dest), ".shimo-download-*")
 	if err != nil {
 		return 0, err
 	}
+	defer os.Remove(f.Name())
 	defer f.Close()
-	return io.Copy(f, resp.Body)
+	n, err := io.Copy(f, resp.Body)
+	if err != nil {
+		return n, err
+	}
+	// Preserve an existing regular file's permissions without following symlinks.
+	if previous, statErr := os.Lstat(dest); statErr == nil && previous.Mode().IsRegular() {
+		if err := f.Chmod(previous.Mode().Perm()); err != nil {
+			return n, err
+		}
+	} else if statErr != nil && !os.IsNotExist(statErr) {
+		return n, statErr
+	}
+	if err := f.Close(); err != nil {
+		return n, err
+	}
+	if err := os.Rename(f.Name(), dest); err != nil {
+		return n, err
+	}
+	return n, nil
 }
 
 func sanitizeName(name string) string {
@@ -100,7 +129,7 @@ func sanitizeName(name string) string {
 
 func (a *App) downloadOne(f map[string]any, outDir string) (map[string]any, error) {
 	if boolv(f, "isFolder") || boolv(f, "isSpace") {
-		return map[string]any{"skipped": true, "name": str(f, "name"), "reason": "目录"}, nil
+		return map[string]any{"skipped": true, "guid": str(f, "guid"), "name": str(f, "name"), "url": str(f, "url"), "reason": "仅下载当前层，不递归子目录"}, nil
 	}
 	guid := str(f, "guid")
 	name := str(f, "name")
@@ -125,11 +154,11 @@ func (a *App) downloadOne(f map[string]any, outDir string) (map[string]any, erro
 	if prefer == "" {
 		prefer = "pdf"
 	}
-	exp, err := a.exportFile(guid, prefer)
+	exp, err := a.exportFile(guid, prefer, str(f, "type"))
 	if err != nil {
 		return nil, err
 	}
-	ext := extFromURL(exp["url"], prefer)
+	ext := exp["type"]
 	dest := filepath.Join(outDir, sanitizeName(name)+"."+ext)
 	n, err := fetchToFile(exp["url"], dest)
 	if err != nil {
@@ -141,6 +170,9 @@ func (a *App) downloadOne(f map[string]any, outDir string) (map[string]any, erro
 func (a *App) cmdGet() error {
 	if len(a.Pos) == 0 {
 		return errors.New("用法：shimo-net get <链接|guid|@别名> [--out <目录>]")
+	}
+	if f := strings.TrimSpace(a.opt("--format")); f != "" {
+		return fmt.Errorf("get 暂不支持 --format %s；当前按文件类型导出，表格导出 xlsx", f)
 	}
 	guid, err := a.resolveTarget(a.Pos[0])
 	if err != nil {
@@ -196,42 +228,59 @@ func (a *App) cmdPull() error {
 	if since > 0 {
 		filtered := files[:0]
 		for _, f := range files {
-			if timeOf(f["updatedAt"]) >= since {
+			if boolv(f, "isFolder") || boolv(f, "isSpace") || timeOf(f["updatedAt"]) >= since {
 				filtered = append(filtered, f)
 			}
 		}
 		files = filtered
 	}
 	manifest := []map[string]any{}
+	downloaded, failed, skipped := 0, 0, 0
 	for _, f := range files {
 		got, err := a.downloadOne(f, outDir)
 		if err != nil {
+			failed++
 			if !a.JSON {
 				fmt.Printf("✗ %s：%v\n", str(f, "name"), err)
 			}
-			manifest = append(manifest, map[string]any{"name": str(f, "name"), "url": str(f, "url"), "error": err.Error()})
+			manifest = append(manifest, map[string]any{"guid": str(f, "guid"), "name": str(f, "name"), "url": str(f, "url"), "error": err.Error()})
 			continue
 		}
 		if boolv(got, "skipped") {
+			skipped++
+			manifest = append(manifest, got)
+			if !a.JSON {
+				fmt.Printf("- %s：%s\n", str(f, "name"), str(got, "reason"))
+			}
 			continue
 		}
+		downloaded++
 		manifest = append(manifest, got)
 		if !a.JSON {
 			fmt.Printf("✓ %s → %s (%v bytes)\n", str(f, "name"), filepath.Base(str(got, "file")), got["bytes"])
 		}
 	}
-	b, _ := json.MarshalIndent(map[string]any{"source": a.Pos[0], "dir": outDir, "since": a.opt("--since"), "count": len(manifest), "files": manifest}, "", "  ")
-	if err := os.WriteFile(filepath.Join(outDir, "manifest.json"), append(b, '\n'), 0o644); err != nil {
+	manifestPath := filepath.Join(outDir, "manifest.json")
+	result := map[string]any{"ok": failed == 0, "target": a.Pos[0], "source": a.Pos[0], "dir": outDir, "since": a.opt("--since"), "count": len(manifest), "files": manifest,
+		"recursive": false, "scope": "current-directory", "downloaded": downloaded, "failed": failed, "skipped": skipped, "manifest": manifestPath}
+	b, _ := json.MarshalIndent(result, "", "  ")
+	if err := os.WriteFile(manifestPath, append(b, '\n'), 0o644); err != nil {
 		return err
 	}
-	if a.JSON {
-		return a.printJSON(map[string]any{"target": a.Pos[0], "dir": outDir, "files": manifest})
+	if failed > 0 {
+		return &commandError{Message: fmt.Sprintf("下载未全部完成：成功 %d、失败 %d、跳过目录 %d；清单：%s", downloaded, failed, skipped, manifestPath), Result: result, NoReplay: true}
 	}
-	fmt.Printf("\n已下载到 %s（清单：manifest.json）\n", outDir)
+	if a.JSON {
+		return a.printJSON(result)
+	}
+	fmt.Printf("\n当前层下载完成：%d 个文件，跳过 %d 个目录；位置：%s（清单：manifest.json）\n", downloaded, skipped, outDir)
 	return nil
 }
 
 func (a *App) readText(guid string, maxChars int) (map[string]any, error) {
+	if maxChars <= 0 {
+		return nil, errors.New("--max-chars 必须是正整数")
+	}
 	info, err := a.fileInfo(guid)
 	if err != nil {
 		return nil, err
@@ -245,39 +294,35 @@ func (a *App) readText(guid string, maxChars int) (map[string]any, error) {
 	}
 	defer os.RemoveAll(tmp)
 	switch typ {
-	case "document":
-		exp, err := a.exportFile(guid, "md")
+	case "document", "documentPro", "spreadsheet", "presentation":
+		prefer := map[string]string{"document": "md", "documentPro": "docx", "spreadsheet": "xlsx", "presentation": "pptx"}[typ]
+		exp, err := a.exportFile(guid, prefer, typ)
 		if err != nil {
 			return nil, err
 		}
-		body, err := httpGet(exp["url"])
-		if err != nil {
-			return nil, err
+		if exp["type"] == "pdf" {
+			return nil, errors.New("导出已回退为 PDF；当前不能解析 PDF 正文，请用 get 下载后读取，不将二进制当作正文")
 		}
-		text = string(body)
-		via = "export md"
-	case "documentPro", "spreadsheet", "presentation":
-		prefer := map[string]string{"documentPro": "docx", "spreadsheet": "xlsx", "presentation": "pptx"}[typ]
-		exp, err := a.exportFile(guid, prefer)
-		if err != nil {
-			return nil, err
-		}
-		fp := filepath.Join(tmp, "file."+prefer)
+		fp := filepath.Join(tmp, "file."+exp["type"])
 		if _, err := fetchToFile(exp["url"], fp); err != nil {
 			return nil, err
 		}
-		switch typ {
-		case "documentPro":
+		switch exp["type"] {
+		case "md":
+			var body []byte
+			body, err = os.ReadFile(fp)
+			text = string(body)
+		case "docx":
 			text, err = extractDocx(fp)
-		case "spreadsheet":
+		case "xlsx":
 			text, err = extractXlsx(fp)
-		case "presentation":
+		case "pptx":
 			text, err = extractPptx(fp)
 		}
 		if err != nil {
 			return nil, err
 		}
-		via = "export " + prefer
+		via = "export " + exp["type"]
 	default:
 		if boolv(info, "isCloudFile") {
 			u, err := a.downloadURL(guid)
@@ -322,7 +367,14 @@ func (a *App) cmdRead() error {
 	if err != nil {
 		return err
 	}
-	r, err := a.readText(guid, intArg(a.opt("--max-chars"), 12000))
+	maxChars := 12000
+	if a.has("--max-chars") {
+		maxChars, err = strconv.Atoi(a.opt("--max-chars"))
+		if err != nil || maxChars <= 0 {
+			return errors.New("--max-chars 必须是正整数")
+		}
+	}
+	r, err := a.readText(guid, maxChars)
 	if err != nil {
 		return err
 	}
