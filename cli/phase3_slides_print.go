@@ -114,7 +114,7 @@ func (a *App) cmdPhase3SlidesPrint() (runErr error) {
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("PDF已生成：%s\n页数与逐页渲染尚待验收；证据：%s\n", filename, dir)
+	fmt.Printf("PDF已生成：%s\n页数与逐页渲染尚待验收；证据：%s\n", terminalText(filename), terminalText(dir))
 	return nil
 }
 

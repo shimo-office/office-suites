@@ -194,7 +194,7 @@ func (a *App) cmdPhase3() (runErr error) {
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("动作验收通过：%s\n证据：%s\n", action, dir)
+	fmt.Printf("动作验收通过：%s\n证据：%s\n", action, terminalText(dir))
 	return nil
 }
 
@@ -295,6 +295,6 @@ func (a *App) cmdPhase3Artifact() error {
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("文件结构检查通过（不代表线上动作验收）：%s\n", artifact.Path)
+	fmt.Printf("文件结构检查通过（不代表线上动作验收）：%s\n", terminalText(artifact.Path))
 	return nil
 }

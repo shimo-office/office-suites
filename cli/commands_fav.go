@@ -64,9 +64,9 @@ func (a *App) cmdFav() error {
 		}
 		fmt.Printf("常用位置（%d 个，命令里用 @别名）：\n\n", len(aliases))
 		for k, v := range aliases {
-			fmt.Printf("@%s  %s\n     %s\n", k, str(v, "name"), str(v, "url"))
+			fmt.Printf("@%s  %s\n     %s\n", terminalText(k), terminalText(str(v, "name")), terminalText(str(v, "url")))
 			if str(v, "note") != "" {
-				fmt.Printf("     特征：%s\n", str(v, "note"))
+				fmt.Printf("     特征：%s\n", terminalText(str(v, "note")))
 			}
 		}
 		return nil
@@ -104,11 +104,11 @@ func (a *App) cmdFav() error {
 			}
 			return a.printJSON(out)
 		}
-		fmt.Printf("已记住 @%s → %s\n", name, str(aliases[name], "url"))
+		fmt.Printf("已记住 @%s → %s\n", terminalText(name), terminalText(str(aliases[name], "url")))
 		if str(aliases[name], "note") != "" {
-			fmt.Printf("特征：%s\n", str(aliases[name], "note"))
+			fmt.Printf("特征：%s\n", terminalText(str(aliases[name], "note")))
 		}
-		fmt.Printf("下次直接：shimo-net ls @%s\n", name)
+		fmt.Printf("下次直接：shimo-net ls @%s\n", terminalText(name))
 		return nil
 	case "rm", "remove", "del":
 		if len(a.Pos) < 2 {
@@ -125,7 +125,7 @@ func (a *App) cmdFav() error {
 		if a.JSON {
 			return a.printJSON(map[string]any{"ok": true, "removed": "@" + name})
 		}
-		fmt.Printf("已删除 @%s\n", name)
+		fmt.Printf("已删除 @%s\n", terminalText(name))
 		return nil
 	case "show":
 		if len(a.Pos) < 2 {
@@ -139,12 +139,12 @@ func (a *App) cmdFav() error {
 		if a.JSON {
 			return a.printJSON(v)
 		}
-		fmt.Printf("@%s  %s\n", name, str(v, "url"))
+		fmt.Printf("@%s  %s\n", terminalText(name), terminalText(str(v, "url")))
 		if str(v, "name") != "" {
-			fmt.Printf("名称：%s\n", str(v, "name"))
+			fmt.Printf("名称：%s\n", terminalText(str(v, "name")))
 		}
 		if str(v, "note") != "" {
-			fmt.Printf("特征：%s\n", str(v, "note"))
+			fmt.Printf("特征：%s\n", terminalText(str(v, "note")))
 		}
 		return nil
 	default:
@@ -194,7 +194,7 @@ func (a *App) cmdOpen() error {
 				"note": "通过系统默认浏览器打开；CLI 不注入会话、不启用调试端口，登录状态由浏览器自身决定",
 			})
 		}
-		fmt.Printf("已用系统默认浏览器打开：%s（CLI 未注入会话，登录状态由浏览器自身决定）\n", target)
+		fmt.Printf("已用系统默认浏览器打开：%s（CLI 未注入会话，登录状态由浏览器自身决定）\n", terminalText(target))
 		return nil
 	}
 	chrome, err := findChrome()
@@ -230,7 +230,7 @@ func (a *App) openManagedBrowser(binary, label, mode, target string) error {
 			"note": "使用 CLI 独立持久配置打开；不注入 CLI 会话、不启用调试端口，需使用此配置自身的登录状态",
 		})
 	}
-	fmt.Printf("已用浏览器（%s，CLI 独立持久配置）打开：%s\n", label, target)
+	fmt.Printf("已用浏览器（%s，CLI 独立持久配置）打开：%s\n", label, terminalText(target))
 	fmt.Println("未注入 CLI 会话，未启用调试端口；若此配置未登录，请在页面登录。")
 	return nil
 }

@@ -117,7 +117,7 @@ func harvestChromeSessionForOrigin(origin string, force bool) (string, error) {
 	harvestOrigin = origin
 	harvestCookie, harvestErr = cookie, err
 	if err == nil && cookie != "" {
-		fmt.Fprintf(os.Stderr, "已从 %s 复用登录态，无需二次登录\n", label)
+		fmt.Fprintf(os.Stderr, "已从 %s 复用登录态，无需二次登录\n", terminalText(label))
 	}
 	return harvestCookie, harvestErr
 }
@@ -496,7 +496,7 @@ func (a *App) cmdSession() error {
 		if a.JSON {
 			return a.printJSON(out)
 		}
-		fmt.Printf("产品网址：%s\n", a.Origin)
+		fmt.Printf("产品网址：%s\n", terminalText(a.Origin))
 		fmt.Printf("显式会话：环境变量=%v Keychain=%v 文件=%v\n", out["env"], out["keychain"], out["file"])
 		fmt.Printf("浏览器复用：%v（发现 %v 个浏览器配置）\n", out["harvest"], out["profiles"])
 		return nil
@@ -531,7 +531,7 @@ func (a *App) cmdSession() error {
 		if a.JSON {
 			return a.printJSON(out)
 		}
-		fmt.Printf("已复用浏览器登录态：%s <%s>（%d 个 cookie）\n", str(me, "name"), str(me, "email"), out["cookieCount"])
+		fmt.Printf("已复用浏览器登录态：%s <%s>（%d 个 cookie）\n", terminalText(str(me, "name")), terminalText(str(me, "email")), out["cookieCount"])
 		if !a.has("--no-save") {
 			fmt.Printf("已写入%s，后续命令可直接使用\n", credentialStorageLabel(out["storage"].(string)))
 		}

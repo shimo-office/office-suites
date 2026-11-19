@@ -270,7 +270,7 @@ func (a *App) cmdLogin() error {
 				if err := writeCred(a.Origin, cookie); err != nil {
 					return err
 				}
-				fmt.Printf("已复用本机浏览器登录态：%s <%s>\n", str(me, "name"), str(me, "email"))
+				fmt.Printf("已复用本机浏览器登录态：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
 				fmt.Println("如需切换账号，请先运行 shimo-net logout，再运行 shimo-net login --new")
 				return nil
 			}
@@ -290,8 +290,8 @@ func (a *App) cmdLogin() error {
 	args := chromeLaunchArgs("--no-first-run", "--no-default-browser-check",
 		"--user-data-dir="+loginProfile, "--remote-debugging-port=0", "--remote-debugging-address=127.0.0.1",
 		"--app="+a.Origin+"/login")
-	fmt.Printf("产品网址：%s\n", a.Origin)
-	fmt.Printf("正在打开 Chromium 浏览器，请在窗口里用你自己的账号登录 %s…\n", a.Origin)
+	fmt.Printf("产品网址：%s\n", terminalText(a.Origin))
+	fmt.Printf("正在打开 Chromium 浏览器，请在窗口里用你自己的账号登录 %s…\n", terminalText(a.Origin))
 	cmd := exec.Command(chrome, args...)
 	cmd.Stdout, cmd.Stderr = nil, nil
 	if err := cmd.Start(); err != nil {
@@ -345,7 +345,7 @@ func (a *App) cmdLogin() error {
 					if err := writeCred(a.Origin, cookie); err != nil {
 						return err
 					}
-					fmt.Printf("登录成功：%s <%s>\n", str(me, "name"), str(me, "email"))
+					fmt.Printf("登录成功：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
 					return nil
 				}
 			}

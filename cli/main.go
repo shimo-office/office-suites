@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const version = "0.9.15"
+const version = "0.9.16"
 
 func main() {
 	app := newApp(os.Args[1:])
@@ -150,7 +150,7 @@ func (a *App) writeFailure(err error) int {
 	if a.JSON {
 		_ = json.NewEncoder(os.Stderr).Encode(result)
 	} else {
-		fmt.Fprintln(os.Stderr, "错误："+err.Error())
+		fmt.Fprintln(os.Stderr, "错误："+terminalText(err.Error()))
 	}
 	return code
 }

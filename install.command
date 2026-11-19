@@ -21,7 +21,7 @@ else
   TMP_BIN="$BIN.tmp.$$"
   if ! curl -fL --retry 2 --connect-timeout 15 "$URL" -o "$TMP_BIN"; then
     rm -f "$TMP_BIN"
-    echo "下载失败。请安装 Go 1.22+ 后重试，或手动从 release 页面下载 $URL"
+    echo "下载失败。请安装 Go 1.26.11+ 后重试，或手动从 release 页面下载 $URL"
     exit 1
   fi
   chmod +x "$TMP_BIN"

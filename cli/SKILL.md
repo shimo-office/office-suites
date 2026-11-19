@@ -1,6 +1,6 @@
 ---
 name: shimo-net-cli
-version: 0.9.15
+version: 0.9.16
 author: shimo-office
 description: shimo-net 技能的兼容路径；执行前读取迁移后的权威技能文件。
 ---

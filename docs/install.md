@@ -8,7 +8,7 @@
 |---|---|
 | 系统 | macOS、Linux、Windows 10/11 |
 | 浏览器 | 可从 Chrome / Chromium / Microsoft Edge / Brave / Vivaldi 复用会话；CLI 专用新登录和普通 `open` 的自动发现当前支持 Chrome / Chromium / Edge |
-| 构建 | 仅从源码构建时需要 Go 1.22+；下载 Release 不需要 Go |
+| 构建 | 仅从源码构建时需要 Go 1.26.11+；下载 Release 不需要 Go |
 | 网络 | 能访问目标 shimo.net 或客户私有部署域名；下载发行包时需访问 GitHub |
 
 仅安装 Brave 时可以复用其已登录会话，但 `login --new` 与普通 `open` 所需的浏览器发现尚不覆盖 Brave；新登录需另有 Chrome / Chromium / Edge。不要把会话复用支持误写成所有浏览器启动路径都支持。
@@ -124,7 +124,7 @@ shimo-net whoami --json
 | logout 后还是原账号 | 日常浏览器仍登录原账号；执行上面的新登录流程，然后核对 `whoami`。 |
 | command not found | macOS/Linux 将 `~/.local/bin` 加入 PATH；Windows 重开终端并核对安装目录是否在用户 PATH。 |
 | 找不到浏览器 | 在当前操作系统安装 Chrome / Chromium / Edge，再运行 `doctor --json`；Brave 已登录会话可复用，但不代表专用新登录的自动发现已支持。不要只检查 macOS 的固定应用路径。 |
-| 找不到 Go | 使用平台 Release 安装，或安装 Go 1.22+ 后从源码构建。 |
+| 找不到 Go | 使用平台 Release 安装，或安装 Go 1.26.11+ 后从源码构建。 |
 | 进入登录页 / 页面空白 | 不能算截图核验成功。先确认目标域名会话与编辑器加载，再按 [浏览器规则](scenarios.md#浏览器优先级) 处理。 |
 | 上传后不是在线文档 | `upload` 原样上传云文件；需转换为在线格式时用 `import`。 |
 | 无权限 | 如实返回权限错误；用户或管理员在网页授权后再核对，CLI 不代改权限。 |

@@ -54,8 +54,8 @@ func (a *App) cmdInit() error {
 	if a.JSON && !a.has("--login") {
 		return a.printJSON(map[string]any{"ok": true, "origin": a.Origin, "status": status, "configFile": configPath()})
 	}
-	fmt.Printf("产品网址：%s\n", a.Origin)
-	fmt.Printf("配置已保存：%s\n", configPath())
+	fmt.Printf("产品网址：%s\n", terminalText(a.Origin))
+	fmt.Printf("配置已保存：%s\n", terminalText(configPath()))
 	fmt.Printf("接口可达（HTTP %d）。下一步：shimo-net login\n", status)
 	if a.has("--login") {
 		return a.cmdLogin()
@@ -93,10 +93,10 @@ func (a *App) cmdConfig() error {
 		if a.JSON {
 			return a.printJSON(o)
 		}
-		fmt.Printf("产品网址：%s（来源：%s）\n", a.Origin, a.OriginSource)
-		fmt.Printf("配置文件：%s\n", configPath())
+		fmt.Printf("产品网址：%s（来源：%s）\n", terminalText(a.Origin), terminalText(a.OriginSource))
+		fmt.Printf("配置文件：%s\n", terminalText(configPath()))
 		if os.Getenv("SHIMO_NET_ORIGIN") != "" {
-			fmt.Printf("环境变量：SHIMO_NET_ORIGIN=%s（优先级最高）\n", a.Origin)
+			fmt.Printf("环境变量：SHIMO_NET_ORIGIN=%s（优先级最高）\n", terminalText(a.Origin))
 		}
 		return nil
 	case "set", "use":
@@ -117,7 +117,7 @@ func (a *App) cmdConfig() error {
 		if a.JSON {
 			return a.printJSON(map[string]any{"ok": true, "origin": a.Origin, "status": status, "configFile": configPath()})
 		}
-		fmt.Printf("已保存：%s（HTTP %d）\n", a.Origin, status)
+		fmt.Printf("已保存：%s（HTTP %d）\n", terminalText(a.Origin), status)
 		return nil
 	case "clear", "reset":
 		cfg := readConfig()
@@ -145,7 +145,7 @@ func (a *App) cmdWhoami() error {
 	if a.JSON {
 		return a.printJSON(me)
 	}
-	fmt.Printf("%s <%s>（id %s）\n", str(me, "name"), str(me, "email"), str(me, "id"))
+	fmt.Printf("%s <%s>（id %s）\n", terminalText(str(me, "name")), terminalText(str(me, "email")), terminalText(str(me, "id")))
 	return nil
 }
 
@@ -220,7 +220,7 @@ func (a *App) cmdDoctor() error {
 	}
 	for _, k := range []string{"version", "runtime", "chrome", "agentBrowser", "home", "origin", "originSource", "configFile", "credentialsFile", "storage", "account"} {
 		if v := o[k]; v != nil {
-			fmt.Printf("%s: %v\n", k, v)
+			fmt.Printf("%s: %s\n", k, terminalText(fmt.Sprint(v)))
 		}
 	}
 	fmt.Println("检查项：")
@@ -229,7 +229,7 @@ func (a *App) cmdDoctor() error {
 		if !boolv(c, "ok") {
 			mark = "🔴"
 		}
-		fmt.Printf("  %s   %-12s  %s\n", mark, str(c, "name"), str(c, "detail"))
+		fmt.Printf("  %s   %-12s  %s\n", mark, terminalText(str(c, "name")), terminalText(str(c, "detail")))
 	}
 	if !ok {
 		fmt.Println("结果： 🔴 doctor: FAIL")
@@ -273,7 +273,7 @@ func (a *App) cmdSearch() error {
 	if a.JSON {
 		return a.printJSON(map[string]any{"keyword": keyword, "count": len(out), "results": out})
 	}
-	fmt.Printf("搜索「%s」：%d 条\n\n", keyword, len(out))
+	fmt.Printf("搜索「%s」：%d 条\n\n", terminalText(keyword), len(out))
 	for i, f := range out {
 		fmt.Println(fileRow(f, i))
 	}
@@ -325,12 +325,12 @@ func (a *App) cmdSpaces() error {
 	}
 	fmt.Printf("我参与的空间：%d 个\n\n", len(out))
 	for i, s := range out {
-		fmt.Printf("%3d. %s\n     %s\n     guid=%s", i+1, str(s, "name"), str(s, "url"), str(s, "guid"))
+		fmt.Printf("%3d. %s\n     %s\n     guid=%s", i+1, terminalText(str(s, "name")), terminalText(str(s, "url")), terminalText(str(s, "guid")))
 		if str(s, "role") != "" {
-			fmt.Printf("  角色=%s", str(s, "role"))
+			fmt.Printf("  角色=%s", terminalText(str(s, "role")))
 		}
 		if fmtTime(s["updatedAt"]) != "" {
-			fmt.Printf("  更新=%s", fmtTime(s["updatedAt"]))
+			fmt.Printf("  更新=%s", terminalText(fmtTime(s["updatedAt"])))
 		}
 		fmt.Println()
 	}
@@ -465,7 +465,7 @@ func (a *App) cmdLs() error {
 	if a.JSON {
 		return a.printJSON(map[string]any{"target": a.Pos[0], "since": a.opt("--since"), "count": len(rows), "files": rows})
 	}
-	fmt.Printf("共 %d 项%s：\n\n", len(rows), map[bool]string{true: "（自 " + fmtTime(float64(since)/1000) + "）", false: ""}[since > 0])
+	fmt.Printf("共 %d 项%s：\n\n", len(rows), map[bool]string{true: "（自 " + terminalText(fmtTime(float64(since)/1000)) + "）", false: ""}[since > 0])
 	for i, f := range rows {
 		fmt.Println(fileRow(f, i))
 	}
@@ -503,15 +503,15 @@ func (a *App) cmdInfo() error {
 	if a.JSON {
 		return a.printJSON(o)
 	}
-	fmt.Printf("名称：%s\n", str(o, "name"))
-	fmt.Printf("类型：%s（%s）%s\n", str(o, "typeLabel"), str(o, "type"), map[bool]string{true: " · 云文件", false: ""}[boolv(o, "isCloudFile")])
-	fmt.Printf("链接：%s\n", str(o, "url"))
-	fmt.Printf("权限：%s（%s）\n", str(o, "shareMode"), shareModes[str(o, "shareMode")])
+	fmt.Printf("名称：%s\n", terminalText(str(o, "name")))
+	fmt.Printf("类型：%s（%s）%s\n", terminalText(str(o, "typeLabel")), terminalText(str(o, "type")), map[bool]string{true: " · 云文件", false: ""}[boolv(o, "isCloudFile")])
+	fmt.Printf("链接：%s\n", terminalText(str(o, "url")))
+	fmt.Printf("权限：%s（%s）\n", terminalText(str(o, "shareMode")), shareModes[str(o, "shareMode")])
 	if str(o, "path") != "" {
-		fmt.Printf("路径：%s\n", str(o, "path"))
+		fmt.Printf("路径：%s\n", terminalText(str(o, "path")))
 	}
 	if fmtTime(o["updatedAt"]) != "" {
-		fmt.Printf("更新：%s\n", fmtTime(o["updatedAt"]))
+		fmt.Printf("更新：%s\n", terminalText(fmtTime(o["updatedAt"])))
 	}
 	return nil
 }
@@ -585,7 +585,7 @@ func (a *App) cmdAudit() error {
 	if len(groups["public"]) > 0 {
 		fmt.Println("公开可访问（建议收回或确认）：")
 		for _, f := range groups["public"] {
-			fmt.Printf("  ! %s  [%s]  %s\n", str(f, "name"), str(f, "shareMode"), str(f, "url"))
+			fmt.Printf("  ! %s  [%s]  %s\n", terminalText(str(f, "name")), terminalText(str(f, "shareMode")), terminalText(str(f, "url")))
 		}
 		fmt.Println()
 	}
@@ -596,14 +596,14 @@ func (a *App) cmdAudit() error {
 		if mode == "readonly" || mode == "commentable" || mode == "editable" {
 			mark = "!"
 		}
-		fmt.Printf("  %s %s  [%s]\n", mark, str(f, "name"), mode)
+		fmt.Printf("  %s %s  [%s]\n", mark, terminalText(str(f, "name")), terminalText(mode))
 	}
 	if len(groups["public"]) > 0 {
 		links := []string{}
 		for _, f := range groups["public"] {
 			links = append(links, `"`+str(f, "url")+`"`)
 		}
-		fmt.Printf("\n权限变更禁止由 CLI 执行，请打开石墨网页逐项确认并收回：%s\n", strings.Join(links, " "))
+		fmt.Printf("\n权限变更禁止由 CLI 执行，请打开石墨网页逐项确认并收回：%s\n", terminalText(strings.Join(links, " ")))
 	}
 	return incomplete
 }
@@ -705,7 +705,7 @@ func fileRow(f map[string]any, i int) string {
 	if str(f, "shareMode") != "" {
 		extra += "  权限=" + str(f, "shareMode")
 	}
-	return fmt.Sprintf("%2d. [%s] %s%s\n    %s\n    guid=%s%s", i+1, badge, str(f, "name"), path, str(f, "url"), str(f, "guid"), extra)
+	return fmt.Sprintf("%2d. [%s] %s%s\n    %s\n    guid=%s%s", i+1, terminalText(badge), terminalText(str(f, "name")), terminalText(path), terminalText(str(f, "url")), terminalText(str(f, "guid")), terminalText(extra))
 }
 
 func joinAncestors(arr []any) string {

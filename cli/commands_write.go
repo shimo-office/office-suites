@@ -75,10 +75,10 @@ func (a *App) cmdUpload() error {
 	if a.JSON {
 		return a.printJSON(o)
 	}
-	fmt.Printf("上传完成：%s\n", str(o, "name"))
+	fmt.Printf("上传完成：%s\n", terminalText(str(o, "name")))
 	pm := asMap(o["parent"])
-	fmt.Printf("位置：%s\n", firstNonEmpty(str(pm, "name"), str(pm, "guid")))
-	fmt.Printf("链接：%s\n", str(o, "url"))
+	fmt.Printf("位置：%s\n", terminalText(firstNonEmpty(str(pm, "name"), str(pm, "guid"))))
+	fmt.Printf("链接：%s\n", terminalText(str(o, "url")))
 	fmt.Println("提示：这是原样云文件；要转成在线文档/表格/幻灯片请用 import")
 	return nil
 }
@@ -169,10 +169,10 @@ func (a *App) cmdImport() error {
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("导入完成：%s\n", str(result, "name"))
-	fmt.Printf("类型：%s（%s）\n", str(result, "typeLabel"), str(result, "type"))
-	fmt.Printf("链接：%s\n", str(result, "url"))
-	fmt.Printf("当前权限：%s（%s）\n", str(result, "shareMode"), shareModes[str(result, "shareMode")])
+	fmt.Printf("导入完成：%s\n", terminalText(str(result, "name")))
+	fmt.Printf("类型：%s（%s）\n", terminalText(str(result, "typeLabel")), terminalText(str(result, "type")))
+	fmt.Printf("链接：%s\n", terminalText(str(result, "url")))
+	fmt.Printf("当前权限：%s（%s）\n", terminalText(str(result, "shareMode")), shareModes[str(result, "shareMode")])
 	fmt.Printf("\n权限变更（限制编辑、高级权限、成员级授权）必须由人工在石墨网页完成。\n")
 	return nil
 }
@@ -216,9 +216,9 @@ func (a *App) cmdNew() error {
 	if a.JSON {
 		return a.printJSON(o)
 	}
-	fmt.Printf("新建完成：%s（%s）\n", str(o, "name"), str(o, "typeLabel"))
-	fmt.Printf("链接：%s\n", str(o, "url"))
-	fmt.Printf("当前权限：%s\n", str(o, "shareMode"))
+	fmt.Printf("新建完成：%s（%s）\n", terminalText(str(o, "name")), terminalText(str(o, "typeLabel")))
+	fmt.Printf("链接：%s\n", terminalText(str(o, "url")))
+	fmt.Printf("当前权限：%s\n", terminalText(str(o, "shareMode")))
 	return nil
 }
 
@@ -253,8 +253,8 @@ func (a *App) cmdMkdir() error {
 	if a.JSON {
 		return a.printJSON(o)
 	}
-	fmt.Printf("已新建文件夹：%s\n", str(o, "name"))
-	fmt.Printf("链接：%s\n", str(o, "url"))
+	fmt.Printf("已新建文件夹：%s\n", terminalText(str(o, "name")))
+	fmt.Printf("链接：%s\n", terminalText(str(o, "url")))
 	return nil
 }
 
@@ -289,8 +289,8 @@ func (a *App) cmdRename() error {
 	if a.JSON {
 		return a.printJSON(o)
 	}
-	fmt.Printf("已改名：%s\n", str(o, "name"))
-	fmt.Printf("链接：%s\n", str(o, "url"))
+	fmt.Printf("已改名：%s\n", terminalText(str(o, "name")))
+	fmt.Printf("链接：%s\n", terminalText(str(o, "url")))
 	return nil
 }
 
@@ -322,8 +322,8 @@ func (a *App) cmdDelete() error {
 	if a.JSON {
 		return a.printJSON(o)
 	}
-	fmt.Printf("已删除（进回收站，可恢复）：%s\n", str(o, "name"))
-	fmt.Printf("恢复：shimo-net restore %s\n", guid)
+	fmt.Printf("已删除（进回收站，可恢复）：%s\n", terminalText(str(o, "name")))
+	fmt.Printf("恢复：shimo-net restore %s\n", terminalText(guid))
 	return nil
 }
 
@@ -364,11 +364,11 @@ func (a *App) cmdTrash() error {
 	}
 	fmt.Printf("回收站：%d 项\n\n", len(rows))
 	for i, f := range rows {
-		fmt.Printf("%2d. [%s] %s", i+1, str(f, "type"), str(f, "name"))
+		fmt.Printf("%2d. [%s] %s", i+1, terminalText(str(f, "type")), terminalText(str(f, "name")))
 		if fmtTime(f["deletedAt"]) != "" {
-			fmt.Printf("  删除=%s", fmtTime(f["deletedAt"]))
+			fmt.Printf("  删除=%s", terminalText(fmtTime(f["deletedAt"])))
 		}
-		fmt.Printf("\n    guid=%s\n", str(f, "guid"))
+		fmt.Printf("\n    guid=%s\n", terminalText(str(f, "guid")))
 	}
 	return nil
 }
@@ -396,12 +396,12 @@ func (a *App) cmdRestore() error {
 		return a.printJSON(o)
 	}
 	if str(o, "name") != "" {
-		fmt.Printf("已恢复：%s\n", str(o, "name"))
+		fmt.Printf("已恢复：%s\n", terminalText(str(o, "name")))
 	} else {
 		fmt.Println("已恢复")
 	}
 	if str(o, "url") != "" {
-		fmt.Printf("链接：%s\n", str(o, "url"))
+		fmt.Printf("链接：%s\n", terminalText(str(o, "url")))
 	}
 	return nil
 }

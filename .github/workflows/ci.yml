@@ -27,7 +27,7 @@ jobs:
         run: node --version
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.26.11"
       - name: Documentation and generated catalog
         run: |
           python scripts/generate_capabilities.py --check
@@ -37,6 +37,9 @@ jobs:
         run: go test -count=1 "-coverprofile=coverage.out" ./cli
       - name: Enforce 80 percent statement coverage
         run: python scripts/check_coverage.py coverage.out
+      - name: Check reachable Go vulnerabilities
+        if: runner.os == 'Linux'
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./cli
       - name: Vet
         run: go vet ./cli
       - name: Build
