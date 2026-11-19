@@ -194,7 +194,7 @@ func TestIssueB8PullFailureAndB9SkippedDirectoryAreRecorded(t *testing.T) {
 	if !errors.As(err, &partial) {
 		t.Fatalf("download failures require nonzero structured error: %v", err)
 	}
-	raw, err := os.ReadFile(filepath.Join(out, "manifest.json"))
+	raw, err := os.ReadFile(issuePullManifestPath(t, out))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +279,7 @@ func TestIssueB9DirectoryOnlyPullReportsScopeAndSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(out, "manifest.json"))
+	data, err := os.ReadFile(issuePullManifestPath(t, out))
 	if err != nil {
 		t.Fatal(err)
 	}

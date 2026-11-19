@@ -2,7 +2,7 @@
 package main
 
 const capabilityCount = 51
-const capabilityCatalogSHA256 = "ea7d8ee66517741693bc9c45c672d0530824701c18bbaf3f079b81bcab0100eb"
+const capabilityCatalogSHA256 = "1228bf92aac66aeecb448b793a3316e92a3f99d23cebb8dc9a8e50f679b61334"
 const capabilityScenarioHelp = "   1 搜索：search 查找文件、文件夹和空间\n   2 空间/目录：spaces / ls 列空间与目录\n   3 文件出处：info 查看类型、位置与当前权限\n   4 导入+权限：import 导入文件；权限调整仅网页人工操作\n   5 拉取：pull 下载当前层文件和 manifest；子目录记为跳过\n   6 新建：new 新建文件（doc=文档，docx=文稿）；mkdir 新建文件夹\n   7 改名：rename 修改文件名称\n   8 删除/回收站/恢复：delete / trash / restore；彻底删除仅网页人工操作\n   9 权限巡检：audit 只读检查公开链接与权限\n  10 批量改权限：share / import --share 拒绝执行；网页逐项人工设置\n  11 读正文摘要：read 读取正文后生成有来源的摘要\n  12 周报：ls --since + read 汇总最近更新\n  13 附件下载：get 下载文件或取得在线文件导出物\n  14 上传（问位置）：upload 上传附件并明确目标位置\n  15 常用文件夹别名：fav list/add/rm/show；通过 @别名引用位置\n  16 只看与我相关的：API：mentions-list / comments-list / subscriptions；定位需页面\n  17 留痕与版本：页面操作：history-show/hide 需 --verify 仅展示；保存版本须持久页面完成\n  18 文字与段落：页面操作：字符/段落/查找替换；find/replace-all 未暴露 SDK，CLI 拒绝\n  19 文内表格与图片：页面操作：轻文档插入表格、图片及布局\n  20 评论与提及：comments-list API；添加评论/提及为页面操作，面板打开不等于提交\n  21 预览与打印：页面操作：预览/打印须持久页面完成；CLI 拒绝临时 print 面板\n  22 文档·重排全文：页面操作：标题层级、全文样式、页面宽度；page-width 未暴露 SDK\n  23 表格·写入：API：sheet-update/append/insert/delete；列与工作表管理仍为页面操作\n  24 表格·整理成能用的表：页面操作：冻结/条件格式/样式视图；底色使用 sheet-format API\n  25 表格·清洗：页面操作：去重、分列、填充、文件瘦身\n  26 表格·算与看数：页面操作：公式/名称/透视表/排序/筛选/分组；sheet-sort/filter 未暴露 SDK\n  27 表格·校验与格式：API：sheet-format（含底色）/sheet-merge；数据验证、行高列宽仍为页面操作\n  28 表格·输出：API：get/pull 异步导出；打印按场景 21 的页面规则执行"
 
 var capabilityScenarioNames = []string{

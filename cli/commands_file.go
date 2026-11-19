@@ -145,8 +145,7 @@ func (a *App) downloadOne(f map[string]any, outDir string) (map[string]any, erro
 			ext = "bin"
 		}
 		base := sanitizeName(strings.TrimSuffix(name, filepath.Ext(name)))
-		dest := filepath.Join(outDir, base+"."+ext)
-		n, err := fetchToFile(u, dest)
+		dest, n, err := fetchToUniqueFile(u, outDir, base+"."+ext)
 		if err != nil {
 			return nil, err
 		}
@@ -161,8 +160,7 @@ func (a *App) downloadOne(f map[string]any, outDir string) (map[string]any, erro
 		return nil, err
 	}
 	ext := exp["type"]
-	dest := filepath.Join(outDir, sanitizeName(name)+"."+ext)
-	n, err := fetchToFile(exp["url"], dest)
+	dest, n, err := fetchToUniqueFile(exp["url"], outDir, sanitizeName(name)+"."+ext)
 	if err != nil {
 		return nil, err
 	}
@@ -262,12 +260,49 @@ func (a *App) cmdPull() error {
 			fmt.Printf("✓ %s → %s (%v bytes)\n", terminalText(str(f, "name")), terminalText(filepath.Base(str(got, "file"))), got["bytes"])
 		}
 	}
-	manifestPath := filepath.Join(outDir, "manifest.json")
+	// Verify after the entire batch: a later operation may have changed an
+	// earlier result. Only files still present with the recorded size count.
+	for i, file := range manifest {
+		if boolv(file, "skipped") || str(file, "error") != "" {
+			continue
+		}
+		if err := verifyDownloadedFile(file); err != nil {
+			invalid := make(map[string]any, len(file)+1)
+			for key, value := range file {
+				invalid[key] = value
+			}
+			invalid["error"] = err.Error()
+			manifest[i] = invalid
+			downloaded--
+			failed++
+			if !a.JSON {
+				fmt.Printf("✗ %s：%s\n", terminalText(str(file, "name")), terminalText(err.Error()))
+			}
+		}
+	}
 	result := map[string]any{"ok": failed == 0, "target": a.Pos[0], "source": a.Pos[0], "dir": outDir, "since": a.opt("--since"), "count": len(manifest), "files": manifest,
-		"recursive": false, "scope": "current-directory", "downloaded": downloaded, "failed": failed, "skipped": skipped, "manifest": manifestPath}
-	b, _ := json.MarshalIndent(result, "", "  ")
-	if err := os.WriteFile(manifestPath, append(b, '\n'), 0o644); err != nil {
-		return err
+		"recursive": false, "scope": "current-directory", "downloaded": downloaded, "failed": failed, "skipped": skipped, "manifest": ""}
+	// A fresh hidden file avoids both remote names and prior run manifests.
+	// CreateTemp reserves exclusively; a hidden prefix alone is not a boundary.
+	manifestFile, err := os.CreateTemp(outDir, ".shimo-pull-manifest-*.json")
+	if err != nil {
+		result["ok"] = false
+		return &commandError{Message: "下载清单创建失败：" + err.Error(), Result: result, NoReplay: true}
+	}
+	manifestPath := manifestFile.Name()
+	result["manifest"] = manifestPath
+	b, err := json.MarshalIndent(result, "", "  ")
+	if err == nil {
+		_, err = manifestFile.Write(append(b, '\n'))
+	}
+	closeErr := manifestFile.Close()
+	if err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(manifestPath)
+		result["ok"], result["manifest"] = false, ""
+		return &commandError{Message: "下载清单写入失败：" + err.Error(), Result: result, NoReplay: true}
 	}
 	if failed > 0 {
 		return &commandError{Message: fmt.Sprintf("下载未全部完成：成功 %d、失败 %d、跳过目录 %d；清单：%s", downloaded, failed, skipped, manifestPath), Result: result, NoReplay: true}
@@ -275,7 +310,7 @@ func (a *App) cmdPull() error {
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("\n当前层下载完成：%d 个文件，跳过 %d 个目录；位置：%s（清单：manifest.json）\n", downloaded, skipped, terminalText(outDir))
+	fmt.Printf("\n当前层下载完成：%d 个文件，跳过 %d 个目录；位置：%s（清单：%s）\n", downloaded, skipped, terminalText(outDir), terminalText(manifestPath))
 	return nil
 }
 
