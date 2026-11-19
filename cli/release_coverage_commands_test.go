@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -112,8 +113,13 @@ func TestReleaseCoverageFileLifecycleAndAliases(t *testing.T) {
 	if got := releaseRun(t, "fav", "list"); got["count"] != float64(1) {
 		t.Fatalf("list aliases: %v", got)
 	}
-	if st, err := os.Stat(favPath()); err != nil || st.Mode().Perm() != 0600 {
-		t.Fatalf("alias storage permissions: %v %v", st, err)
+	st, err := os.Stat(favPath())
+	if err != nil || !st.Mode().IsRegular() {
+		t.Fatalf("alias storage is not a regular file: %v %v", st, err)
+	}
+	// Windows reports synthetic POSIX bits; this does not verify its ACLs.
+	if runtime.GOOS != "windows" && st.Mode().Perm() != 0600 {
+		t.Fatalf("alias storage permissions: %v", st.Mode())
 	}
 	info := releaseRun(t, "info", "@验收")
 	if info["guid"] != guid || info["path"] != "合成目录" {

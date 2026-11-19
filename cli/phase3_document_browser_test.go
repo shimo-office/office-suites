@@ -68,11 +68,14 @@ func TestPhase3ReadinessPoll(t *testing.T) {
 		t.Fatalf("navigation retry failed: %d %v", n, err)
 	}
 	calls = 0
+	started := time.Now()
 	n, err = phase3PollReady(3*time.Millisecond, time.Millisecond, func() (map[string]any, error) {
 		calls++
 		return map[string]any{"ready": false, "documentState": "complete"}, nil
 	})
-	if err == nil || n < 2 {
+	// Timer granularity may allow only one probe before this short deadline.
+	// The ready/navigation cases above separately require actual retries.
+	if err == nil || n < 1 || n != calls || !strings.Contains(err.Error(), "超时") || time.Since(started) < 3*time.Millisecond {
 		t.Fatalf("timeout not detected: %d %v", n, err)
 	}
 	n, err = phase3PollReady(time.Second, time.Millisecond, func() (map[string]any, error) { return nil, errors.New("actual method exception") })

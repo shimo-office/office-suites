@@ -12,7 +12,9 @@ import (
 
 func TestReleaseDocumentReadinessFailureCannotInventScreenshot(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("TMPDIR", root)
+	for _, key := range []string{"TMPDIR", "TEMP", "TMP"} {
+		t.Setenv(key, root)
+	}
 	cause := errors.New("synthetic editor unavailable")
 	b := &phase3EditorBrowser{}
 	err := b.captureReadinessFailure(cause)
@@ -35,7 +37,9 @@ func TestReleaseDocumentReadinessFailureCannotInventScreenshot(t *testing.T) {
 	if _, e = os.Stat(filepath.Join(dir, "page.png")); !os.IsNotExist(e) {
 		t.Fatal("nonexistent screenshot materialized")
 	}
-	t.Setenv("TMPDIR", filepath.Join(root, "missing"))
+	for _, key := range []string{"TMPDIR", "TEMP", "TMP"} {
+		t.Setenv(key, filepath.Join(root, "missing"))
+	}
 	if e = b.captureReadinessFailure(cause); !errors.Is(e, cause) || !strings.Contains(e.Error(), "无法创建") {
 		t.Fatalf("diagnostic storage error hidden: %v", e)
 	}

@@ -83,7 +83,9 @@ if(mode==='second-text')paragraphs[1].text='CHANGED';if(mode==='second-binding')
 const e={config:{mode:{role:'editor'}},docsApi:{isViewMode:false,getCurTable:()=>table,startAction:()=>{},finalizeAction:()=>{}},getParagraphs:()=>mode==='copied-array'?paragraphs.slice():paragraphs,getParagraphRange:p=>({getText:()=>p.text+'\r\n'}),runSelectionCallback:(range,fn)=>{if(mode==='late-extra-table')paragraphs.push({text:'NEW',getParent:()=>({getParent:()=>({Row:{Table:{}}})})});if(mode==='late-text')paragraphs[1].text='CHANGED';if(mode==='late-nontarget-text')paragraphs[2].text='CHANGED';if(mode==='late-replace')paragraphs[1]={...paragraphs[1]};if(mode==='late-binding')paragraphs[1].getParent=()=>({getParent:()=>table.children[0].children[1]});return fn()}};
 global._sdk={editor:e,options:{user:{id:1}}};global.__shimoPhase3Presence=()=>({ready:true,connected:true,ids:['1']});const result=await ` + documentTableJS(spec, before) + `;if(mode===''||mode==='copied-array'){if(!result.ok||writes===0)throw Error('valid distribution rejected '+JSON.stringify(result))}else if(result.ok||writes!==0)throw Error('unsafe '+mode+' '+JSON.stringify(result))}
 (async()=>{for(const mode of ['','copied-array','second-text','second-binding','extra-paragraph','late-binding','late-text','late-nontarget-text','late-replace','late-extra-table'])await run(mode)})().catch(e=>{console.error(e);process.exitCode=1})`
-		if out, err := exec.Command(node, "-e", script).CombinedOutput(); err != nil {
+		cmd := exec.Command(node, "-")
+		cmd.Stdin = strings.NewReader(script)
+		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("%s: %v\n%s", op, err, out)
 		}
 	}

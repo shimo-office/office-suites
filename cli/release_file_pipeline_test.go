@@ -279,10 +279,16 @@ func TestReleaseFileFetchBoundaryFailures(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			var beforeMode os.FileMode
 			if kind == "success-mode" {
 				if err := os.WriteFile(dest, []byte("old"), 0640); err != nil {
 					t.Fatal(err)
 				}
+				before, err := os.Stat(dest)
+				if err != nil || !before.Mode().IsRegular() {
+					t.Fatalf("initial destination is not a regular file: %v %v", before, err)
+				}
+				beforeMode = before.Mode().Perm()
 			}
 			issueFileTransport(t, func(r *http.Request) (*http.Response, error) {
 				if kind == "network" {
@@ -302,8 +308,8 @@ func TestReleaseFileFetchBoundaryFailures(t *testing.T) {
 					t.Fatalf("success failed n=%d err=%v", n, err)
 				}
 				info, e := os.Stat(dest)
-				if e != nil || info.Mode().Perm() != 0640 {
-					t.Fatalf("changed permissions: %v %v", info, e)
+				if e != nil || !info.Mode().IsRegular() || info.Mode().Perm() != beforeMode {
+					t.Fatalf("changed permissions from %v: %v %v", beforeMode, info, e)
 				}
 			} else if err == nil {
 				t.Fatal("false success")

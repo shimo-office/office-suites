@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -28,7 +29,9 @@ func TestDocumentTableSpanSelectionGuards(t *testing.T) {
 				script += `if(JSON.stringify(splitArgs)!=='[2,1]')throw Error('split argument order');`
 			}
 			script += `}else if(result.ok||writes!==0)throw Error('unsafe '+test+' '+JSON.stringify(result))}})().catch(e=>{console.error(e);process.exitCode=1})`
-			if out, err := exec.Command(node, "-e", script).CombinedOutput(); err != nil {
+			cmd := exec.Command(node, "-")
+			cmd.Stdin = strings.NewReader(script)
+			if out, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("%v\n%s", err, out)
 			}
 		})
