@@ -93,6 +93,13 @@ def check(root=ROOT):
 
 
 def main():
+    # A C locale can decode UTF-8 filenames as surrogates before Git sees them.
+    # Restart before walking paths; changing subprocess text encoding is too late.
+    if sys.getfilesystemencoding().lower().replace('-', '') != 'utf8':
+        if sys.flags.utf8_mode:
+            print('UTF-8 filesystem encoding is required to check documentation.', file=sys.stderr)
+            return 1
+        return subprocess.call([sys.executable, '-X', 'utf8', __file__, *sys.argv[1:]])
     pages, errors = check()
     if errors:
         print('\n'.join(errors), file=sys.stderr)

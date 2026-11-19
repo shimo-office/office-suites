@@ -4,9 +4,10 @@ import shutil
 import os
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
-from check_docs import link_errors, tracking_errors, ROOT
+from check_docs import link_errors, tracking_errors, main, ROOT
 
 
 class LinkChecks(unittest.TestCase):
@@ -15,6 +16,42 @@ class LinkChecks(unittest.TestCase):
         result = subprocess.run([sys.executable, str(ROOT / 'scripts/check_docs.py')],
                                 cwd=ROOT, env=env, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
+
+    def test_ascii_filesystem_restarts_before_reading_chinese_paths(self):
+        # macOS keeps a UTF-8 filesystem codec even under LC_ALL=C; force the
+        # Linux startup branch without pretending the document paths are ASCII.
+        script = (
+            "import sys; from unittest import mock; import check_docs; "
+            "sys.getfilesystemencoding = lambda: 'ascii'; "
+            "check_docs.check = mock.Mock(side_effect=AssertionError('must restart before reading paths')); "
+            "raise SystemExit(check_docs.main())"
+        )
+        env = {**os.environ, 'PYTHONUTF8': '0'}
+        result = subprocess.run([sys.executable, '-X', 'utf8=0', '-c', script],
+                                cwd=ROOT / 'scripts', env=env, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
+        self.assertIn(b'Documentation checks passed:', result.stdout)
+
+    def test_utf8_restart_preserves_arguments_and_failure_exit(self):
+        with mock.patch('check_docs.sys.getfilesystemencoding', return_value='ascii'), \
+                mock.patch('check_docs.sys.flags') as flags, \
+                mock.patch('check_docs.sys.argv', ['check_docs.py', '--example']), \
+                mock.patch('check_docs.subprocess.call', return_value=7) as launch, \
+                mock.patch('check_docs.check', side_effect=AssertionError('must restart first')):
+            flags.utf8_mode = 0
+            self.assertEqual(main(), 7)
+        launch.assert_called_once_with(
+            [sys.executable, '-X', 'utf8', str(ROOT / 'scripts/check_docs.py'), '--example'])
+
+    def test_utf8_restart_cannot_loop_when_codec_remains_invalid(self):
+        with mock.patch('check_docs.sys.getfilesystemencoding', return_value='ascii'), \
+                mock.patch('check_docs.sys.flags') as flags, \
+                mock.patch('check_docs.subprocess.call') as launch, \
+                mock.patch('check_docs.sys.stderr'), \
+                mock.patch('check_docs.check', side_effect=AssertionError('must not read paths')):
+            flags.utf8_mode = 1
+            self.assertEqual(main(), 1)
+        launch.assert_not_called()
 
     def test_git_visibility_distinguishes_private_root_from_docs(self):
         with tempfile.TemporaryDirectory() as directory:
