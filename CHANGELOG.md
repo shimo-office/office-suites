@@ -260,3 +260,4 @@
 - 修复 [Issue #2](https://github.com/shimo-office/office-suites/issues/2)：pull 使用独立的隐藏清单文件，结果 manifest 字段返回实际路径，云端 manifest.json 不再被下载清单覆盖。
 - get/pull 对同名、清洗后重名和已有本地目标自动加序号；原子预留文件名，下载失败清理本次占位，保留原文件。
 - pull 结束前核对成功文件是否存在、为普通文件且大小匹配；核对失败计入 failed 并非零退出，不再仅按下载请求结束宣称全部成功。
+- 下载前统一清洗完整文件名（含扩展名），阻止扩展名兜底把冒号等 Windows 特殊路径语法传入文件操作。

@@ -330,3 +330,64 @@ func TestIssue2OnlineExportsAlsoAvoidExistingFiles(t *testing.T) {
 		t.Fatalf("new export missing: %q %v", b, err)
 	}
 }
+
+func TestIssue2CloudFallbackExtensionCannotSelectAlternateStream(t *testing.T) {
+	for _, name := range []string{"existing.txt:payload", `existing.txt\payload`, "existing.txt:payload/other"} {
+		t.Run(name, func(t *testing.T) {
+			out := t.TempDir()
+			existing := filepath.Join(out, "existing.txt")
+			if err := os.WriteFile(existing, []byte("existing local contents"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			// The URL intentionally has no extension, so the fallback comes from name.
+			issue2CloudFiles(t, []string{name}, []string{"new download contents"}, nil)
+			result, err := newApp([]string{"get"}).downloadOne(map[string]any{"guid": "fixture00", "name": name, "isCloudFile": true}, out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := str(result, "file")
+			base := filepath.Base(path)
+			if filepath.Dir(path) != out || strings.ContainsAny(base, `:/\`) {
+				t.Fatalf("unsafe final filename: %q", path)
+			}
+			info, err := os.Lstat(path)
+			if err != nil || !info.Mode().IsRegular() {
+				t.Fatalf("not an ordinary download file: %v %v", info, err)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || string(data) != "new download contents" {
+				t.Fatalf("download mismatch: %q %v", data, err)
+			}
+			data, err = os.ReadFile(existing)
+			if err != nil || string(data) != "existing local contents" {
+				t.Fatalf("existing file changed: %q %v", data, err)
+			}
+			if str(result, "name") != name {
+				t.Fatalf("remote metadata changed: %v", result)
+			}
+		})
+	}
+}
+
+func TestIssue2UniqueDownloadSanitizesFinalFilename(t *testing.T) {
+	for _, name := range []string{"", ".", "..", "   ", "../outside.txt", `..\outside.txt`, "plain 文件.txt"} {
+		t.Run(name, func(t *testing.T) {
+			issueFileTransport(t, func(*http.Request) (*http.Response, error) { return phase3Response(200, "payload"), nil })
+			out := t.TempDir()
+			path, n, err := fetchToUniqueFile("https://download.invalid/content", out, name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			base := filepath.Base(path)
+			if n != 7 || filepath.Dir(path) != out || base == "" || base == "." || base == ".." || strings.ContainsAny(base, `:/\`) {
+				t.Fatalf("unsafe final output %q (%d bytes)", path, n)
+			}
+			if strings.Trim(name, " .") == "" && base != "download" {
+				t.Fatalf("empty name did not use safe fallback: %q", base)
+			}
+			if name == "plain 文件.txt" && base != name {
+				t.Fatalf("ordinary filename changed: %q", base)
+			}
+		})
+	}
+}

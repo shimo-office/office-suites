@@ -11,6 +11,12 @@ import (
 // Reserve the final name atomically, so another download (or an existing file,
 // directory or symlink) cannot silently lose its place to this download.
 func fetchToUniqueFile(u, outDir, filename string) (string, int64, error) {
+	// Sanitize the assembled name too: a cloud URL without an extension can
+	// leave an untrusted suffix (including NTFS stream syntax) after the base.
+	filename = sanitizeName(strings.TrimSpace(filename))
+	if strings.Trim(filename, ". ") == "" {
+		filename = "download"
+	}
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return "", 0, err
 	}
