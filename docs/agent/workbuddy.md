@@ -27,6 +27,8 @@ shimo-net-cli 来自 **SkillHub**，不在 WorkBuddy 内置技能市场。打开
 
 `agent-browser` 是独立的浏览器工具，不是 shimo-net-cli 技能，也不是 WorkBuddy 自带面板；只有[浏览器规则](../scenarios.md#浏览器优先级)要求且用户同意时才启用。是否可调用 `present_files` 等内置入口，以当前宿主实际工具为准。
 
+维护者更新 SkillHub 时，从 [GitHub Release](https://github.com/shimo-office/office-suites/releases/latest) 下载 `shimo-net-cli-v<版本>-skillhub.zip` 并上传。包内仅有根目录 `SKILL.md` 和 `LICENSE.md`，包含 SkillHub 所需元数据；不要上传整仓 `Source code (zip)`。CLI 二进制仍单独安装或升级。发布流程自动生成此包，本地可执行 `python3 scripts/package_skillhub.py --tag v<版本>` 构建到 `dist/`。
+
 ![SkillHub 技能入口示意](../images/tutorials/workbuddy/real-installed.jpg)
 
 ## 5. 执行第一个任务
