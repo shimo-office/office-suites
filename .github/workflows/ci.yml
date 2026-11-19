@@ -28,11 +28,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.11"
-      - name: Documentation and generated catalog
-        run: |
-          python scripts/generate_capabilities.py --check
-          python -m unittest discover -s scripts -p "test_*.py"
-          python scripts/check_docs.py
+      - name: Generated catalog
+        run: python scripts/generate_capabilities.py --check
+      - name: Tool regression tests
+        run: python -m unittest discover -s scripts -p "test_*.py" -v
+      - name: Documentation checks
+        run: python scripts/check_docs.py
       - name: Test with statement coverage
         run: go test -count=1 "-coverprofile=coverage.out" ./cli
       - name: Enforce 80 percent statement coverage

@@ -102,6 +102,11 @@ try {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
         throw 'Use the POSIX launcher on macOS or Linux.'
     }
+    # A pwsh parent can pass its incompatible PSModulePath to Windows PowerShell 5.1.
+    # Load only the modules shipped with this running PowerShell, without changing the environment.
+    foreach ($module in @('Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Utility')) {
+        Import-Module ([IO.Path]::Combine($PSHOME, "Modules\$module\$module.psd1")) -ErrorAction Stop
+    }
     $architecture = $env:PROCESSOR_ARCHITEW6432
     if (-not $architecture) { $architecture = $env:PROCESSOR_ARCHITECTURE }
     switch ($architecture.ToLowerInvariant()) {

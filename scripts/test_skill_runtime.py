@@ -242,14 +242,14 @@ class WindowsRuntimeTests(unittest.TestCase):
         result = self.run_launcher()
         self.assertNotEqual(result.returncode, 0)
         self.assertNotEqual(result.returncode, 23)
-        self.assertIn(b'SHA256', result.stderr)
+        self.assertIn(b'SHA256 mismatch', result.stderr)
         self.assertEqual(result.stdout, b'')
 
     def test_downloaded_mismatch_never_executes_or_enters_cache(self):
         result = self.run_launcher(self.fake_download(self.payload + b'changed'))
         self.assertNotEqual(result.returncode, 0)
         self.assertNotEqual(result.returncode, 23)
-        self.assertIn(b'SHA256', result.stderr)
+        self.assertIn(b'SHA256 mismatch', result.stderr)
         self.assertFalse(self.binary.exists())
         self.assertEqual(list(self.binary.parent.iterdir()), [])
 
@@ -259,6 +259,20 @@ class WindowsRuntimeTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout), ARGS)
         self.assertEqual((self.root / 'url.txt').read_text(),
                          f'https://github.com/shimo-office/office-suites/releases/download/v{VERSION}/{self.asset}')
+        self.assertEqual(self.binary.read_bytes(), self.payload)
+
+    def test_cached_execution_with_inherited_non_windows_module_path(self):
+        self.env['PSModulePath'] = str(self.root / 'unrelated-pwsh-modules')
+        self.cached(self.payload)
+        result = self.run_launcher()
+        self.assertEqual(result.returncode, 23, result.stderr)
+        self.assertEqual(json.loads(result.stdout), ARGS)
+
+    def test_download_execution_with_inherited_non_windows_module_path(self):
+        self.env['PSModulePath'] = str(self.root / 'unrelated-pwsh-modules')
+        result = self.run_launcher(self.fake_download(self.payload))
+        self.assertEqual(result.returncode, 23, result.stderr)
+        self.assertEqual(json.loads(result.stdout), ARGS)
         self.assertEqual(self.binary.read_bytes(), self.payload)
 
     def test_missing_hash_prerequisite_is_clear(self):
