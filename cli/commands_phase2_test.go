@@ -32,9 +32,9 @@ func TestPhase2Args(t *testing.T) {
 	}
 }
 
-func TestPhase2ExpressionWhitelistsMethodPath(t *testing.T) {
-	expr := phase2Expression("history.show", "[]", "demo")
-	for _, want := range []string{"globalThis.sdk", "history", "show", "await fn.apply"} {
+func TestPhase2ExpressionUsesWhitelistedHistoryAction(t *testing.T) {
+	expr := phase2Expression(phase2Actions["history-show"], "[]", "demo")
+	for _, want := range []string{"globalThis.sdk", "actions", "showViewHistory", "await fn.apply"} {
 		if !contains(expr, want) {
 			t.Errorf("expression missing %q: %s", want, expr)
 		}

@@ -110,6 +110,26 @@ func extractPptx(path string) (string, error) {
 	return strings.Join(parts, "\n\n"), nil
 }
 
+const xlsxTextStrictNS = "http://purl.oclc.org/ooxml/spreadsheetml/main"
+const xlsxTextStrictRelNS = "http://purl.oclc.org/ooxml/officeDocument/relationships"
+
+// Text extraction accepts the two published XLSX namespace families. Action
+// verification keeps its existing, separate artifact validation contract.
+func xlsxTextPart(entries map[string]*zip.File, name, root string) (*artifactNode, error) {
+	data, err := zipEntryBytes(entries[name])
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+	n, err := parseArtifactXML(data)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+	if n.Name.Local != root || (n.Name.Space != artifactSheetNS && n.Name.Space != xlsxTextStrictNS) {
+		return nil, fmt.Errorf("%s: 不是受支持的 XLSX %s 根节点", name, root)
+	}
+	return n, nil
+}
+
 func extractXlsx(path string) (string, error) {
 	z, err := zip.OpenReader(path)
 	if err != nil {
@@ -156,22 +176,59 @@ func extractXlsx(path string) (string, error) {
 		}
 		rc.Close()
 	}
-	re := regexp.MustCompile(`^xl/worksheets/sheet(\d+)\.xml$`)
-	type sheet struct {
-		n int
-		f *zip.File
-	}
-	var sheets []sheet
+	entries := make(map[string]*zip.File, len(z.File))
 	for _, f := range z.File {
-		if m := re.FindStringSubmatch(f.Name); len(m) == 2 {
-			n, _ := strconv.Atoi(m[1])
-			sheets = append(sheets, sheet{n, f})
+		if _, exists := entries[f.Name]; exists {
+			return "", fmt.Errorf("工作簿包含重复文件 %s", f.Name)
+		}
+		entries[f.Name] = f
+	}
+	root, err := xlsxTextPart(entries, "xl/workbook.xml", "workbook")
+	if err != nil {
+		return "", err
+	}
+	rels, err := artifactRelations(entries, "xl/_rels/workbook.xml.rels", "xl")
+	if err != nil {
+		return "", err
+	}
+	list := root.child("sheets")
+	if list == nil || len(list.children("sheet")) == 0 {
+		return "", fmt.Errorf("工作簿没有工作表")
+	}
+	relNS := artifactOfficeRelNS
+	if root.Name.Space == xlsxTextStrictNS {
+		relNS = xlsxTextStrictRelNS
+	}
+	var sheets []*zip.File
+	for _, n := range list.children("sheet") {
+		id := ""
+		for _, attr := range n.Attr {
+			if attr.Name.Space == relNS && attr.Name.Local == "id" {
+				id = attr.Value
+			}
+		}
+		rel, ok := rels[id]
+		if !ok || (rel.Kind != relNS+"/worksheet" && rel.Kind != relNS+"/chartsheet") {
+			return "", fmt.Errorf("工作表 %s 的关系不存在或类型错误", n.attr("name"))
+		}
+		partType := "worksheet"
+		if rel.Kind == relNS+"/chartsheet" {
+			partType = "chartsheet"
+		}
+		part, err := xlsxTextPart(entries, rel.Target, partType)
+		if err != nil {
+			return "", err
+		}
+		if part.Name.Space != root.Name.Space {
+			return "", fmt.Errorf("工作表 %s 的命名空间与工作簿不一致", n.attr("name"))
+		}
+		if partType == "worksheet" {
+			sheets = append(sheets, entries[rel.Target])
 		}
 	}
-	sort.Slice(sheets, func(i, j int) bool { return sheets[i].n < sheets[j].n })
 	parts := []string{}
 	for i, s := range sheets {
-		rc, err := s.f.Open()
+		rc, err := s.Open()
 		if err != nil {
 			return "", err
 		}
@@ -206,9 +263,15 @@ func extractXlsx(path string) (string, error) {
 							c.typ = a.Value
 						}
 					}
-				} else if t.Name.Local == "v" && inCell {
+				} else if inCell && (t.Name.Local == "v" || (c.typ == "inlineStr" && t.Name.Local == "t")) {
 					var x string
-					if err := dec.DecodeElement(&x, &t); err == nil {
+					if err := dec.DecodeElement(&x, &t); err != nil {
+						rc.Close()
+						return "", err
+					}
+					if c.typ == "inlineStr" {
+						c.val += x
+					} else {
 						c.val = x
 					}
 				}

@@ -22,11 +22,8 @@ import (
 var phase2Actions = map[string]string{
 	"history-show":  "actions.showViewHistory",
 	"history-hide":  "actions.hideViewHistory",
-	"save-version":  "actions.showSaveVersion",
 	"comments-show": "actions.showViewCommentList",
 	"comments-hide": "actions.hideViewCommentList",
-	"comment-add":   "actions.showAddComment",
-	"print":         "actions.showPrint",
 	"sheet-append":  "http:PUT:/lizard-api/files/%s/sheets/values",
 	"sheet-insert":  "http:POSTROW:/lizard-api/files/%s/sheets",
 	"sheet-delete":  "http:DELETEROW:/lizard-api/files/%s/sheets",
@@ -41,6 +38,9 @@ var phase2Actions = map[string]string{
 }
 
 var phase2PageOnlyActions = map[string]string{
+	"save-version":     "保存版本",
+	"comment-add":      "提交评论",
+	"print":            "打印",
 	"find":             "查找/替换",
 	"replace-all":      "查找/替换",
 	"page-width":       "页面宽度/重排",
@@ -60,24 +60,37 @@ var phase2ManualOnlyActions = map[string]string{
 	"purge":                "彻底删除",
 }
 
+// Offline command tests replace only the browser boundary.
+// Production continues to use the isolated browser and screenshot checks.
+var phase2RunBrowser = runPhase2Browser
+
 func (a *App) cmdPhase2() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net phase2 <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--verify|--no-verify]")
+		return errors.New("用法：shimo-net editor <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--verify|--no-verify]")
 	}
 	action := strings.TrimSpace(a.opt("--action"))
 	if operation, manualOnly := phase2ManualOnlyActions[action]; manualOnly {
 		return manualOnlyError(operation)
 	}
 	if label, pageOnly := phase2PageOnlyActions[action]; pageOnly {
-		return fmt.Errorf("%s 需要页面操作（当前 editor SDK 未暴露该能力）；请用 shimo-net open <链接> 后在页面操作", label)
+		if action == "save-version" || action == "comment-add" || action == "print" {
+			return fmt.Errorf("%s 需要持久页面中的完整交互；临时 SDK 面板无法完成该流程，本次未保存、未提交、未打印。请使用宿主浏览器，选择规则见 docs/scenarios.md#浏览器优先级", label)
+		}
+		return fmt.Errorf("%s 需要页面操作（当前 editor SDK 未暴露该能力）；浏览器选择见 docs/scenarios.md#浏览器优先级，本次未执行", label)
 	}
 	method, ok := phase2Actions[action]
 	if !ok {
 		return fmt.Errorf("未知扩展动作 %q；可用动作：%s", action, strings.Join(phase2ActionNames(), ", "))
 	}
+	if explicitNoBrowser(a) && !strings.HasPrefix(method, "http:") {
+		return errors.New("当前设置禁止启动浏览器；该动作依赖页面，请改用宿主浏览器。本次未执行")
+	}
 	target, err := a.phase2Target(a.Pos[0])
 	if err != nil {
 		return err
+	}
+	if !sameCredentialOrigin(target, a.Origin) {
+		return errors.New("编辑器目标与当前配置的 origin 不一致；本次未执行")
 	}
 	args, err := phase2Args(a.opt("--payload"))
 	if err != nil {
@@ -94,7 +107,7 @@ func (a *App) cmdPhase2() error {
 		// These endpoints need the editor's same-origin signature headers; run
 		// them through the page fetch path. They are read-only and do not need a
 		// screenshot, so --no-verify must not block them.
-		value, err = runPhase2Browser(target, method, args, "")
+		value, err = phase2RunBrowser(target, method, args, "")
 	} else if strings.HasPrefix(method, "http:") {
 		// An API response proves only that the server accepted the mutation. The
 		// user-facing result also requires a visual check in the real editor.
@@ -113,7 +126,7 @@ func (a *App) cmdPhase2() error {
 			value, err = a.runPhase2HTTP(guid, method, args)
 		}
 		if err == nil && shot != "" && cliBrowserVerification(a) {
-			_, err = runPhase2Browser(target, "browser.verify", nil, shot)
+			_, err = phase2RunBrowser(target, "browser.verify", nil, shot)
 		}
 	} else {
 		// Page actions cannot be proven without a browser and a non-blank
@@ -123,12 +136,17 @@ func (a *App) cmdPhase2() error {
 		if !cliBrowserVerification(a) {
 			return errors.New("页面动作需要 --verify（CLI 本地浏览器）或宿主内置浏览器；本次未执行，不返回成功")
 		}
-		value, err = runPhase2Browser(target, method, args, shot)
+		value, err = phase2RunBrowser(target, method, args, shot)
 	}
 	if err != nil {
 		return err
 	}
 	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value}
+	if strings.HasPrefix(method, "actions.") {
+		out["scope"] = "panel-visibility-only"
+		out["actionVerified"] = false
+		out["note"] = "仅切换面板显示并截图，不表示保存、评论提交或打印完成"
+	}
 	if strings.HasPrefix(method, "api:") {
 		out["verified"] = true
 		out["verifyWith"] = "page-fetch"
@@ -136,17 +154,24 @@ func (a *App) cmdPhase2() error {
 	} else if !cliBrowserVerification(a) {
 		out["verified"] = false
 		out["verifyWith"] = "host-browser"
-		out["note"] = "默认不启动 CLI 本地浏览器；请用宿主内置浏览器（WorkBuddy agent-browser）打开 url 截图；需要 CLI 截图时加 --verify"
+		out["note"] = "默认不启动 CLI 本地浏览器；结果待页面核验，浏览器选择见 docs/scenarios.md#浏览器优先级；需要 CLI 截图时加 --verify"
 	}
-	if shot != "" && cliBrowserVerification(a) {
+	if shot != "" && cliBrowserVerification(a) && !strings.HasPrefix(method, "api:") {
 		out["screenshot"] = shot
 	}
 	if a.JSON {
 		return a.printJSON(out)
 	}
-	fmt.Printf("扩展动作已完成：%s\n", action)
-	if shot != "" {
-		fmt.Printf("截图：%s\n", shot)
+	if strings.HasPrefix(method, "api:") {
+		fmt.Printf("只读 API 已读取：%s\n", action)
+	} else if screenshot, ok := out["screenshot"].(string); ok {
+		if strings.HasPrefix(method, "actions.") {
+			fmt.Printf("仅切换面板显示并截图，未保存、未提交、未打印：%s\n截图：%s\n", action, screenshot)
+		} else {
+			fmt.Printf("动作已执行并截图，请核对页面结果：%s\n截图：%s\n", action, screenshot)
+		}
+	} else {
+		fmt.Printf("API 请求已完成，结果待页面核验：%s\n", action)
 	}
 	if value != nil {
 		b, _ := json.Marshal(value)
@@ -156,7 +181,7 @@ func (a *App) cmdPhase2() error {
 }
 
 func explicitNoBrowser(a *App) bool {
-	if a.has("--no-verify") || a.has("--no-browser") {
+	if a.has("--no-browser") {
 		return true
 	}
 	v := strings.ToLower(strings.TrimSpace(os.Getenv("SHIMO_NET_NO_BROWSER")))
@@ -166,7 +191,7 @@ func explicitNoBrowser(a *App) bool {
 // cliBrowserVerification is opt-in: API writes do not launch a local Chrome
 // unless the caller explicitly asks for CLI screenshot verification.
 func cliBrowserVerification(a *App) bool {
-	if explicitNoBrowser(a) {
+	if a.has("--no-verify") || explicitNoBrowser(a) {
 		return false
 	}
 	if a.has("--verify") {
@@ -177,14 +202,13 @@ func cliBrowserVerification(a *App) bool {
 }
 
 func phase2ActionNames() []string {
-	// Keep schema/help deterministic even though the map is intentionally simple.
-	return []string{"history-show", "history-hide", "save-version", "comments-show", "comments-hide", "comment-add", "find", "replace-all", "page-width", "print", "sheet-append", "sheet-insert", "sheet-delete", "sheet-freeze", "sheet-sort", "sheet-filter", "sheet-validation", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "mentions-list", "comments-list"}
+	return keys(phase2Actions)
 }
 
 func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
 	parts := strings.SplitN(method, ":", 3)
 	if len(parts) != 3 || parts[0] != "http" {
-		return nil, fmt.Errorf("无效的 phase2 API 动作：%s", method)
+		return nil, fmt.Errorf("无效的 editor API 动作：%s", method)
 	}
 	httpMethod, pathTemplate := parts[1], parts[2]
 	path := fmt.Sprintf(pathTemplate, url.PathEscape(guid))
@@ -243,7 +267,11 @@ func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
 		path += "?range=" + url.QueryEscape(rangeValue)
 		payload = nil
 	}
-	r, err := a.authRequestPath(path, httpMethod, payload, nil, nil)
+	var requestBody any
+	if payload != nil {
+		requestBody = payload
+	}
+	r, err := a.authRequestPath(path, httpMethod, requestBody, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -361,6 +389,9 @@ func isRetryableEditorError(err error) bool {
 }
 
 func runPhase2Browser(target, method string, args []any, screenshot string) (any, error) {
+	if !sameCookieHost(target) {
+		return nil, errors.New("浏览器编辑目标与配置的 origin 不一致；本次未执行")
+	}
 	chrome, err := findChrome()
 	if err != nil {
 		return nil, err
@@ -406,7 +437,7 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	// cookie value is never included in command output or error messages.
 	// Never send the stored session to a different host supplied on the
 	// command line. Private deployments use their configured origin here.
-	if cookie, err := authCookie(); err == nil && sameCookieHost(target) {
+	if cookie, err := authCookie(); err == nil {
 		if err := setCookies(ws, target, cookie); err == nil {
 			_, _ = ws.Call(102, "Page.reload", map[string]any{"ignoreCache": true}, 10*time.Second)
 		}
@@ -428,26 +459,17 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	const editorRetryDelay = 2 * time.Second
 	var value any
 	var lastErr error
+	attempts := 0
 	for i := 0; i < editorAttempts; i++ {
+		attempts++
 		res, callErr := ws.Call(3+i, "Runtime.evaluate", map[string]any{"expression": expr, "awaitPromise": true, "returnByValue": true}, 10*time.Second)
 		if callErr == nil {
-			if _, hasException := res["exceptionDetails"]; hasException {
-				lastErr = errors.New("页面执行 SDK 方法时抛出异常")
-			} else if result, ok := res["result"].(map[string]any); ok {
-				if desc := str(result, "description"); desc != "" && str(result, "subtype") == "error" {
-					lastErr = errors.New(desc)
-				} else {
-					value = result["value"]
-					if resultValue, ok := value.(map[string]any); ok && resultValue["ok"] == false {
-						lastErr = errors.New(str(resultValue, "error"))
-						if !isRetryableEditorError(lastErr) {
-							break
-						}
-					} else {
-						lastErr = nil
-						break
-					}
-				}
+			value, lastErr = phase2BrowserResult(res)
+			if lastErr == nil {
+				break
+			}
+			if !isRetryableEditorError(lastErr) {
+				break
 			}
 		} else {
 			lastErr = callErr
@@ -457,7 +479,7 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 		}
 	}
 	if lastErr != nil {
-		return nil, fmt.Errorf("页面 editor SDK/API 不可用（已重试 %d 次；可改用 shimo-net open 后由 computer-use 按网页操作）：%w", editorAttempts, lastErr)
+		return nil, fmt.Errorf("页面 editor SDK/API 不可用（已尝试 %d 次；请用宿主页面操作，浏览器选择见 docs/scenarios.md#浏览器优先级）：%w", attempts, lastErr)
 	}
 	if screenshot != "" {
 		for attempt := 0; attempt < 3; attempt++ {
@@ -476,9 +498,33 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	return value, nil
 }
 
+func phase2BrowserResult(res map[string]any) (any, error) {
+	if _, exists := res["exceptionDetails"]; exists {
+		return nil, errors.New("页面执行 SDK 方法时抛出异常")
+	}
+	result, ok := res["result"].(map[string]any)
+	if !ok {
+		return nil, errors.New("页面动作响应缺少 Runtime.result 对象，不能确认执行结果")
+	}
+	if str(result, "subtype") == "error" {
+		return nil, errors.New(str(result, "description"))
+	}
+	value, ok := result["value"].(map[string]any)
+	if !ok {
+		return nil, errors.New("页面动作未返回结果对象，不能确认执行结果")
+	}
+	if value["ok"] == false {
+		return nil, errors.New(str(value, "error"))
+	}
+	if value["ok"] != true {
+		return nil, errors.New("页面动作结果缺少明确成功标记，不能确认执行结果")
+	}
+	return value, nil
+}
+
 func sameCookieHost(target string) bool {
 	configured, _ := resolveOrigin()
-	return hostOf(target) != "" && hostOf(target) == hostOf(configured)
+	return sameCredentialOrigin(target, configured)
 }
 
 func phase2Expression(method, argsJSON, guid string) string {
@@ -606,7 +652,11 @@ func screenshotHasContent(path string) bool {
 }
 
 func capturePhase2Screenshot(ws *WSConn, path string) error {
-	res, err := ws.Call(101, "Page.captureScreenshot", map[string]any{"format": "png"}, 15*time.Second)
+	return captureBrowserScreenshotTimed(ws, path, 15*time.Second)
+}
+
+func captureBrowserScreenshotTimed(ws *WSConn, path string, timeout time.Duration) error {
+	res, err := ws.Call(101, "Page.captureScreenshot", map[string]any{"format": "png"}, timeout)
 	if err != nil {
 		return err
 	}

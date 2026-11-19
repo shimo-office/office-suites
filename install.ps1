@@ -36,11 +36,11 @@ if ($userPath -notlike "*$destDir*") {
 $skillRoot = Join-Path $env:USERPROFILE ".dsh\skills\shimo-net-cli"
 if (Test-Path (Join-Path $env:USERPROFILE ".dsh")) {
     New-Item -ItemType Directory -Force -Path $skillRoot | Out-Null
-    Copy-Item (Join-Path $repoRoot "cli\SKILL.md") (Join-Path $skillRoot "SKILL.md") -Force
+    Copy-Item (Join-Path $repoRoot "docs\agent\SKILL.md") (Join-Path $skillRoot "SKILL.md") -Force
     Write-Host "技能：$skillRoot"
 }
 
 Write-Host ""
 Write-Host "== 完成 =="
-& $dest doctor
+& $dest version
 Write-Host "首次使用：shimo-net init; shimo-net login"

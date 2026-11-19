@@ -2,7 +2,7 @@
 
 package main
 
-func keychainAvailable() bool           { return false }
-func keychainSave(string, string) error { return nil }
-func keychainLoad() string              { return "" }
-func keychainClear()                    {}
+func keychainAvailable() bool                   { return false }
+func keychainSave(string, string, string) error { return nil }
+func keychainLoad(service string) string        { return "" }
+func keychainClear(service string)              {}

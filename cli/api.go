@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -64,6 +65,10 @@ func (a *App) requestPath(path, method string, body any, raw []byte, headers map
 }
 
 func (a *App) requestURL(u, method string, body any, raw []byte, headers map[string]string, cookie string) (*Response, error) {
+	return a.requestURLContext(context.Background(), u, method, body, raw, headers, cookie)
+}
+
+func (a *App) requestURLContext(ctx context.Context, u, method string, body any, raw []byte, headers map[string]string, cookie string) (*Response, error) {
 	var rdr io.Reader
 	if raw != nil {
 		rdr = bytes.NewReader(raw)
@@ -74,12 +79,12 @@ func (a *App) requestURL(u, method string, body any, raw []byte, headers map[str
 		}
 		rdr = bytes.NewReader(b)
 	}
-	req, err := http.NewRequest(method, u, rdr)
+	req, err := http.NewRequestWithContext(ctx, method, u, rdr)
 	if err != nil {
 		return nil, err
 	}
 	if cookie == "" {
-		cookie, _ = readCookie()
+		cookie, _ = readCookieForOrigin(a.Origin)
 	}
 	req.Header.Set("referer", strings.TrimRight(a.Origin, "/")+"/")
 	req.Header.Set("x-requested-with", "XMLHttpRequest")
@@ -92,7 +97,17 @@ func (a *App) requestURL(u, method string, body any, raw []byte, headers map[str
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	resp, err := httpClient.Do(req)
+	// Never let caller-supplied headers bypass the credential destination check.
+	if req.Header.Get("Cookie") != "" || req.Header.Get("Authorization") != "" {
+		if !sameCredentialOrigin(req.URL.String(), a.Origin) {
+			return nil, errors.New("拒绝向不同网址发送认证信息")
+		}
+	}
+	// A copied client preserves transport/timeouts but makes redirect handling
+	// invariant, even for caller-provided clients. No cookie follows a redirect.
+	client := *httpClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +124,7 @@ func (a *App) requestURL(u, method string, body any, raw []byte, headers map[str
 }
 
 func (a *App) authRequest(path, method string, body any, raw []byte, headers map[string]string) (*Response, error) {
-	cookie, err := authCookie()
+	cookie, err := a.requestCookie()
 	if err != nil {
 		return nil, err
 	}
@@ -118,21 +133,17 @@ func (a *App) authRequest(path, method string, body any, raw []byte, headers map
 		return nil, err
 	}
 	if r.Status == 401 {
-		// The cached Keychain cookie can be stale while the user is still signed
-		// in inside Chrome.  Re-harvest once before asking for a manual login.
-		if fresh, harvestErr := harvestChromeSession(true); harvestErr == nil && fresh != "" && fresh != cookie {
-			_ = writeCred(a.Origin, fresh)
-			if r2, err2 := a.request(path, method, body, raw, headers, fresh); err2 == nil && r2.Status != 401 {
-				return r2, nil
-			}
+		if a.Cmd == "phase3" && method != http.MethodGet && method != http.MethodHead {
+			return nil, errors.New("写请求返回 HTTP 401；禁止自动重放，请先核查目标状态再重新登录")
 		}
-		return nil, errors.New("登录已过期（HTTP 401）：请先运行 shimo-net login")
+
+		return nil, errors.New("登录已过期（HTTP 401）：未自动更换账号或重放请求；请显式运行 shimo-net login")
 	}
 	return r, nil
 }
 
 func (a *App) authRequestPath(path, method string, body any, raw []byte, headers map[string]string) (*Response, error) {
-	cookie, err := authCookie()
+	cookie, err := a.requestCookie()
 	if err != nil {
 		return nil, err
 	}
@@ -141,13 +152,10 @@ func (a *App) authRequestPath(path, method string, body any, raw []byte, headers
 		return nil, err
 	}
 	if r.Status == 401 {
-		if fresh, harvestErr := harvestChromeSession(true); harvestErr == nil && fresh != "" && fresh != cookie {
-			_ = writeCred(a.Origin, fresh)
-			if r2, err2 := a.requestPath(path, method, body, raw, headers, fresh); err2 == nil && r2.Status != 401 {
-				return r2, nil
-			}
+		if a.Cmd == "phase3" && method != http.MethodGet && method != http.MethodHead {
+			return nil, errors.New("写请求返回 HTTP 401；禁止自动重放，请先核查目标状态再重新登录")
 		}
-		return nil, errors.New("登录已过期（HTTP 401）：请先运行 shimo-net login")
+		return nil, errors.New("登录已过期（HTTP 401）：未自动更换账号或重放请求；请显式运行 shimo-net login")
 	}
 	return r, nil
 }

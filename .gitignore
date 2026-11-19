@@ -5,9 +5,16 @@ __pycache__/
 venv/
 dist/
 build/
+/cli/cli
 *.zip
 
 # 内部资料，不上传
-internal/
+/internal/
 bin/
 .omx/
+
+# Local investigation downloads and raw acceptance captures.
+tmp/
+
+# Local acceptance evidence and reports are delivered separately.
+/output/

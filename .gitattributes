@@ -1,0 +1,5 @@
+# The generated capability digest uses the source bytes on every platform.
+docs/internal/capabilities.json text eol=lf
+
+# Recorded OOXML fixtures preserve original bytes, including indentation whitespace.
+cli/testdata/phase3-graphic/*.xml -text -whitespace

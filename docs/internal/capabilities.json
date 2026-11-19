@@ -1,0 +1,560 @@
+{
+  "schemaVersion": 1,
+  "scope": "场景 1–28 的目录能力，不包含需求场景 29–42；API、页面操作与人工禁用均是分类，不等同于全部线上验收通过。",
+  "countingRule": "按每个独立稳定能力 ID 计数：基础文件 19 项，编辑与协作 32 项。旧文档 50 无逐项来源；拆开插删行 API 与列/工作表页面管理后为 51，未新增虚构能力凑数。",
+  "scenarios": [
+    {
+      "id": 1,
+      "name": "搜索",
+      "help": "search 查找文件、文件夹和空间",
+      "capabilities": [
+        {
+          "id": "01.1",
+          "name": "搜索",
+          "mode": "API",
+          "entry": "search <关键词>",
+          "limits": "只返回当前账号有权访问的结果。"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "空间/目录",
+      "help": "spaces / ls 列空间与目录",
+      "capabilities": [
+        {
+          "id": "02.1",
+          "name": "列空间",
+          "mode": "API",
+          "entry": "spaces",
+          "limits": "受当前账号权限限制。"
+        },
+        {
+          "id": "02.2",
+          "name": "列目录",
+          "mode": "API",
+          "entry": "ls <链接>",
+          "limits": "limit 可能截断；遍历时处理分页。"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "文件出处",
+      "help": "info 查看类型、位置与当前权限",
+      "capabilities": [
+        {
+          "id": "03.1",
+          "name": "文件信息",
+          "mode": "API",
+          "entry": "info <链接>",
+          "limits": "只读当前权限，不修改权限。"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "导入+权限",
+      "help": "import 导入文件；权限调整仅网页人工操作",
+      "capabilities": [
+        {
+          "id": "04.1",
+          "name": "导入在线文件",
+          "mode": "API",
+          "entry": "import <文件> --to <位置>",
+          "limits": "默认私有；import --share 不执行权限变更，转人工。"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "拉取",
+      "help": "pull 下载当前层文件和 manifest；子目录记为跳过",
+      "capabilities": [
+        {
+          "id": "05.1",
+          "name": "拉取文件夹",
+          "mode": "API",
+          "entry": "pull <位置> [--out 目录]",
+          "limits": "仅当前层，不递归子目录；跳过目录记入 manifest，部分失败非 0 退出。"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "新建",
+      "help": "new 新建文件（doc=文档，docx=文稿）；mkdir 新建文件夹",
+      "capabilities": [
+        {
+          "id": "06.1",
+          "name": "新建空白文件",
+          "mode": "API",
+          "entry": "new <名称> --type doc|docx|sheet|slide|table|form|mindmap|flowchart",
+          "limits": "类型存在不保证目标部署开放该类型；按服务端返回确认。"
+        },
+        {
+          "id": "06.2",
+          "name": "新建文件夹",
+          "mode": "API",
+          "entry": "mkdir <名称> --to <父文件夹>",
+          "limits": "文件夹不是 new 的文件类型。"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "改名",
+      "help": "rename 修改文件名称",
+      "capabilities": [
+        {
+          "id": "07.1",
+          "name": "改名",
+          "mode": "API",
+          "entry": "rename <链接> <名称>",
+          "limits": "需要目标编辑权限。"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "删除/回收站/恢复",
+      "help": "delete / trash / restore；彻底删除仅网页人工操作",
+      "capabilities": [
+        {
+          "id": "08.1",
+          "name": "移入回收站",
+          "mode": "API",
+          "entry": "delete <链接>",
+          "limits": "仅移入回收站，不彻底删除。"
+        },
+        {
+          "id": "08.2",
+          "name": "查看回收站",
+          "mode": "API",
+          "entry": "trash",
+          "limits": "只读回收站列表。"
+        },
+        {
+          "id": "08.3",
+          "name": "恢复文件",
+          "mode": "API",
+          "entry": "restore <guid>",
+          "limits": "不能恢复已彻底删除的文件。"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "权限巡检",
+      "help": "audit 只读检查公开链接与权限",
+      "capabilities": [
+        {
+          "id": "09.1",
+          "name": "权限巡检",
+          "mode": "API",
+          "entry": "audit <目录>",
+          "limits": "只列当前值与建议，不能修改权限。"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "批量改权限",
+      "help": "share / import --share 拒绝执行；网页逐项人工设置",
+      "capabilities": [
+        {
+          "id": "10.1",
+          "name": "权限变更",
+          "mode": "人工禁用",
+          "entry": "石墨网页人工操作",
+          "limits": "包括收回、限制编辑、高级权限、成员级授权；CLI 只提供拒绝提示。"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "读正文摘要",
+      "help": "read 读取正文后生成有来源的摘要",
+      "capabilities": [
+        {
+          "id": "11.1",
+          "name": "读取正文",
+          "mode": "API",
+          "entry": "read <链接>",
+          "limits": "文稿/表格/幻灯片可能经导出后本地解析；扫描件不可假称读出。"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "周报",
+      "help": "ls --since + read 汇总最近更新",
+      "capabilities": [
+        {
+          "id": "12.1",
+          "name": "更新汇总",
+          "mode": "API",
+          "entry": "ls --since 7d + read",
+          "limits": "组合只读命令；没有单独周报服务端接口。"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "附件下载",
+      "help": "get 下载文件或取得在线文件导出物",
+      "capabilities": [
+        {
+          "id": "13.1",
+          "name": "单文件下载",
+          "mode": "API",
+          "entry": "get <链接> --out <目录>",
+          "limits": "必须下载真实文件；导出格式以当前实现支持范围为准。"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "上传（问位置）",
+      "help": "upload 上传附件并明确目标位置",
+      "capabilities": [
+        {
+          "id": "14.1",
+          "name": "上传附件",
+          "mode": "API",
+          "entry": "upload <文件> --to <位置>",
+          "limits": "不给位置时先明确桌面、空间或文件夹。"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "常用文件夹别名",
+      "help": "fav list/add/rm/show；通过 @别名引用位置",
+      "capabilities": [
+        {
+          "id": "15.1",
+          "name": "位置别名",
+          "mode": "API",
+          "entry": "fav list|add|rm|show",
+          "limits": "本地位置映射，不扩大服务端权限。"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "name": "只看与我相关的",
+      "help": "API：mentions-list / comments-list / subscriptions；定位需页面",
+      "capabilities": [
+        {
+          "id": "16.1",
+          "name": "读取提及",
+          "mode": "API",
+          "entry": "editor --action mentions-list",
+          "limits": "返回真实用户/位置标识；实际定位需页面。"
+        },
+        {
+          "id": "16.2",
+          "name": "读取相关评论",
+          "mode": "API",
+          "entry": "editor --action comments-list",
+          "limits": "跨文件汇总需扫描；不能猜正文位置。"
+        },
+        {
+          "id": "16.3",
+          "name": "订阅更新",
+          "mode": "API",
+          "entry": "subscriptions",
+          "limits": "limit 为扫描文件数上限，仅排序扫描结果；没有全量订阅列表或最近正文接口。"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "name": "留痕与版本",
+      "help": "页面操作：history-show/hide 需 --verify 仅展示；保存版本须持久页面完成",
+      "capabilities": [
+        {
+          "id": "17.1",
+          "name": "保存版本入口",
+          "mode": "页面操作",
+          "entry": "持久页面的保存版本菜单",
+          "limits": "CLI 拒绝 save-version 临时面板工作流；保存后须核对版本。"
+        },
+        {
+          "id": "17.2",
+          "name": "历史面板",
+          "mode": "页面操作",
+          "entry": "editor --action history-show|history-hide --verify",
+          "limits": "依赖真实 editor.actions，未加载或方法缺失时失败。"
+        },
+        {
+          "id": "17.3",
+          "name": "单元格历史",
+          "mode": "页面操作",
+          "entry": "open 后在表格历史菜单操作",
+          "limits": "先明确行列；不能用文件历史冒充单元格历史。"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "name": "文字与段落",
+      "help": "页面操作：字符/段落/查找替换；find/replace-all 未暴露 SDK，CLI 拒绝",
+      "capabilities": [
+        {
+          "id": "18.1",
+          "name": "字符格式",
+          "mode": "页面操作",
+          "entry": "轻文档页面格式菜单",
+          "limits": "选区与目标文本须核对；文稿固定动作另见扩展验收。"
+        },
+        {
+          "id": "18.2",
+          "name": "段落格式",
+          "mode": "页面操作",
+          "entry": "轻文档页面段落菜单",
+          "limits": "页面生效后需读回/截图。"
+        },
+        {
+          "id": "18.3",
+          "name": "查找替换",
+          "mode": "页面操作",
+          "entry": "页面查找替换菜单",
+          "limits": "editor find/replace-all 返回页面操作提示，不伪装 SDK 成功。"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "name": "文内表格与图片",
+      "help": "页面操作：轻文档插入表格、图片及布局",
+      "capabilities": [
+        {
+          "id": "19.1",
+          "name": "文内表格",
+          "mode": "页面操作",
+          "entry": "轻文档插入菜单",
+          "limits": "原地编辑与本地生成副本分开；文稿动作单独验收。"
+        },
+        {
+          "id": "19.2",
+          "name": "图片处理",
+          "mode": "页面操作",
+          "entry": "轻文档图片工具栏",
+          "limits": "核对目标图形与保存结果。"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "name": "评论与提及",
+      "help": "comments-list API；添加评论/提及为页面操作，面板打开不等于提交",
+      "capabilities": [
+        {
+          "id": "20.1",
+          "name": "添加评论",
+          "mode": "页面操作",
+          "entry": "持久页面的评论菜单",
+          "limits": "CLI 拒绝 comment-add 临时面板工作流；提交后须核对评论。"
+        },
+        {
+          "id": "20.2",
+          "name": "提及与段落链接",
+          "mode": "页面操作",
+          "entry": "页面提及/链接菜单",
+          "limits": "通知他人须有明确收件人授权；不能以普通 @文本代替引用。"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "name": "预览与打印",
+      "help": "页面操作：预览/打印须持久页面完成；CLI 拒绝临时 print 面板",
+      "capabilities": [
+        {
+          "id": "21.1",
+          "name": "预览",
+          "mode": "页面操作",
+          "entry": "套件页面预览入口",
+          "limits": "核对真实预览内容。"
+        },
+        {
+          "id": "21.2",
+          "name": "打印",
+          "mode": "页面操作",
+          "entry": "持久页面打印入口",
+          "limits": "面板不代表打印完成；实际文件须核验，系统打印需确认。"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "name": "文档·重排全文",
+      "help": "页面操作：标题层级、全文样式、页面宽度；page-width 未暴露 SDK",
+      "capabilities": [
+        {
+          "id": "22.1",
+          "name": "全文标题与样式",
+          "mode": "页面操作",
+          "entry": "轻文档标题/样式菜单",
+          "limits": "不能把局部格式变更当作整篇重排。"
+        },
+        {
+          "id": "22.2",
+          "name": "页面宽度",
+          "mode": "页面操作",
+          "entry": "轻文档页面宽度菜单",
+          "limits": "editor page-width 明确拒绝并提示页面操作。"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "name": "表格·写入",
+      "help": "API：sheet-update/append/insert/delete；列与工作表管理仍为页面操作",
+      "capabilities": [
+        {
+          "id": "23.1",
+          "name": "区域写入与追加",
+          "mode": "API",
+          "entry": "editor --action sheet-update|sheet-append",
+          "limits": "values/range 必填；读回、导出、截图核验，不只看 HTTP 状态。"
+        },
+        {
+          "id": "23.2",
+          "name": "插入与删除行",
+          "mode": "API",
+          "entry": "editor --action sheet-insert|sheet-delete",
+          "limits": "只确认行 API；空行不能仅靠 sheet-values 核验，需导出结构。"
+        },
+        {
+          "id": "23.3",
+          "name": "列与工作表管理",
+          "mode": "页面操作",
+          "entry": "表格列/工作表菜单",
+          "limits": "工作表改名、隐藏与插删列未作为稳定 editor API 提供。"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "name": "表格·整理成能用的表",
+      "help": "页面操作：冻结/条件格式/样式视图；底色使用 sheet-format API",
+      "capabilities": [
+        {
+          "id": "24.1",
+          "name": "冻结行列",
+          "mode": "页面操作",
+          "entry": "表格冻结菜单",
+          "limits": "sheet-freeze 未暴露 SDK；行高亮颜色归入单元格格式 API。"
+        },
+        {
+          "id": "24.2",
+          "name": "条件格式",
+          "mode": "页面操作",
+          "entry": "表格条件格式菜单",
+          "limits": "没有已确认稳定 API。"
+        },
+        {
+          "id": "24.3",
+          "name": "表格样式、网格线与缩放",
+          "mode": "页面操作",
+          "entry": "表格样式/视图菜单",
+          "limits": "不能用单格底色替代整套表格样式。"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "name": "表格·清洗",
+      "help": "页面操作：去重、分列、填充、文件瘦身",
+      "capabilities": [
+        {
+          "id": "25.1",
+          "name": "去重、分列与填充",
+          "mode": "页面操作",
+          "entry": "表格数据工具",
+          "limits": "记录目标范围及保留数据，不伪造 API。"
+        },
+        {
+          "id": "25.2",
+          "name": "文件瘦身",
+          "mode": "页面操作",
+          "entry": "表格文件工具",
+          "limits": "未提供 REST/SDK 入口。"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "name": "表格·算与看数",
+      "help": "页面操作：公式/名称/透视表/排序/筛选/分组；sheet-sort/filter 未暴露 SDK",
+      "capabilities": [
+        {
+          "id": "26.1",
+          "name": "公式与名称",
+          "mode": "页面操作",
+          "entry": "表格公式栏/名称管理",
+          "limits": "读回公式与名称。"
+        },
+        {
+          "id": "26.2",
+          "name": "透视表",
+          "mode": "页面操作",
+          "entry": "表格透视表菜单",
+          "limits": "需要页面实际数据源与聚合核验。"
+        },
+        {
+          "id": "26.3",
+          "name": "排序、筛选与分组",
+          "mode": "页面操作",
+          "entry": "表格数据菜单",
+          "limits": "editor sheet-sort/sheet-filter 明确拒绝；应用表格另行验收。"
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "name": "表格·校验与格式",
+      "help": "API：sheet-format（含底色）/sheet-merge；数据验证、行高列宽仍为页面操作",
+      "capabilities": [
+        {
+          "id": "27.1",
+          "name": "数据验证与行高列宽",
+          "mode": "页面操作",
+          "entry": "表格数据验证/行列尺寸菜单",
+          "limits": "sheet-validation 未暴露 SDK；columnWidth 等不是格式 API 白名单。"
+        },
+        {
+          "id": "27.2",
+          "name": "单元格格式与底色",
+          "mode": "API",
+          "entry": "editor --action sheet-format",
+          "limits": "仅保证 background/color/bold/italic/underline；其他属性明确拒绝。"
+        },
+        {
+          "id": "27.3",
+          "name": "合并单元格",
+          "mode": "API",
+          "entry": "editor --action sheet-merge",
+          "limits": "核对目标合并范围和内容；sheet-values 不能单独证明跨度变化。"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "name": "表格·输出",
+      "help": "API：get/pull 异步导出；打印按场景 21 的页面规则执行",
+      "capabilities": [
+        {
+          "id": "28.1",
+          "name": "表格导出",
+          "mode": "API",
+          "entry": "get/pull 的导出任务",
+          "limits": "等待任务完成并下载非空文件；不支持的 CSV 请求明确失败。"
+        }
+      ]
+    }
+  ]
+}

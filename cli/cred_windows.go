@@ -43,8 +43,8 @@ type winCredential struct {
 
 func keychainAvailable() bool { return true }
 
-func keychainSave(account, cookie string) error {
-	target, err := syscall.UTF16PtrFromString(keychainService)
+func keychainSave(service, account, cookie string) error {
+	target, err := syscall.UTF16PtrFromString(service)
 	if err != nil {
 		return err
 	}
@@ -75,8 +75,8 @@ func keychainSave(account, cookie string) error {
 	return nil
 }
 
-func keychainLoad() string {
-	target, err := syscall.UTF16PtrFromString(keychainService)
+func keychainLoad(service string) string {
+	target, err := syscall.UTF16PtrFromString(service)
 	if err != nil {
 		return ""
 	}
@@ -93,8 +93,8 @@ func keychainLoad() string {
 	return string(b)
 }
 
-func keychainClear() {
-	target, err := syscall.UTF16PtrFromString(keychainService)
+func keychainClear(service string) {
+	target, err := syscall.UTF16PtrFromString(service)
 	if err != nil {
 		return
 	}

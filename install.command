@@ -30,7 +30,7 @@ fi
 
 if [ -d "$HOME/.dsh" ]; then
   mkdir -p "$HOME/.dsh/skills/shimo-net-cli"
-  cp "$DIR/cli/SKILL.md" "$HOME/.dsh/skills/shimo-net-cli/SKILL.md"
+  cp "$DIR/docs/agent/SKILL.md" "$HOME/.dsh/skills/shimo-net-cli/SKILL.md"
   echo "技能：~/.dsh/skills/shimo-net-cli"
 fi
 
@@ -41,5 +41,5 @@ esac
 
 echo ""
 echo "== 完成 =="
-"$BIN" doctor || true
+"$BIN" version
 echo "首次使用：shimo-net init && shimo-net login"

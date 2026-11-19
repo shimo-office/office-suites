@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -29,12 +30,9 @@ type App struct {
 
 func newApp(args []string) *App {
 	a := &App{Flags: map[string]string{}, Bool: map[string]bool{}}
-	if len(args) == 0 {
-		a.Cmd = "help"
-	} else {
-		a.Cmd = args[0]
-	}
-	for i := 1; i < len(args); i++ {
+	a.Cmd = "help"
+	commandSeen := false
+	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--json" {
 			a.JSON = true
@@ -42,6 +40,10 @@ func newApp(args []string) *App {
 		}
 		if arg == "--relogin" {
 			a.Relogin = true
+			continue
+		}
+		if !commandSeen {
+			a.Cmd, commandSeen = arg, true
 			continue
 		}
 		if arg == "--default" || arg == "--no-verify" || arg == "--no-browser" || arg == "--verify" {
@@ -91,12 +93,14 @@ func (a *App) Run() error {
 	}
 	fn, ok := dispatch(a)[a.Cmd]
 	if !ok {
-		fmt.Fprint(os.Stderr, helpText())
-		os.Exit(2)
+		return &commandError{Message: fmt.Sprintf("未知命令 %q；运行 shimo-net --help 查看用法", a.Cmd), ExitCode: 2}
 	}
 	err := fn()
-	if err != nil && a.Relogin && isAuthError(err) {
-		if loginErr := a.cmdLogin(); loginErr != nil {
+	// Phase3 may fail during readback/export after a mutation was accepted.
+	// Replaying the whole command can duplicate appends or delete another row.
+	if a.canRelogin(err) {
+		login := newApp([]string{"login", "--new", "--origin", a.Origin})
+		if loginErr := login.cmdLogin(); loginErr != nil {
 			return loginErr
 		}
 		return fn()
@@ -113,8 +117,9 @@ func dispatch(a *App) map[string]func() error {
 		"upload": a.cmdUpload, "import": a.cmdImport, "new": a.cmdNew, "rename": a.cmdRename,
 		"share": a.cmdShare, "audit": a.cmdAudit, "delete": a.cmdDelete, "trash": a.cmdTrash,
 		"restore": a.cmdRestore, "purge": a.cmdPurge, "read": a.cmdRead, "pull": a.cmdPull,
-		"get": a.cmdGet, "fav": a.cmdFav, "open": a.cmdOpen, "phase2": a.cmdPhase2, "subscriptions": a.cmdSubscriptions,
-		"mkdir": a.cmdMkdir, "session": a.cmdSession,
+		"get": a.cmdGet, "fav": a.cmdFav, "open": a.cmdOpen, "editor": a.cmdPhase2, "phase2": a.cmdPhase2, "subscriptions": a.cmdSubscriptions,
+		"phase3": a.cmdPhase3,
+		"mkdir":  a.cmdMkdir, "session": a.cmdSession,
 	}
 }
 
@@ -126,12 +131,44 @@ func (a *App) printJSON(v any) error {
 }
 
 func (a *App) fail(err error) {
+	os.Exit(a.writeFailure(err))
+}
+
+func (a *App) writeFailure(err error) int {
+	code := 1
+	result := map[string]any{}
+	var detail *commandError
+	if errors.As(err, &detail) {
+		for k, v := range detail.Result {
+			result[k] = v
+		}
+		if detail.ExitCode > 0 {
+			code = detail.ExitCode
+		}
+	}
+	result["ok"], result["error"] = false, err.Error()
 	if a.JSON {
-		_ = json.NewEncoder(os.Stderr).Encode(map[string]any{"ok": false, "error": err.Error()})
+		_ = json.NewEncoder(os.Stderr).Encode(result)
 	} else {
 		fmt.Fprintln(os.Stderr, "错误："+err.Error())
 	}
-	os.Exit(1)
+	return code
+}
+
+func (a *App) canRelogin(err error) bool {
+	var detail *commandError
+	if err == nil || !a.Relogin || explicitNoBrowser(a) || !isAuthError(err) || (errors.As(err, &detail) && detail.NoReplay) {
+		return false
+	}
+	// Only read-only commands may restart after an explicitly requested fresh
+	// login. Never automatically repeat a mutation, even outside phase3.
+	switch a.Cmd {
+	case "whoami", "doctor", "search", "spaces", "ls", "info", "audit", "trash", "read", "get", "pull", "subscriptions":
+		return true
+	case "editor", "phase2":
+		return a.opt("--action") == "sheet-values" || a.opt("--action") == "mentions-list" || a.opt("--action") == "comments-list"
+	}
+	return false
 }
 
 func isAuthError(err error) bool {

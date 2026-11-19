@@ -29,7 +29,8 @@ func (a *App) cmdSubscriptions() error {
 		return openApp.cmdOpen()
 	}
 	out := map[string]any{"count": len(files), "limit": limit, "depth": depth, "files": files,
-		"note": "订阅 API 只提供逐文件状态；最近更新正文需打开选中文件查看"}
+		"limitScope": "scanned-files", "orderingScope": "scanned-files",
+		"note": "limit 是扫描文件数上限，不是返回条数；仅对扫描到的订阅文件按更新时间排序；最近更新正文需打开选中文件查看"}
 	if a.JSON {
 		return a.printJSON(out)
 	}
@@ -37,7 +38,7 @@ func (a *App) cmdSubscriptions() error {
 		fmt.Println("没有扫描到已订阅文件。可提高 --limit 或 --depth 后重试。")
 		return nil
 	}
-	fmt.Printf("已订阅文件：%d 个\n\n", len(files))
+	fmt.Printf("已订阅文件：%d 个（最多扫描 %d 个文件，仅在扫描范围内排序）\n\n", len(files), limit)
 	for i, f := range files {
 		fmt.Printf("%d. %s [%s]\n   %s\n   最近更新：%s\n", i+1, str(f, "name"), typeLabel(f), str(f, "url"), fmtTime(f["updatedAt"]))
 	}

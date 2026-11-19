@@ -156,6 +156,9 @@ func (a *App) cmdOpen() error {
 	if len(a.Pos) == 0 {
 		return errors.New("用法：shimo-net open <链接|guid|@别名> [--default]")
 	}
+	if explicitNoBrowser(a) {
+		return errors.New("当前设置禁止启动浏览器；本次未打开页面")
+	}
 	raw := a.Pos[0]
 	target := raw
 	if !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
@@ -172,115 +175,68 @@ func (a *App) cmdOpen() error {
 		}
 		target = a.urlOf(withGUID(info, guid))
 	}
-	// Resolve the session before launching anything, so opening a browser does
-	// not show a login page and then reload after the cookie is injected.
-	_, _ = authCookie()
 	if a.has("--default") {
 		if bin, label := defaultChromiumBinary(); bin != "" {
-			if err := os.MkdirAll(profilePath(), 0o700); err == nil {
-				portFile := filepath.Join(profilePath(), "DevToolsActivePort")
-				_ = os.Remove(portFile)
-				cmd := exec.Command(bin, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--user-data-dir="+profilePath(), "--remote-debugging-port=0", target)...)
-				cmd.Stdout, cmd.Stderr = nil, nil
-				if err := cmd.Start(); err == nil {
-					injected := injectManagedCookie(target, portFile)
-					o := map[string]any{"ok": true, "url": target, "mode": "default", "browser": label,
-						"launcher": bin, "profile": "managed", "sessionInjected": injected,
-						"note": "系统默认浏览器 + CLI 专用配置，已注入 Keychain 会话，无需二次登录"}
-					if a.JSON {
-						return a.printJSON(o)
-					}
-					if injected {
-						fmt.Printf("已用系统默认浏览器（%s，已注入登录态）打开：%s\n", label, target)
-					} else {
-						fmt.Printf("已用系统默认浏览器（%s）打开：%s（未注入会话，可能需要登录）\n", label, target)
-					}
-					return nil
-				}
-			}
+			return a.openManagedBrowser(bin, label, "default", target)
 		}
 		cmd, launcher, err := defaultBrowserCommand(target)
 		if err != nil {
 			return err
 		}
-		cmd.Stdout, cmd.Stderr = nil, nil
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("启动默认浏览器失败：%w", err)
 		}
+		_ = cmd.Process.Release()
 		if a.JSON {
 			return a.printJSON(map[string]any{
-				"ok": true, "url": target, "mode": "default", "launcher": launcher, "sessionInjected": false,
-				"note": "该默认浏览器不是 Chromium 内核，无法安全注入 cookie；如未登录请在页面内登录一次",
+				"ok": true, "url": target, "mode": "default", "launcher": launcher,
+				"profile": "system", "sessionInjected": false, "debugPortEnabled": false,
+				"note": "通过系统默认浏览器打开；CLI 不注入会话、不启用调试端口，登录状态由浏览器自身决定",
 			})
 		}
-		fmt.Printf("已用系统默认浏览器打开：%s\n", target)
-		fmt.Println("提示：该浏览器不是 Chromium 内核，无法注入登录态；如未登录请在页面内登录一次，或使用 shimo-net open（专用配置已注入）。")
+		fmt.Printf("已用系统默认浏览器打开：%s（CLI 未注入会话，登录状态由浏览器自身决定）\n", target)
 		return nil
 	}
-
 	chrome, err := findChrome()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(profilePath(), 0o700); err != nil {
+	return a.openManagedBrowser(chrome, "Chromium", "managed", target)
+}
+
+// openManagedBrowser leaves only a normal, non-debuggable browser running.
+// It never copies the CLI cookie into this persistent user-facing profile.
+func (a *App) openManagedBrowser(binary, label, mode, target string) error {
+	// Keep this separate from the legacy login/debug profile: Chromium can
+	// otherwise forward a non-debug launch into an already-running CDP process.
+	profile := filepath.Join(stateDir(), "open-profile")
+	if err := os.MkdirAll(profile, 0o700); err != nil {
 		return err
 	}
-	portFile := filepath.Join(profilePath(), "DevToolsActivePort")
-	_ = os.Remove(portFile)
-	cmd := exec.Command(chrome, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--user-data-dir="+profilePath(), "--remote-debugging-port=0", target)...)
-	cmd.Stdout, cmd.Stderr = nil, nil
+	if _, err := os.Lstat(filepath.Join(profile, "DevToolsActivePort")); err == nil {
+		return errors.New("open 专用配置检测到调试端口标记；请先关闭使用该配置的浏览器并核查后再打开，本次未启动")
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	cmd := exec.Command(binary, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--user-data-dir="+profile, target)...)
 	if err := cmd.Start(); err != nil {
-		return err
+		return fmt.Errorf("启动浏览器失败：%w", err)
 	}
-	injected := injectManagedCookie(target, portFile)
-	o := map[string]any{"ok": true, "url": target, "profile": profilePath(), "sessionInjected": injected,
-		"note": "用 CLI 专用浏览器打开；已从 Keychain 注入会话时无需重新登录"}
+	_ = cmd.Process.Release()
 	if a.JSON {
-		return a.printJSON(o)
+		return a.printJSON(map[string]any{
+			"ok": true, "url": target, "mode": mode, "browser": label,
+			"launcher": binary, "profile": profile, "sessionInjected": false, "debugPortEnabled": false,
+			"note": "使用 CLI 独立持久配置打开；不注入 CLI 会话、不启用调试端口，需使用此配置自身的登录状态",
+		})
 	}
-	fmt.Printf("已用登录态浏览器打开：%s\n", target)
+	fmt.Printf("已用浏览器（%s，CLI 独立持久配置）打开：%s\n", label, target)
+	fmt.Println("未注入 CLI 会话，未启用调试端口；若此配置未登录，请在页面登录。")
 	return nil
 }
 
-// injectManagedCookie upgrades the CLI-managed browser launch into an
-// authenticated page when a Keychain/file session is available. The browser
-// process is intentionally left running for the user or agent to operate.
-// A failure to attach CDP is non-fatal: the page remains open and the caller
-// can use its own browser login flow.
-func injectManagedCookie(target, portFile string) bool {
-	cookie, err := authCookie()
-	if err != nil || !sameCookieHost(target) {
-		return false
-	}
-	port, err := waitDevToolsPort(portFile, 10*time.Second)
-	if err != nil {
-		return false
-	}
-	wsURL, err := waitPageTarget(port, target)
-	if err != nil {
-		return false
-	}
-	ws, err := dialWS(wsURL)
-	if err != nil {
-		return false
-	}
-	defer ws.Close()
-	if _, err := ws.Call(1, "Network.enable", nil, 5*time.Second); err != nil {
-		return false
-	}
-	if _, err := ws.Call(2, "Page.enable", nil, 5*time.Second); err != nil {
-		return false
-	}
-	if err := setCookies(ws, target, cookie); err != nil {
-		return false
-	}
-	_, _ = ws.Call(3, "Page.reload", map[string]any{"ignoreCache": true}, 10*time.Second)
-	time.Sleep(1200 * time.Millisecond)
-	return true
-}
-
 // defaultChromiumBinary returns the system default browser when it is a
-// Chromium-family browser that can accept a DevTools session injection.
+// Chromium-family browser that supports a separate user-data directory.
 func defaultChromiumBinary() (string, string) {
 	switch runtime.GOOS {
 	case "darwin":
