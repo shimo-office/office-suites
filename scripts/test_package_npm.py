@@ -214,10 +214,13 @@ class NpmLauncherTests(unittest.TestCase):
             shim = prefix / ('shimo-net.cmd' if os.name == 'nt' else 'bin/shimo-net')
             self.assertTrue(shim.is_file())
             if os.name == 'nt':
-                command = ['cmd.exe', '/d', '/s', '/c', f'""{shim}" --version"']
+                # Pass cwd separately: embedding a quoted absolute path inside
+                # /c gets quoted again by subprocess.list2cmdline on Windows.
+                # The real npm shim still has to handle its spaced directory.
+                command = ['cmd.exe', '/d', '/c', 'shimo-net.cmd', '--version']
             else:
                 command = [str(shim), '--version']
-            launched = subprocess.run(command, capture_output=True, timeout=15)
+            launched = subprocess.run(command, cwd=prefix, capture_output=True, timeout=15)
             self.assertEqual(launched.returncode, 0, launched.stderr.decode(errors='replace'))
             self.assertEqual(launched.stdout, subprocess.check_output([NODE, '--version']))
 

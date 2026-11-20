@@ -14,7 +14,7 @@ examples_en:
   - "Search Shimo for the file named 'Quarterly Plan' and return its link."
   - "Write the timetable to Sheet1 A1:C3 and open the page to verify it."
   - "List my subscribed files and open one to review its latest update."
-version: 0.9.18
+version: 0.9.19
 author: shimo-office
 ---
 
