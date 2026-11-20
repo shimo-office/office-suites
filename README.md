@@ -1,25 +1,39 @@
-# shimo-net
+<h1 align="center">shimo-net</h1>
 
-在终端和 AI 助手中使用石墨：搜索文件、读取文档、管理目录和编辑表格。支持 **shimo.net** 与客户私有部署。
+<p align="center">
+  <strong>在终端和 AI 助手中使用石墨办公</strong><br />
+  搜索文件 · 读取文档 · 管理目录 · 编辑表格<br />
+  支持 shimo.net 与客户私有部署
+</p>
 
-[![npm](https://img.shields.io/npm/v/shimo-net-cli)](https://www.npmjs.com/package/shimo-net-cli)
-[![Release](https://img.shields.io/github/v/release/shimo-office/office-suites?label=release)](https://github.com/shimo-office/office-suites/releases)
-[![CI](https://github.com/shimo-office/office-suites/actions/workflows/ci.yml/badge.svg)](https://github.com/shimo-office/office-suites/actions/workflows/ci.yml)
+<p align="center">
+  <a href="https://www.npmjs.com/package/shimo-net-cli"><img src="https://img.shields.io/npm/v/shimo-net-cli?color=cb3837&amp;labelColor=334155" alt="npm 版本" /></a>
+  <a href="https://github.com/shimo-office/office-suites/releases"><img src="https://img.shields.io/github/v/release/shimo-office/office-suites?label=release&amp;color=2563eb&amp;labelColor=334155" alt="GitHub Release" /></a>
+  <a href="https://github.com/shimo-office/office-suites/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/shimo-office/office-suites/ci.yml?branch=main&amp;label=CI&amp;labelColor=334155" alt="CI 状态" /></a>
+</p>
 
-[安装](#安装) · [快速开始](#快速开始) · [常用命令](#常用命令) · [AI 助手](#在-ai-助手中使用) · [文档](#文档)
+<p align="center">
+  <a href="#安装">安装</a> · <a href="#快速开始">快速开始</a> · <a href="#常用命令">常用命令</a> · <a href="#在-ai-助手中使用">AI 助手</a> · <a href="#文档">文档</a>
+</p>
 
 ## 能做什么
 
-- **文件管理**：搜索文件和空间，上传、导入、下载，新建和改名。
-- **内容处理**：读取文档正文，读写表格数据，执行已支持的编辑操作。
-- **脚本与 AI 助手**：通过 `--json` 获取结构化结果，使用 Skill 接入办公任务。
-- **私有部署**：切换石墨服务地址，按当前账号权限访问文件。
+<p align="center">
+  <picture>
+    <source media="(max-width: 600px)" srcset="docs/images/readme/capabilities-mobile.png" />
+    <img src="docs/images/readme/capabilities.png" width="960" alt="shimo-net 能力概览：文件管理、内容读取、表格处理、文稿与演示、AI 助手和私有部署" />
+  </picture>
+</p>
 
 具体操作与支持范围见 [场景清单](docs/scenarios.md) 和 [命令参考](docs/cli-reference.md)。
 
 ## 安装
 
-推荐使用 npm，适用于 macOS、Linux 和 Windows。需要 Node.js 18+，建议使用受支持的 LTS 版本。
+选择适合你的安装方式：已有 Node.js 可用 npm；macOS/Linux 可用 curl 配置 CLI 与助手；也可直接下载原生程序。
+
+### npm · macOS / Linux / Windows
+
+需要 Node.js 18+，建议使用受支持的 LTS 版本。
 
 ```bash
 npm install -g shimo-net-cli --registry=https://registry.npmjs.org
@@ -27,6 +41,21 @@ shimo-net version
 ```
 
 npm 包名是 `shimo-net-cli`，安装后的命令是 **`shimo-net`**。包内已包含完整程序，安装后无需再从 GitHub 下载运行程序。
+
+### curl · macOS / Linux
+
+下载一键配置脚本，以 Codex 为例：
+
+```bash
+curl -fL --retry 2 --connect-timeout 20 \
+  https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh \
+  -o shimo-net-bootstrap.sh &&
+bash shimo-net-bootstrap.sh codex
+```
+
+可将 `codex` 换成 `workbuddy`、`dsh` 或 `doubao`。脚本下载 CLI、初始化服务地址并检查登录；Codex/DSH 会配置对应技能。安装目录为 `~/.local/bin`，PATH 设置与各助手的后续步骤见 [curl 一键配置](docs/install.md#curl-一键配置)。
+
+### 更多方式
 
 | 其他安装方式 | 适用情况 | 说明 |
 |---|---|---|

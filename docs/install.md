@@ -29,6 +29,28 @@ shimo-net schema --json
 
 npm 包包含各平台完整程序，安装后无需再从 GitHub 下载运行程序。更新、指定版本、项目内安装和卸载见 [npm 安装指南](npm.md)。
 
+### curl 一键配置
+
+macOS/Linux 可从正式 Release 下载脚本并执行；不需要预先安装 Node.js 或 Go：
+
+```bash
+curl -fL --retry 2 --connect-timeout 20 \
+  https://github.com/shimo-office/office-suites/releases/latest/download/bootstrap.sh \
+  -o shimo-net-bootstrap.sh &&
+bash shimo-net-bootstrap.sh codex
+```
+
+`codex` 可替换为 `workbuddy`、`dsh` 或 `doubao`。脚本下载当前系统的 CLI，初始化服务地址、检查登录，并在需要时打开登录窗口。Codex/DSH 会安装对应技能；WorkBuddy 的技能安装仍按 [WorkBuddy 教程](agent/workbuddy.md) 完成。
+
+程序安装在 `~/.local/bin/shimo-net`。如果该目录不在 PATH，完成后在当前终端执行：
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+shimo-net version
+```
+
+长期使用时将该目录加入终端的 PATH 配置。仅需要安装程序、不需要助手配置时，可选择 npm 或下面的原生程序下载方式。
+
 ### 直接下载原生程序
 
 不使用 Node.js 或 Go 时，从 [GitHub Releases](https://github.com/shimo-office/office-suites/releases/latest) 下载对应文件：
