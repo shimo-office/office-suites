@@ -1,6 +1,6 @@
 # 命令参考
 
-安装、账号切换与环境排错见 [安装说明](install.md)，办公话术和执行方式见 [场景清单](scenarios.md)。本页描述当前源码的命令参数与返回约定；对应源码版本为 0.9.18；是否已发布须核对 Release，实际可用动作以本机 `shimo-net schema --json` 为准。历史 v0.9.15 同号构建的区别见 [来源记录](internal/release-provenance.md)。
+安装、账号切换与环境排错见 [安装说明](install.md)，办公话术和执行方式见 [场景清单](scenarios.md)。本页描述当前源码的命令参数与返回约定；对应源码版本为 0.9.19；是否已发布须核对 Release，实际可用动作以本机 `shimo-net schema --json` 为准。历史 v0.9.15 同号构建的区别见 [来源记录](internal/release-provenance.md)。
 
 `editor` 是编辑器接口与页面入口的公开命令；旧命令 `phase2` 保留为兼容别名，使用相同实现和参数。现有脚本无需改写，新增示例统一使用公开命令。
 
