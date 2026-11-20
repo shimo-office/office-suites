@@ -1,8 +1,16 @@
 # 命令参考
 
-安装、账号切换与环境排错见 [安装说明](install.md)，办公话术和执行方式见 [场景清单](scenarios.md)。本页描述当前源码的命令参数与返回约定；对应源码版本为 0.9.19；是否已发布须核对 Release，实际可用动作以本机 `shimo-net schema --json` 为准。历史 v0.9.15 同号构建的区别见 [来源记录](internal/release-provenance.md)。
+**中文** | [English](en/cli-reference.md) · [文档导航](README.md)
+
+本页供终端用户、脚本开发者和 Agent 查参数。用 AI 助手时无需记命令，先看[一句话安装与使用](agent/README.md)；想知道可以怎么提需求，见[办公场景](scenarios.md)。
+
+安装、账号切换与排错见[安装说明](install.md)。本页对应源码版本 0.9.19，实际可用动作以本机 `shimo-net schema --json` 为准。
 
 `editor` 是编辑器接口与页面入口的公开命令；旧命令 `phase2` 保留为兼容别名，使用相同实现和参数。现有脚本无需改写，新增示例统一使用公开命令。
+
+## 按任务查阅
+
+[配置与诊断](#配置与诊断) · [文件与目录](#api文件与目录) · [常用位置](#别名) · [编辑器接口](#编辑器接口与页面入口) · [打开页面](#打开页面) · [扩展编辑](#固定文稿幻灯片应用表格和表单动作) · [退出码与恢复](#json退出码与失败恢复)
 
 ## 通用约定
 
@@ -77,11 +85,11 @@ shimo-net <command> [位置参数] [--option value] [--json]
 ## @别名
 
 ```bash
-shimo-net fav add project https://shimo.net/folder/<guid> --note "项目归档"
-shimo-net fav list
-shimo-net fav show project
+shimo-net fav add project "https://shimo.net/folder/<guid>" --note "项目归档" --json
+shimo-net fav list --json
+shimo-net fav show project --json
 shimo-net ls @project --json
-shimo-net fav rm project
+shimo-net fav rm project --json
 ```
 
 `fav add <别名> <链接或guid> [--note 说明]` 保存本地位置；`list/show/rm` 分别列出、查看、删除别名。别名支持中英文、数字、下划线和短横线，最长 40 字。`favorites.json` 只包含位置与说明，不含账号凭据。

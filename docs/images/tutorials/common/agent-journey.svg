@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1050" viewBox="0 0 720 1050"><rect width="720" height="1050" rx="24" fill="#f8fafc"/><g font-family="PingFang SC, Microsoft YaHei, sans-serif">
+<text x="40" y="64" font-size="32" font-weight="700" fill="#0f172a">从一句话安装，到自然语言办公</text>
+<text x="40" y="103" font-size="21" fill="#64748b">shimo-net · Agent 使用流程</text>
+<rect x="32" y="140" width="656" height="174" rx="18" fill="white" stroke="#e2e8f0"/>
+<rect x="54" y="163" width="50" height="44" rx="12" fill="#2563eb"/>
+<text x="79" y="194" text-anchor="middle" font-size="24" font-weight="700" fill="white">01</text>
+<text x="122" y="194" font-size="28" font-weight="700" fill="#0f172a">打开你的 AI 助手</text>
+<text x="54" y="244" font-size="24" fill="#334155">选择本地任务和常用工作目录。</text>
+<text x="54" y="283" font-size="23" fill="#64748b">WorkBuddy · Codex · DSH · 豆包工作</text>
+<path d="M360 324v17m-7-7 7 7 7-7" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="32" y="351" width="656" height="174" rx="18" fill="white" stroke="#e2e8f0"/>
+<rect x="54" y="374" width="50" height="44" rx="12" fill="#7c3aed"/>
+<text x="79" y="405" text-anchor="middle" font-size="24" font-weight="700" fill="white">02</text>
+<text x="122" y="405" font-size="28" font-weight="700" fill="#0f172a">发一句话，Agent 自动准备</text>
+<text x="54" y="455" font-size="24" fill="#334155">发送安装请求，Agent 检查并安装 CLI。</text>
+<text x="54" y="494" font-size="23" fill="#64748b">接入技能、处理路径并验证是否可用。</text>
+<path d="M360 535v17m-7-7 7 7 7-7" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="32" y="562" width="656" height="174" rx="18" fill="white" stroke="#e2e8f0"/>
+<rect x="54" y="585" width="50" height="44" rx="12" fill="#0891b2"/>
+<text x="79" y="616" text-anchor="middle" font-size="24" font-weight="700" fill="white">03</text>
+<text x="122" y="616" font-size="28" font-weight="700" fill="#0f172a">你完成必要的登录或授权</text>
+<text x="54" y="666" font-size="24" fill="#334155">有提示时，在石墨网页完成登录。</text>
+<text x="54" y="705" font-size="23" fill="#64748b">Agent 随后验证账号；已登录则跳过。</text>
+<path d="M360 746v17m-7-7 7 7 7-7" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="32" y="773" width="656" height="174" rx="18" fill="white" stroke="#e2e8f0"/>
+<rect x="54" y="796" width="50" height="44" rx="12" fill="#059669"/>
+<text x="79" y="827" text-anchor="middle" font-size="24" font-weight="700" fill="white">04</text>
+<text x="122" y="827" font-size="28" font-weight="700" fill="#0f172a">直接说你要做什么</text>
+<text x="54" y="877" font-size="24" fill="#334155">“找到季度报告，总结重点并附链接。”</text>
+<text x="54" y="916" font-size="23" fill="#64748b">Agent 执行并核对，返回真实结果。</text>
+<text x="360" y="1020" text-anchor="middle" font-size="19" fill="#64748b">操作流程示意 · 非客户端截图</text></g></svg>

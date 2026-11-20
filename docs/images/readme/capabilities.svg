@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+<title id="title">shimo-net 能力概览</title>
+<desc id="desc">文件管理、内容读取、表格处理、文稿与演示、AI 助手和私有部署。此图为能力示意，不是实际操作截图。</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f8fafc"/><stop offset="1" stop-color="#eef2ff"/></linearGradient></defs>
+<rect width="1200" height="650" rx="24" fill="url(#bg)"/>
+<g font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">
+<text x="48" y="46" font-size="13" font-weight="700" letter-spacing="2" fill="#64748b">SHIMO-NET / CAPABILITIES</text>
+<text x="48" y="100" font-size="36" font-weight="700" fill="#0f172a">从找到文件，到处理内容</text>
+<text x="48" y="134" font-size="18" fill="#64748b">一个 CLI，连接终端、AI 助手与石墨办公。</text>
+<rect x="1010" y="65" width="142" height="36" rx="18" fill="#e0e7ff"/>
+<text x="1081" y="89" text-anchor="middle" font-size="14" font-weight="600" fill="#4338ca">能力概览</text>
+<g transform="translate(48 172)">
+<rect width="360" height="158" rx="16" fill="#fff" stroke="#e2e8f0"/>
+<rect x="20" y="20" width="42" height="42" rx="12" fill="#2563eb" fill-opacity="0.08"/>
+<g transform="translate(25 24)" fill="none" stroke="#2563eb" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h7l3 3h16v16H3z M3 8V5h9l3 3"/></g>
+<text x="76" y="49" font-size="22" font-weight="700" fill="#0f172a">文件管理</text>
+<text x="20" y="96" font-size="19" fill="#334155">搜索文件与空间</text>
+<text x="20" y="128" font-size="16" fill="#64748b">上传 · 导入 · 下载 · 新建</text></g>
+<g transform="translate(420 172)">
+<rect width="360" height="158" rx="16" fill="#fff" stroke="#e2e8f0"/>
+<rect x="20" y="20" width="42" height="42" rx="12" fill="#0d9488" fill-opacity="0.08"/>
+<g transform="translate(25 24)" fill="none" stroke="#0d9488" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h12l7 7v20H8z M20 3v8h7 M12 17h11 M12 22h9"/></g>
+<text x="76" y="49" font-size="22" font-weight="700" fill="#0f172a">内容读取</text>
+<text x="20" y="96" font-size="19" fill="#334155">把石墨内容带入工作流</text>
+<text x="20" y="128" font-size="16" fill="#64748b">文档正文 · 表格数据 · JSON</text></g>
+<g transform="translate(792 172)">
+<rect width="360" height="158" rx="16" fill="#fff" stroke="#e2e8f0"/>
+<rect x="20" y="20" width="42" height="42" rx="12" fill="#7c3aed" fill-opacity="0.08"/>
+<g transform="translate(25 24)" fill="none" stroke="#7c3aed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h27v25H3z M3 13h27 M3 21h27 M12 5v25 M21 5v25"/></g>
+<text x="76" y="49" font-size="22" font-weight="700" fill="#0f172a">表格处理</text>
+<text x="20" y="96" font-size="19" fill="#334155">从数据录入到格式整理</text>
+<text x="20" y="128" font-size="16" fill="#64748b">读写单元格 · 行操作 · 合并</text></g>
+<g transform="translate(48 346)">
+<rect width="360" height="158" rx="16" fill="#fff" stroke="#e2e8f0"/>
+<rect x="20" y="20" width="42" height="42" rx="12" fill="#ea580c" fill-opacity="0.08"/>
+<g transform="translate(25 24)" fill="none" stroke="#ea580c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h28v20H3z M17 25v6 M11 31h12 M8 11h11 M8 16h17"/></g>
+<text x="76" y="49" font-size="22" font-weight="700" fill="#0f172a">文稿与演示</text>
+<text x="20" y="96" font-size="19" fill="#334155">处理已支持的页面编辑</text>
+<text x="20" y="128" font-size="16" fill="#64748b">文稿排版 · 幻灯片内容</text></g>
+<g transform="translate(420 346)">
+<rect width="360" height="158" rx="16" fill="#fff" stroke="#e2e8f0"/>
+<rect x="20" y="20" width="42" height="42" rx="12" fill="#db2777" fill-opacity="0.08"/>
+<g transform="translate(25 24)" fill="none" stroke="#db2777" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 11 11 4-11 4-4 11-4-11-11-4 11-4z"/></g>
+<text x="76" y="49" font-size="22" font-weight="700" fill="#0f172a">AI 助手</text>
+<text x="20" y="96" font-size="19" fill="#334155">用自然语言发起办公任务</text>
+<text x="20" y="128" font-size="16" fill="#64748b">WorkBuddy · Codex · 脚本</text></g>
+<g transform="translate(792 346)">
+<rect width="360" height="158" rx="16" fill="#fff" stroke="#e2e8f0"/>
+<rect x="20" y="20" width="42" height="42" rx="12" fill="#475569" fill-opacity="0.08"/>
+<g transform="translate(25 24)" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h24v9H5z M5 20h24v9H5z M10 8h1 M10 24h1 M17 13v7"/></g>
+<text x="76" y="49" font-size="22" font-weight="700" fill="#0f172a">私有部署</text>
+<text x="20" y="96" font-size="19" fill="#334155">连接你的石墨办公环境</text>
+<text x="20" y="128" font-size="16" fill="#64748b">指定服务地址 · 按账号权限</text></g>
+<rect x="48" y="548" width="1104" height="58" rx="12" fill="#0f172a"/>
+<text x="70" y="584" font-size="17" font-family="SFMono-Regular, Menlo, monospace" fill="#a5b4fc">$</text>
+<text x="96" y="584" font-size="17" fill="#f8fafc">shimo-net search "季度报告" --json</text>
+<text x="1128" y="584" text-anchor="end" font-size="14" fill="#94a3b8">终端 → CLI → 石墨</text>
+</g></svg>

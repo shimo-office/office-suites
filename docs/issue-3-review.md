@@ -12,7 +12,7 @@
 | N2 | editor 写请求或后续页面核验失败保留 mutationAttempted、mayHaveApplied、noReplay、阶段和 GUID。格式分步失败返回已受理属性及 failedAttribute；不把受理等同最终生效。 | [写入安全回归](../cli/issue3_write_safety_test.go) |
 | N3 | new/mkdir 已创建后读回失败返回 created:true、GUID 和禁止重放提示，避免误重建。 | [写入安全回归](../cli/issue3_write_safety_test.go) |
 | N4 | login --origin 与 init/config 共用探测后保存逻辑；HTTP/网络失败不覆盖旧配置，不进入登录。 | [认证回归](../cli/issue3_auth_browser_test.go) |
-| N5 | 本轮使用 0.9.18；明确 f2293db 与 e576fb9 历史上都自报 0.9.15，必须结合提交/哈希区分。修正旧“未发布/未关闭”文字，不覆写历史标签。 | [来源记录](internal/release-provenance.md)、[Issue #1 后续状态](issue-1-review.md) |
+| N5 | 业务修复先冻结于 0.9.18，正式发布为 0.9.19；明确 f2293db 与 e576fb9 历史上都自报 0.9.15，必须结合提交/哈希区分。修正旧“未发布/未关闭”文字，不覆写历史标签。 | [来源记录](internal/release-provenance.md)、[Issue #1 后续状态](issue-1-review.md) |
 | N6 | schema、场景和回归索引统一为已验收列明范围、37.2 保留；历史 81.35%/81.14% 不冒充新构建覆盖率。 | [schema 回归](../cli/schema_test.go)、[阶段记录](phase3-acceptance.md) |
 | N7 | 三期 XLSX/DOCX/PPTX 验证导出禁用格式兜底；普通下载保留原设计的回退，失败证据不再多导一份 PDF。 | [写入与导出回归](../cli/issue3_write_safety_test.go) |
 | N8 | 发现浏览器共用平台候选表，补齐 Linux Edge、Windows Chromium；显示实际名称。Windows 默认 HTTPS 处理程序可识别时仅执行浏览器路径及受控隔离参数，不执行注册命令中的附加参数。 | [浏览器回归](../cli/issue3_auth_browser_test.go) |
@@ -31,7 +31,7 @@
 
 测试使用独立状态目录、测试凭据服务标识、合成 HTTP/CDP 响应及受控子进程。真实二进制的帮助/未知参数可在空状态目录验证无文件变动；不会用生产文件制造失败。模拟服务的故障注入证明错误与重放处理，不等同重新执行全部线上办公场景。Windows 注册表解析/候选路径单测与交叉编译不等同原生桌面浏览器验收。
 
-首次 v0.9.18 标签的 Windows CI 在 npm 安装后的 `.cmd` 测试调用处失败（带空格路径被重复引号转义），发布门槛阻止了 Release 生成。0.9.19 修正测试为从带空格的隔离安装目录执行真实命令，保留安装/退出码/输出断言；业务修复逻辑未改，版本递增，不移动 v0.9.18 标签。最终 Windows 原生结果以新标签 Actions 为准。
+首次 v0.9.18 标签的 Windows CI 在 npm 安装后的 `.cmd` 测试调用处失败（带空格路径被重复引号转义），发布门槛阻止了 Release 生成。0.9.19 修正测试为从带空格的隔离安装目录执行真实命令，保留安装/退出码/输出断言；业务修复逻辑未改，版本递增，不移动 v0.9.18 标签。最终提交 971ad79 的 Linux / Windows CI 与 Release 门槛全部通过，语句覆盖率分别为 81.3% / 81.2%，Windows 实际 npm 命令入口测试通过；Linux govulncheck 未发现可达漏洞，CodeQL 检查通过。
 
 ## 测试隔离事件
 

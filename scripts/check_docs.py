@@ -1,12 +1,31 @@
 #!/usr/bin/env python3
 """Check maintained documentation links and migration/distribution contracts."""
 from pathlib import Path
+from html.parser import HTMLParser
 import re
 import subprocess
 import sys
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class HTMLTargets(HTMLParser):
+    """Collect navigation and image targets used by GitHub Markdown."""
+
+    def __init__(self):
+        super().__init__()
+        self.targets = []
+
+    def handle_starttag(self, tag, attrs):
+        for name, value in attrs:
+            if not value:
+                continue
+            if name in ('href', 'src'):
+                self.targets.append(value)
+            elif name == 'srcset':
+                self.targets.extend(item.strip().split()[0]
+                                    for item in value.split(',') if item.strip())
 
 
 def tracking_errors(root, paths):
@@ -23,6 +42,9 @@ def link_errors(page):
     text = re.sub(r'(?ms)^\s*(`{3,}|~{3,}).*?^\s*\1\s*$', '', text)
     targets = re.findall(r'!?\[[^\]\n]*\]\((<[^>]+>|[^)]+)\)', text)
     targets += re.findall(r'(?m)^\s*\[[^\]]+\]:\s*(<[^>]+>|\S+)', text)
+    html = HTMLTargets()
+    html.feed(text)
+    targets += html.targets
     errors = []
     for raw in targets:
         target = raw.strip()
@@ -46,13 +68,19 @@ def check(root=ROOT):
     required = ['docs/README.md', 'docs/install.md', 'docs/cli-reference.md',
                 'docs/scenarios.md', 'docs/agent/SKILL.md',
                 'docs/internal/capabilities.json', 'docs/internal/capability-matrix.md',
-                'docs/internal/test-results.md', 'LICENSE']
+                'docs/internal/test-results.md', 'LICENSE', 'README.en.md']
+    required += [f'docs/en/{name}.md' for name in
+                 ('README', 'install', 'npm', 'cli-reference', 'scenarios',
+                  'agent/README', 'agent/workbuddy', 'agent/codex', 'agent/dsh', 'agent/doubao')]
     errors = [f'missing canonical document {name}' for name in required if not (root / name).is_file()]
-    pages = [root / name for name in ('README.md', 'SECURITY.md', 'CHANGELOG.md')]
+    pages = [root / name for name in ('README.md', 'README.en.md', 'SECURITY.md', 'CHANGELOG.md')]
     pages += sorted((root / 'docs').rglob('*.md')) + sorted((root / 'cli').glob('*.md'))
     errors.extend(tracking_errors(root, sorted(set(required + [p.relative_to(root).as_posix() for p in pages]))))
     for page in pages:
-        errors.extend(link_errors(page))
+        if page.is_file():
+            errors.extend(link_errors(page))
+        else:
+            errors.append(f'missing document {page}')
     redirects = ['cli/README.md', 'cli/SKILL.md', 'cli/scenarios.md', 'cli/安装使用说明.md',
                  'docs/internal-capability-matrix.md', 'docs/internal-capability-test-results.md']
     redirects += [f'docs/tutorials/{name}.md' for name in ('README','workbuddy','codex','dsh','doubao','validation','browser')]

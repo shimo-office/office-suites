@@ -1,68 +1,37 @@
-# WorkBuddy × 石墨办公：第一个可核对结果
+# WorkBuddy 接入说明
 
-适用于 shimo.net 及客户私有部署。教程配图是既有界面示意，不代表本轮重新实测；历史客户端版本和结果见[连通记录](validation.md)。
+**简体中文** · [English](../en/agent/workbuddy.md) · [助手入门](README.md)
 
-## 1. 打开宿主
+本页只说明 WorkBuddy 的入口和接入范围。安装请求、登录和第一个任务统一见[四步教程](README.md)。
 
-打开已安装的 WorkBuddy 桌面端，新建任务。CLI 或技能已经可用时直接复用，不重复安装。
+<a id="第-1-步打开助手"></a>
 
-## 2. 检查 CLI
+## 打开本地任务
 
-先运行：
+打开 WorkBuddy 桌面端，新建本地任务并选择常用工作目录。
 
-```bash
-shimo-net version
-shimo-net doctor --json
-```
+## 接入范围
 
-缺少 CLI 时使用[安装说明](../install.md)中的 macOS/Linux 或 Windows 步骤；已有可用版本就继续。私有部署按该文档设置 origin，不要把客户地址写成通用默认值。
+Agent 优先复用已安装并启用的技能；缺失时通过客户端支持的方式接入。项目技能仅对对应项目生效，换项目后需要重新检查；不把项目安装当成所有任务可用。
 
-## 3. 检查会话
+## 内置预览展示，操作按能力选择
 
-先执行 `shimo-net whoami --json`。仅在没有已存凭据时尝试复用浏览器会话；已有会话过期或 origin 不匹配时不自动换号，按[登录与会话](../install.md)处理。切账号必须执行 `shimo-net login --new`，`logout` 后再普通 `login` 可能仍复用原账号。不要把账号或 cookie 发进任务。
+文件链接优先在 WorkBuddy 内置浏览器或预览面板展示。**只能预览也可以**：能操作就直接用内置工具；不能操作就使用当前实际可用的 Computer Use / Browser Use 控制外部浏览器，尽量复用同一会话。具体能力以当前工具为准，不能仅凭产品名称判断。完整规则见[浏览器优先级](../scenarios.md#浏览器优先级)。
 
-## 4. 接入技能或本机工具
+例如“把幻灯片背景改成黄色，删除最后一页”：先展示原文件，再在可操作的浏览器中确认页数与修改范围，执行、等待保存并核对，最后复用内置预览展示同一文件。新建文档或导入成功后，同样展示服务返回的真实链接。预览不可用时提供可点击链接；不为展示先导出 PDF，也不把旧预览当成保存成功的证据。
 
-现有安装记录使用 **SkillHub** 入口；WorkBuddy 开放平台是另一条独立上架与审核流程，不能把一边的上传成功当作另一边已上架。打开 [SkillHub 分享页](https://www.workbuddy.cn/share/asset?extra_from=&resource_type=link&shareCode=cs261116r5dG5qMyyGQqvMFkG0pjYT&share_way=link&sig=lXMg0jOdaNQCDJnv)，安装后在“已安装”中确认启用；不要上传旧路径的兼容跳转文件。
+加载慢时在实际操作页面有界等待，不反复刷新或重开。若仍频繁开关窗口，检查 Agent 调用、工具会话是否退出，以及当前生效的 Skill 是否包含“先选执行通道，再检查 CLI”。CLI 不管理 WorkBuddy 或其他浏览器工具的空闲回收；按实际工具文档处理，不猜超时设置，也不手动搬运 cookie。CLI 的页面命令会另开浏览器，使用外部 Computer Use 时也不必调用它们。
 
-`agent-browser` 是独立的浏览器工具，不是 shimo-net-cli 技能，也不是 WorkBuddy 自带面板；只有[浏览器规则](../scenarios.md#浏览器优先级)要求且用户同意时才启用。是否可调用 `present_files` 等内置入口，以当前宿主实际工具为准。
+仓库更新不会自动替换已安装技能或当前会话读过的指令；由 Agent 更新并重新读取当前生效的技能，保留用户自定义内容，不反复重装 CLI。
 
-维护者分别上架两个平台：SkillHub 使用 `shimo-net-cli-v<版本>-skillhub.zip`（最多 200 文件、10 MB）；WorkBuddy 开放平台的技能入口使用 `shimo-net-cli-v<版本>-workbuddy.zip`（ZIP 不超过 3 MB）。从 [GitHub Release](https://github.com/shimo-office/office-suites/releases/latest) 选择对应产物，不要上传整仓 `Source code (zip)`。两包包含技能定义、`LICENSE.md`、系统调用脚本和本地关键参考资料；完整 CLI 按系统下载固定版本并校验哈希，见 [运行与首次使用](runtime.md)。上传解析不等于通过审核或客户端实测。
+<a id="第-2-步发送安装请求"></a>
+<a id="第-3-步按需登录或授权"></a>
 
-发布流程自动生成双包。本地先准备六个平台的已核对发行二进制，再运行 `python3 scripts/package_skillhub.py --tag v<版本> --assets-dir <二进制目录> --target both`，结果位于 `dist/`；脚本只读取二进制哈希，不把二进制放入技能 ZIP。
+## 开始使用
 
-![SkillHub 技能入口示意](../images/tutorials/workbuddy/real-installed.jpg)
+纯页面任务按上节先展示，再选择可操作的浏览器。需要完整 CLI/API 接入时，将[通用安装请求](README.md#第-2-步把这段话发给-agent)发给当前助手；Agent 核对 **程序可运行、技能已接入、CLI 账号可用** 后，再执行对应 API 任务。
 
-## 5. 执行第一个任务
+<a id="第-4-步用自然语言完成第一个任务"></a>
+<a id="遇到问题"></a>
 
-把下面的话发给 WorkBuddy：
-
-```text
-请检查 SkillHub 版 shimo-net-cli 是否已安装并启用，再用 shimo-net 执行 whoami --json。仅根据实际结果回复是否连通，不要输出账号明细。
-```
-
-只有实际命令成功才能报告连通；截图中的旧版本或示例文字不能代替本次返回值。
-
-![WorkBuddy 连通结果示意](../images/tutorials/workbuddy/real-whoami.jpg)
-
-## 6. 核对一个真实文件
-
-提供当前账号有权限访问的文件链接，再发：
-
-```text
-用 shimo-net info <链接> 返回名称、文件类型和文件链接；逐项依据实际返回，不要显示账号信息。
-```
-
-确认三项来自目标文件，返回的链接可打开。无需为了连通验收创建或改写业务文件。
-
-页面任务按[浏览器优先级](../scenarios.md#浏览器优先级)处理，不在本教程维护第二套顺序。判断当前宿主的实际工具，不能把某一旧版本的能力当成所有版本的结论。
-
-## 7. 继续使用业务场景
-
-找文件、创建文件夹、读写表格和页面编辑均从[唯一场景清单](../scenarios.md)进入；动作参数和退出码见[命令参考](../cli-reference.md)。表格底色使用 `editor --action sheet-format` 的 `attrs.background`，不能因教程沿用旧图就退回相反流程。
-
-## 常见问题
-
-- 找不到命令：按[安装与环境检查](../install.md)确认 PATH 和 `doctor` 结果。
-- 401、未登录或需要切账号：按[安装说明](../install.md)检查本机会话；换账号使用 `login --new`，不是 `logout` 后普通 `login`。
-- 页面未加载或截图为空：等待真实编辑器就绪后重试只读核验；若写入可能已受理，先读回，不重复提交。
+下一步：[第一个任务](README.md#第-4-步直接说你想做什么) · [常见问题](README.md#下次使用与常见问题) · [办公场景](../scenarios.md)。
