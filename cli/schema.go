@@ -32,16 +32,16 @@ func schema() map[string]any {
 		{"name": "phase2", "usage": "shimo-net phase2 …", "aliasOf": "editor", "desc": "editor 的兼容命令别名"},
 		{"name": "purge", "usage": "shimo-net purge <链接>", "desc": "按设计拒绝；彻底删除须到网页回收站人工操作"},
 		{"name": "version", "usage": "shimo-net version [--json]", "desc": "输出 CLI 版本"},
-		{"name": "phase3", "usage": "shimo-net phase3 <链接|guid|@别名> --action <动作> [--payload JSON] [--read-range 工作表!A1:D4] [--out 目录] [--verify]", "desc": "三期实施中：固定文稿/幻灯片/应用表格/表单动作，逐项验收状态另列；artifact 仅检查本地包结构"},
+		{"name": "phase3", "usage": "shimo-net phase3 <链接|guid|@别名> --action <动作> [--payload JSON] [--read-range 工作表!A1:D4] [--out 目录] [--verify]", "desc": "三期列明范围已验收，37.2 关联字段保留；逐项证据另列，artifact 仅检查本地包结构"},
 		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "limit 限制扫描文件数，仅对扫描到的订阅文件排序；可打开浏览器"},
 		{"name": "session", "usage": "shimo-net session <status|harvest> [--no-save]", "desc": "查看登录态来源；显式从本机 Chromium 系浏览器复用登录态"},
 		{"name": "whoami", "usage": "shimo-net whoami [--json]", "desc": "当前账号"},
 		{"name": "doctor", "usage": "shimo-net doctor [--json]", "desc": "自检（运行时/Chrome/凭据/origin）"},
 	}
-	editor := map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActionsMeaning": "historically exercised API routes, not verification of the current invocation", "browserRequiredActions": []string{"mentions-list", "comments-list"}, "verifiedActions": []string{"mentions-list", "comments-list", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "sheet-append", "sheet-insert", "sheet-delete"}, "pageOnlyActions": keys(phase2PageOnlyActions), "transport": "same-origin-api", "fallback": "按 docs/scenarios.md#浏览器优先级 选择宿主能力；内置浏览器优先，外部浏览器需用户授权"}
+	editor := map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActionsMeaning": "historically exercised API routes, not verification of the current invocation", "browserRequiredActions": []string{"mentions-list", "comments-list", "history-show", "history-hide", "comments-show", "comments-hide"}, "verifiedActions": []string{"mentions-list", "comments-list", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "sheet-append", "sheet-insert", "sheet-delete"}, "pageOnlyActions": keys(phase2PageOnlyActions), "transport": "same-origin-api", "fallback": "按 docs/scenarios.md#浏览器优先级 选择宿主能力；内置浏览器优先，外部浏览器需用户授权"}
 	return map[string]any{
 		"name": "shimo-net", "version": version, "transport": "cli", "runtime": "go",
-		"auth":       map[string]any{"login": "shimo-net login", "whoami": "shimo-net whoami", "storage": "macOS Keychain / Windows Credential Manager", "service": keychainService, "envOverride": "SHIMO_NET_COOKIE"},
+		"auth":       map[string]any{"login": "shimo-net login", "whoami": "shimo-net whoami", "storage": "macOS Keychain / Windows Credential Manager; fallback: 0600 credentials.json (Linux uses file storage)", "service": keychainService, "envOverride": "SHIMO_NET_COOKIE"},
 		"origin":     map[string]any{"default": defaultOrigin, "envOverride": "SHIMO_NET_ORIGIN", "configFile": configPath(), "commands": []string{"init", "config show", "config set <url>"}},
 		"favorites":  map[string]any{"file": favPath(), "use": "@别名", "commands": []string{"fav list", "fav add", "fav rm", "fav show"}},
 		"commands":   cmds,
@@ -51,7 +51,7 @@ func schema() map[string]any {
 		"editor": editor,
 		"phase2": editor,
 		"phase3": map[string]any{
-			"status": "implementation-in-progress", "requiredScenes": "29–42", "requiredCapabilities": 28,
+			"status": "accepted-with-deferred-capability", "deferredCapability": "37.2", "acceptanceScope": "historical listed samples; not verification of the current invocation", "requiredScenes": "29–42", "requiredCapabilities": 28,
 			"readOnlyActions":    []string{"document-layout-inspect", "table-inspect", "form-inspect", "form-draft", "form-results", "slide-inspect", "slide-design-inspect"},
 			"viewActions":        []string{"document-goto", "form-preview", "form-respondent"},
 			"exportActions":      []string{"slide-print-pdf"},

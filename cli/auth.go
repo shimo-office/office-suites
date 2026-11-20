@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -221,37 +220,23 @@ func chromeLaunchArgs(extra ...string) []string {
 }
 
 func findChrome() (string, error) {
-	paths := []string{
-		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-		"/Applications/Chromium.app/Contents/MacOS/Chromium",
-		"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-		"/usr/bin/google-chrome", "/usr/bin/google-chrome-stable",
-		"/usr/bin/chromium", "/usr/bin/chromium-browser", "/snap/bin/chromium",
-	}
-	if runtime.GOOS == "windows" {
-		for _, base := range []string{os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)"), os.Getenv("LOCALAPPDATA")} {
-			if base == "" {
-				continue
-			}
-			paths = append(paths,
-				filepath.Join(base, `Google\Chrome\Application\chrome.exe`),
-				filepath.Join(base, `Microsoft\Edge\Application\msedge.exe`))
+	for _, kind := range []string{"chrome", "chromium", "edge"} {
+		if binary := browserBinary(kind); binary != "" {
+			return binary, nil
 		}
 	}
-	for _, p := range paths {
-		if st, err := os.Stat(p); err == nil && !st.IsDir() {
-			return p, nil
-		}
-	}
-	return "", errors.New("没找到 Chrome/Chromium/Edge，请先安装 Google Chrome")
+	return "", errors.New("没找到 Chrome/Chromium/Edge，请先安装其中一种浏览器")
 }
 
 func (a *App) cmdLogin() error {
+	if explicitNoBrowser(a) {
+		return errors.New("当前设置禁止启动浏览器；本次未登录、未探测或保存网址、未读取浏览器会话")
+	}
 	if os.Getenv("SHIMO_NET_COOKIE") != "" {
 		return errors.New("SHIMO_NET_COOKIE 正在覆盖本机账号；请先取消该环境变量再登录/切换账号，或用 whoami 核验环境会话")
 	}
 	if v := a.opt("--origin"); v != "" {
-		if err := a.setOrigin(v); err != nil {
+		if _, err := a.validateAndSaveOrigin(v); err != nil {
 			return err
 		}
 	}
@@ -291,7 +276,7 @@ func (a *App) cmdLogin() error {
 		"--user-data-dir="+loginProfile, "--remote-debugging-port=0", "--remote-debugging-address=127.0.0.1",
 		"--app="+a.Origin+"/login")
 	fmt.Printf("产品网址：%s\n", terminalText(a.Origin))
-	fmt.Printf("正在打开 Chromium 浏览器，请在窗口里用你自己的账号登录 %s…\n", terminalText(a.Origin))
+	fmt.Printf("正在打开 %s 浏览器，请在窗口里用你自己的账号登录 %s…\n", browserLabelForBinary(chrome), terminalText(a.Origin))
 	cmd := exec.Command(chrome, args...)
 	cmd.Stdout, cmd.Stderr = nil, nil
 	if err := cmd.Start(); err != nil {
@@ -338,7 +323,10 @@ func (a *App) cmdLogin() error {
 		res, err := ws.Call(id, "Network.getAllCookies", nil, 8*time.Second)
 		id++
 		if err == nil {
-			cookies := cookiesForOrigin(res, a.Origin)
+			cookies, cookieErr := loginCookiesForOrigin(res, a.Origin)
+			if cookieErr != nil {
+				return cookieErr
+			}
 			if len(cookies) > 0 {
 				cookie := strings.Join(cookies, "; ")
 				if me, err := a.usersMeWithCookie(cookie); err == nil {

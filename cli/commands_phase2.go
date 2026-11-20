@@ -127,6 +127,9 @@ func (a *App) cmdPhase2() error {
 		}
 		if err == nil && shot != "" && cliBrowserVerification(a) {
 			_, err = phase2RunBrowser(target, "browser.verify", nil, shot)
+			if err != nil && action != "sheet-values" {
+				return phase2MutationFailure(err, guid, "verify", map[string]any{"action": action, "result": value, "verified": false})
+			}
 		}
 	} else {
 		// Page actions cannot be proven without a browser and a non-blank
@@ -272,11 +275,14 @@ func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
 		requestBody = payload
 	}
 	r, err := a.authRequestPath(path, httpMethod, requestBody, nil, nil)
-	if err != nil {
-		return nil, err
+	if err == nil && (r.Status < 200 || r.Status >= 300) {
+		err = fmt.Errorf("表格 API 失败：HTTP %d %s", r.Status, snippet(r.Raw))
 	}
-	if r.Status < 200 || r.Status >= 300 {
-		return nil, fmt.Errorf("表格 API 失败：HTTP %d %s", r.Status, snippet(r.Raw))
+	if err != nil {
+		if httpMethod != "GET" {
+			return nil, phase2MutationFailure(err, guid, "write", nil)
+		}
+		return nil, err
 	}
 	if len(r.Raw) == 0 || r.Status == 204 {
 		return map[string]any{"status": r.Status}, nil
@@ -321,15 +327,33 @@ func (a *App) runSheetFormat(guid string, args []any) (any, error) {
 	for _, key := range keys {
 		body := map[string]any{"range": rangeValue, "attrs": map[string]any{key: attrs[key]}}
 		r, err := a.authRequestPath("/lizard-api/files/"+url.PathEscape(guid)+"/sheets/attrs", "POST", body, nil, nil)
-		if err != nil {
-			return nil, err
+		if err == nil && (r.Status < 200 || r.Status >= 300) {
+			err = fmt.Errorf("sheet-format 设置 %s 失败：HTTP %d %s", key, r.Status, snippet(r.Raw))
 		}
-		if r.Status < 200 || r.Status >= 300 {
-			return nil, fmt.Errorf("sheet-format 设置 %s 失败：HTTP %d %s", key, r.Status, snippet(r.Raw))
+		if err != nil {
+			accepted := "无"
+			if len(applied) > 0 {
+				accepted = strings.Join(applied, ", ")
+			}
+			err = fmt.Errorf("设置属性 %s 失败；此前 API 已受理的属性：%s（仍需读回核对）：%w", key, accepted, err)
+			return nil, phase2MutationFailure(err, guid, "write", map[string]any{
+				"action": "sheet-format", "range": rangeValue, "applied": applied, "failedAttribute": key,
+			})
 		}
 		applied = append(applied, key)
 	}
 	return map[string]any{"range": rangeValue, "applied": applied}, nil
+}
+
+// A failed write response or later verification cannot prove the mutation did
+// not happen. Preserve accepted results and stop whole-command retries.
+func phase2MutationFailure(err error, guid, stage string, detail map[string]any) error {
+	result := map[string]any{"guid": guid, "stage": stage, "mutationAttempted": true,
+		"mayHaveApplied": true, "noReplay": true, "originalError": err.Error()}
+	for key, value := range detail {
+		result[key] = value
+	}
+	return &commandError{Message: "写入已提交或可能已提交；请先只读核对，禁止自动重放：" + err.Error(), Result: result, NoReplay: true}
 }
 
 func phase2ObjectArg(args []any) (map[string]any, error) {
@@ -392,6 +416,10 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	if !sameCookieHost(target) {
 		return nil, errors.New("浏览器编辑目标与配置的 origin 不一致；本次未执行")
 	}
+	cookie, err := authCookie()
+	if err != nil {
+		return nil, fmt.Errorf("浏览器会话读取失败，未执行页面动作：%w", err)
+	}
 	chrome, err := findChrome()
 	if err != nil {
 		return nil, err
@@ -437,10 +465,8 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	// cookie value is never included in command output or error messages.
 	// Never send the stored session to a different host supplied on the
 	// command line. Private deployments use their configured origin here.
-	if cookie, err := authCookie(); err == nil {
-		if err := setCookies(ws, target, cookie); err == nil {
-			_, _ = ws.Call(102, "Page.reload", map[string]any{"ignoreCache": true}, 10*time.Second)
-		}
+	if err := initializePhase2Session(ws, target, cookie); err != nil {
+		return nil, err
 	}
 	// A screenshot taken before the editor mounts is a blank white image and
 	// must not be accepted as visual proof.  Wait for a real document body
@@ -561,6 +587,17 @@ func waitDevToolsPort(path string, timeout time.Duration) (int, error) {
 		time.Sleep(150 * time.Millisecond)
 	}
 	return 0, errors.New("浏览器没有启动调试端口")
+}
+
+func initializePhase2Session(ws *WSConn, target, cookie string) error {
+	if err := setCookies(ws, target, cookie); err != nil {
+		// CDP errors may echo cookie parameters; never print their raw message.
+		return errors.New("浏览器会话注入失败；未执行页面动作，请检查登录状态和浏览器连接")
+	}
+	if _, err := ws.Call(102, "Page.reload", map[string]any{"ignoreCache": true}, 10*time.Second); err != nil {
+		return errors.New("浏览器会话已注入，但刷新页面失败；未执行页面动作，请检查浏览器连接")
+	}
+	return nil
 }
 
 func setCookies(ws *WSConn, target, raw string) error {

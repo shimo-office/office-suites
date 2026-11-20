@@ -27,7 +27,12 @@ func (a *App) uploadFile(local, parent string) (map[string]any, error) {
 	if r.Status != 200 {
 		return nil, fmt.Errorf("上传失败：HTTP %d %s", r.Status, snippet(r.Raw))
 	}
-	m, _ := r.Data.(map[string]any)
+	m, ok := r.Data.(map[string]any)
+	guid, validGUID := m["guid"].(string)
+	if !ok || !validGUID || strings.TrimSpace(guid) == "" {
+		return nil, &commandError{Message: "上传请求已返回，但响应缺少有效文件 guid；文件可能已上传，请先核对目标目录，禁止自动重放",
+			Result: map[string]any{"stage": "upload-response", "mutationAttempted": true, "mayHaveApplied": true, "noReplay": true}, NoReplay: true}
+	}
 	return m, nil
 }
 
@@ -209,7 +214,9 @@ func (a *App) cmdNew() error {
 	guid := m[2]
 	info, err := a.fileInfo(guid)
 	if err != nil {
-		return err
+		return &commandError{Message: fmt.Sprintf("已创建文件（guid %s），但读取信息失败；请核对该文件，禁止自动重放创建：%v", guid, err),
+			Result: map[string]any{"stage": "readback", "created": true, "guid": guid, "name": name,
+				"mutationAttempted": true, "noReplay": true}, NoReplay: true}
 	}
 	o := map[string]any{"ok": true, "name": str(info, "name"), "guid": guid, "type": str(info, "type"),
 		"typeLabel": typeLabel(info), "url": a.urlOf(withGUID(info, guid)), "shareMode": str(info, "shareMode")}
@@ -246,7 +253,9 @@ func (a *App) cmdMkdir() error {
 	guid := m[1]
 	info, err := a.fileInfo(guid)
 	if err != nil {
-		return err
+		return &commandError{Message: fmt.Sprintf("已创建文件（guid %s），但读取信息失败；请核对该文件，禁止自动重放创建：%v", guid, err),
+			Result: map[string]any{"stage": "readback", "created": true, "guid": guid, "name": name,
+				"mutationAttempted": true, "noReplay": true}, NoReplay: true}
 	}
 	o := map[string]any{"ok": true, "name": firstNonEmpty(str(info, "name"), name), "guid": guid, "type": "folder",
 		"typeLabel": "文件夹", "url": a.urlOf(withGUID(info, guid)), "parent": parent}

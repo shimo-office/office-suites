@@ -1,17 +1,38 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestSchemaPhase3DoesNotClaimFullDelivery(t *testing.T) {
 	p, ok := schema()["phase3"].(map[string]any)
-	if !ok || p["status"] != "implementation-in-progress" {
-		t.Fatal("phase3 must explicitly report incomplete implementation")
+	if !ok || p["status"] != "accepted-with-deferred-capability" || p["deferredCapability"] != "37.2" {
+		t.Fatal("phase3 must distinguish accepted scope from deferred association fields")
 	}
 	if p["requiredCapabilities"] != 28 || p["automaticMutationReplay"] != false {
 		t.Fatal("phase3 scope or replay contract missing")
 	}
 	if p["localArtifactScope"] != "package structure only; actionVerified=false" {
 		t.Fatal("local artifact validation must not imply action acceptance")
+	}
+}
+
+func TestSchemaDisclosesBrowserAndCredentialRequirements(t *testing.T) {
+	s := schema()
+	storage := s["auth"].(map[string]any)["storage"].(string)
+	if !strings.Contains(storage, "0600") {
+		t.Fatal("credential file fallback is missing")
+	}
+	actions := s["editor"].(map[string]any)["browserRequiredActions"].([]string)
+	for _, want := range []string{"mentions-list", "comments-list", "history-show", "history-hide", "comments-show", "comments-hide"} {
+		found := false
+		for _, action := range actions {
+			found = found || action == want
+		}
+		if !found {
+			t.Errorf("browser requirement missing for %s", want)
+		}
 	}
 }
 

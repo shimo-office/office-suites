@@ -17,7 +17,7 @@ func (a *App) phase3OfficeExport(guid, dir, kind string) (ArtifactEvidence, erro
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return ArtifactEvidence{}, err
 	}
-	got, err := a.downloadOne(withGUID(info, guid), dir)
+	got, err := a.downloadOne(withGUID(info, guid), dir, kind)
 	if err != nil {
 		return ArtifactEvidence{}, err
 	}
