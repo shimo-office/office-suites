@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="#安装">安装</a> · <a href="#快速开始">快速开始</a> · <a href="#常用命令">常用命令</a> · <a href="#在-ai-助手中使用">AI 助手</a> · <a href="#文档">文档</a>
+  <a href="#让-agent-一句话安装">Agent 一句话安装</a> · <a href="#安装">安装方式</a> · <a href="#快速开始">快速开始</a> · <a href="#常用命令">常用命令</a> · <a href="#在-ai-助手中使用">AI 助手</a> · <a href="#文档">文档</a>
   <br />
   <a href="#使用许可">使用许可</a> · <a href="https://github.com/shimo-office/office-suites/blob/main/SECURITY.md">安全策略</a>
 </p>
@@ -39,7 +39,17 @@
 
 ## 安装
 
-选择适合你的安装方式：已有 Node.js 可用 npm；macOS/Linux 可用 curl 配置 CLI 与助手；也可直接下载原生程序。
+可以让 Agent 帮你安装，也可以自己使用 npm、curl 或下载原生程序。
+
+### 让 Agent 一句话安装
+
+把下面这句话复制给能访问网络并执行本机命令的 AI 助手（如 Codex、WorkBuddy、DSH 或豆包工作）：
+
+```text
+请按 https://github.com/shimo-office/office-suites/blob/main/docs/install.md 帮我安装 shimo-net，并按其中的 Agent 教程配置当前助手的 shimo-net-cli 技能；先检查已有安装，避免重复配置，完成后实际运行 shimo-net version 和 shimo-net whoami --json 验证，只报告版本及是否连通，需要我在网页登录或手动安装技能时再提示我。
+```
+
+需要登录时，由你在网页完成，不用把密码或 cookie 发给助手。客户私有部署请在话术后补充石墨服务地址；安装步骤见 [安装指南](docs/install.md)，各助手的技能配置见 [接入教程](docs/agent/README.md)。
 
 ### npm · macOS / Linux / Windows
 
