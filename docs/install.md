@@ -1,6 +1,18 @@
 # 安装、登录与环境
 
-`shimo-net` 原生程序是 Go 单二进制，不需要 Python 或 Node；使用 npm 包的命令入口时需要 Node.js 18+（建议受支持的 LTS）。命令参数见 [命令参考](cli-reference.md)，Agent 接入见 [文档导航](README.md)。
+**在 AI 助手里使用？** 从 [一句话接入](agent/README.md) 开始。安装程序、配置技能、处理命令路径和检查连通都交给 Agent；你只需按提示完成网页登录或必要授权，之后直接用自然语言操作石墨。
+
+本页供想自己使用终端的用户，以及执行自动安装的 Agent 查阅。下面的命令不需要每个人手动执行。
+
+| 你现在要做什么 | 从哪里开始 |
+|---|---|
+| 让 Agent 帮我装好并接入技能 | [Agent 接入教程](agent/README.md) |
+| 自己安装命令行工具 | [选择安装方式](#安装) |
+| 连接公司的私有部署 | [设置服务地址](#初始化与私有部署) |
+| 登录或换一个石墨账号 | [登录与切账号](#登录复用会话与切账号) |
+| 安装或使用时遇到问题 | [FAQ](#faq) |
+
+`shimo-net` 原生程序不需要 Python 或 Node；使用 npm 包入口时需要 Node.js 18+（建议受支持的 LTS）。安装后的命令统一为 `shimo-net`，完整参数见 [命令参考](cli-reference.md)。
 
 ## 环境要求
 
@@ -17,6 +29,15 @@
 
 ## 安装
 
+选一种即可，不需要依次执行全部方式。npm 与原生程序负责安装 CLI；在 Agent 中使用时，技能由 Agent 继续配置。
+
+| 方式 | 适用情况 | 完成后得到什么 |
+|---|---|---|
+| [npm](#从-npm-安装) | 已有 Node.js 18+，支持三种系统 | 可直接调用的 `shimo-net` 命令 |
+| [curl 配置脚本](#curl-一键配置) | macOS/Linux，希望同时初始化并检查登录 | CLI、服务地址和登录检查；技能范围见下文 |
+| [原生程序](#直接下载原生程序) | 不使用 Node.js 或 Go | 当前系统对应的独立程序 |
+| [仓库安装器](#从仓库安装) | 已克隆仓库，或需要本地构建 | 从源码构建或从 Release 下载的程序 |
+
 ### 从 npm 安装
 
 已有 Node.js 18+ / npm 时，安装 npm 已发布的最新版本：
@@ -27,7 +48,7 @@ shimo-net version
 shimo-net schema --json
 ```
 
-npm 包包含各平台完整程序，安装后无需再从 GitHub 下载运行程序。更新、指定版本、项目内安装和卸载见 [npm 安装指南](npm.md)。
+npm 包包含各平台完整程序，安装后无需再从 GitHub 下载运行程序。看到真实版本号后，继续 [登录石墨](#登录复用会话与切账号)；使用 AI 助手时由 Agent 完成登录检查和技能接入。npm 本身不安装技能。更新、指定版本、项目内安装和卸载见 [npm 安装指南](npm.md)。
 
 ### curl 一键配置
 
@@ -40,7 +61,9 @@ curl -fL --retry 2 --connect-timeout 20 \
 bash shimo-net-bootstrap.sh codex
 ```
 
-`codex` 可替换为 `workbuddy`、`dsh` 或 `doubao`。脚本下载当前系统的 CLI，初始化服务地址、检查登录，并在需要时打开登录窗口。Codex/DSH 会安装对应技能；WorkBuddy 的技能安装仍按 [WorkBuddy 教程](agent/workbuddy.md) 完成。
+`codex` 可替换为 `workbuddy`、`dsh` 或 `doubao`。脚本下载当前系统的 CLI，初始化服务地址、检查登录，并在需要时打开登录窗口，由你完成登录。
+
+当前脚本会把技能写到 `~/.codex/skills/shimo-net-cli/` 或 `~/.dsh/skills/shimo-net-cli/`，但不安装 WorkBuddy 或豆包的技能。Agent 必须按当前宿主实际加载的目录继续接入并核对生效情况；例如新版 Codex 的技能目录与旧目录可能不同。完整流程见 [Agent 接入教程](agent/README.md)。脚本运行成功不等于当前助手已经加载技能。
 
 程序安装在 `~/.local/bin/shimo-net`。如果该目录不在 PATH，完成后在当前终端执行：
 
@@ -95,17 +118,19 @@ cd office-suites
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-有 Go 时安装器构建当前源码，否则下载 GitHub Releases 的最新平台二进制。macOS/Linux 入口为 `~/.local/bin/shimo-net`，Windows 为 `%LOCALAPPDATA%\shimo-net\shimo-net.exe`。安装器检测到 DSH 目录时安装通用技能；WorkBuddy 使用 SkillHub 版技能，见 [对应教程](agent/workbuddy.md)。
+有 Go 时安装器构建当前源码，否则下载 GitHub Releases 的最新平台二进制。macOS/Linux 入口为 `~/.local/bin/shimo-net`，Windows 为 `%LOCALAPPDATA%\shimo-net\shimo-net.exe`。安装器检测到 DSH 目录时安装通用技能；其他宿主的技能由 Agent 按 [接入教程](agent/README.md) 配置。
 
 ### Agent 一键配置
 
-已有 CLI 或宿主已安装技能时直接复用。需要配置新环境时，macOS/Linux 可在仓库内执行：
+想直接交给 Agent 完成全部配置，请使用 [一句话接入](agent/README.md)。下面是供 Agent 或终端用户选择的脚本入口，不是额外必做步骤。
+
+Agent 应先检查已有 CLI 与技能；可用时直接复用，避免重复安装。确实需要脚本配置时，macOS/Linux 可在仓库内执行：
 
 ```bash
 bash bootstrap.sh codex  # 也可选择 workbuddy、dsh、doubao
 ```
 
-脚本会下载发行包、初始化网址、检查登录。它不替代 WorkBuddy 的 SkillHub 技能安装。完整宿主步骤见 [Agent 教程](README.md)。
+脚本的具体行为与技能范围见 [curl 一键配置](#curl-一键配置)。默认 `latest` 会重新下载程序，不能把反复运行脚本当作检查已安装状态的方法。Agent 仍需完成当前宿主的技能接入、命令路径处理和实际连通验证。
 
 ### 源码构建与本地开发
 
@@ -120,22 +145,28 @@ shimo-net schema --json
 
 ## 初始化与私有部署
 
+使用 shimo.net 公有云无需准备额外地址；私有部署用户把公司的石墨网址告诉 Agent 即可，由 Agent 完成以下配置。终端用户可自行执行，并将示例中的客户域名替换为实际地址。
+
 ```bash
 shimo-net init                          # 默认 https://shimo.net
-shimo-net init --origin https://<客户域名>
+shimo-net init --origin "https://<客户域名>"
 shimo-net config show
-shimo-net config set https://<客户域名>
+shimo-net config set "https://<客户域名>"
 ```
 
 `init`、`config set` 和 `login --origin` 都先探测 `GET /api/v1/auth/register/is_new`，只接受 200 JSON、401 或 403，成功后才保存 origin；失败保留旧配置。HTTP 401 只能证明接口可达，不能证明登录成功。普通登录过期无需重跑 `init`。临时覆盖环境使用：
 
 ```bash
-SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami --json
+SHIMO_NET_ORIGIN="https://<客户域名>" shimo-net whoami --json
 ```
 
 PowerShell 使用 `$env:SHIMO_NET_ORIGIN = 'https://<客户域名>'`。环境变量优先于配置文件，切换域名后需要核对该域名的账号权限。`config clear` 只清理网址配置。
 
 ## 登录、复用会话与切账号
+
+Agent 会检查登录状态，并在需要时启动登录流程。你在弹出的石墨网页完成登录后，告诉 Agent“已登录”，由它继续验证。已有可用会话时可以直接进入任务，不必重复登录。
+
+以下为 Agent 执行或终端用户自行操作的命令：
 
 ```bash
 shimo-net login
@@ -178,6 +209,8 @@ shimo-net whoami --json
 凭据优先级、风险与清理边界见 [安全策略](../SECURITY.md)。卸载时先执行 `shimo-net logout`，再删除已安装二进制；是否清理状态目录与已安装技能由用户选择。不要把状态目录或 cookie 提交到仓库。
 
 ## FAQ
+
+在 Agent 中遇到问题，可以直接说“请检查并修复石墨连接”，并附上错误提示。下面的检查由 Agent 执行；涉及登录、组织权限或安全确认时，再按提示配合。
 
 | 现象 | 处理 |
 |---|---|

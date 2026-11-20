@@ -43,13 +43,21 @@
 
 ### 让 Agent 一句话安装
 
-把下面这句话复制给能访问网络并执行本机命令的 AI 助手（如 Codex、WorkBuddy、DSH 或豆包工作）：
+把下面这段话复制给能访问网络并执行本机命令的 AI 助手（如 Codex、WorkBuddy、DSH 或豆包工作）：
 
 ```text
-请按 https://github.com/shimo-office/office-suites/blob/main/docs/install.md 帮我安装 shimo-net，并按其中的 Agent 教程配置当前助手的 shimo-net-cli 技能；先检查已有安装，避免重复配置，完成后实际运行 shimo-net version 和 shimo-net whoami --json 验证，只报告版本及是否连通，需要我在网页登录或手动安装技能时再提示我。
+请帮我安装并配置 shimo-net，按这份说明执行：
+https://github.com/shimo-office/office-suites/blob/main/docs/agent/setup.md
+请自动接入当前助手的技能并验证连通，已有可用安装就复用。
+完成后让我直接用自然语言操作石墨。
 ```
 
-需要登录时，由你在网页完成，不用把密码或 cookie 发给助手。客户私有部署请在话术后补充石墨服务地址；安装步骤见 [安装指南](docs/install.md)，各助手的技能配置见 [接入教程](docs/agent/README.md)。
+Agent 会完成安装、技能接入和环境检查。你只需在提示时完成网页登录或授权，之后直接说要做什么。客户私有部署请在话术后补充石墨服务地址。
+
+第一次使用可跟着[四步图文教程](docs/agent/README.md)操作，或直接选择 [WorkBuddy](docs/agent/workbuddy.md) · [Codex](docs/agent/codex.md) · [DSH](docs/agent/dsh.md) · [豆包工作](docs/agent/doubao.md)。
+
+<details>
+<summary>自己在终端安装：npm · curl · 原生程序</summary>
 
 ### npm · macOS / Linux / Windows
 
@@ -73,7 +81,7 @@ curl -fL --retry 2 --connect-timeout 20 \
 bash shimo-net-bootstrap.sh codex
 ```
 
-可将 `codex` 换成 `workbuddy`、`dsh` 或 `doubao`。脚本下载 CLI、初始化服务地址并检查登录；Codex/DSH 会配置对应技能。安装目录为 `~/.local/bin`，PATH 设置与各助手的后续步骤见 [curl 一键配置](docs/install.md#curl-一键配置)。
+可将 `codex` 换成 `workbuddy`、`dsh` 或 `doubao`。脚本下载 CLI、初始化服务地址并检查登录；Codex/DSH 会写入脚本预设的技能目录，仍需核对当前助手是否加载。安装目录为 `~/.local/bin`，PATH 设置与各助手的后续步骤见 [curl 一键配置](docs/install.md#curl-一键配置)。
 
 ### 更多方式
 
@@ -85,19 +93,33 @@ bash shimo-net-bootstrap.sh codex
 
 更新、指定版本安装和卸载见 [npm 安装指南](docs/npm.md)；完整平台说明见 [安装文档](docs/install.md)。
 
+</details>
+
 ## 快速开始
 
-登录石墨并搜索一个文件：
+Agent 确认配置可用后，直接发：
 
-```bash
-shimo-net login
-shimo-net whoami --json
-shimo-net search "季度报告" --json
+```text
+帮我在石墨里找到“季度报告”，先列出文件名和链接；我选好后，再总结主要内容和待办事项。
 ```
 
-没有可复用的登录状态时，CLI 会打开登录窗口，由你完成登录。客户私有部署请先按 [服务地址配置](docs/install.md#初始化与私有部署) 设置域名。
+你会得到基于真实文件的结果。找到多份时先选文件，没有权限时 Agent 会说明。之后可以继续说：
+
+| 你想做什么 | 直接对 Agent 说 |
+|---|---|
+| 阅读文档 | “总结这份文档的五个重点，并附上原文链接。” |
+| 下载文件 | “把这份文件下载到当前工作目录。” |
+| 创建周报 | “在这个文件夹新建一份名为本周周报的文稿。” |
+| 整理表格 | “把这个表格工作表1的 A1:C1 设为蓝底白字，完成后核对。” |
+
+提供对应文件或文件夹链接即可；更多例子见[办公场景](docs/scenarios.md)。
 
 ## 常用命令
+
+Agent 用户无需手动执行以下命令；它们供终端用户和脚本调用。
+
+<details>
+<summary>展开终端命令示例</summary>
 
 将下面的 `<文档链接>` 或 `<文件链接>` 替换为你有权限访问的石墨链接。
 
@@ -116,28 +138,29 @@ shimo-net doctor --json
 
 更多文件、表格和编辑命令见 [命令参考](docs/cli-reference.md)。
 
+</details>
+
 ## 在 AI 助手中使用
 
-安装 CLI 并完成登录后，为助手配置 [shimo-net-cli Skill](docs/agent/SKILL.md)，即可用自然语言发起任务，例如：
-
-> 帮我在石墨里找到“季度报告”，读取正文并总结重点，附上原文链接。
+上面的安装请求已包含技能接入，无需再手动配置。[Skill](docs/agent/SKILL.md) 告诉 Agent 如何正确调用 CLI、处理登录并核对结果；日常使用直接说任务即可。
 
 按你使用的助手选择教程：[WorkBuddy](docs/agent/workbuddy.md) · [Codex](docs/agent/codex.md) · [DSH](docs/agent/dsh.md) · [豆包工作](docs/agent/doubao.md)。
 
-需要导入技能 ZIP 时，从 [Release](https://github.com/shimo-office/office-suites/releases/latest) 选择对应平台的 `skillhub.zip` 或 `workbuddy.zip` 结尾的资源；CLI 安装与技能配置的区别见 [运行与首次使用](docs/agent/runtime.md)。
+技能会按宿主安装到用户或项目范围，或在当前任务读取说明；Agent 会说明生效范围。换电脑、助手或项目后，让它检查并补齐配置。使用平台技能包时，版本和运行器由 Agent 按[运行说明](docs/agent/runtime.md)处理。
 
 ## 文档
 
 | 你想了解 | 文档 |
 |---|---|
-| 安装、登录、切账号与私有部署 | [安装指南](docs/install.md) |
+| 第一次用 Agent 操作石墨 | [四步图文教程](docs/agent/README.md) |
+| 自己安装、登录、切账号与私有部署 | [安装指南](docs/install.md) |
 | npm 安装、更新和卸载 | [npm 指南](docs/npm.md) |
 | 具体参数与示例 | [命令参考](docs/cli-reference.md) |
 | 办公场景与使用范围 | [场景清单](docs/scenarios.md) |
 | 新版本变化 | [更新记录](CHANGELOG.md) |
 | 其他文档 | [文档目录](docs/README.md) |
 
-遇到问题可 [提交 Issue](https://github.com/shimo-office/office-suites/issues)，请附上 `shimo-net version`、操作系统和去除敏感信息后的错误输出。
+遇到问题先让 Agent 检查并继续原任务，常见情况见[排错话术](docs/agent/README.md#下次使用与常见问题)。仍无法解决时可[提交 Issue](https://github.com/shimo-office/office-suites/issues)，让 Agent 整理版本、操作系统和去除敏感信息后的错误信息。
 
 ## 安全与许可
 

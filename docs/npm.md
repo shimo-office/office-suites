@@ -1,5 +1,7 @@
 # 使用 npm 安装 shimo-net
 
+在 AI 助手中使用时，直接从 [一句话接入](agent/README.md) 开始，由 Agent 完成安装、技能配置和验证。本页是自行使用终端或 Agent 自动执行时的 npm 参考。
+
 npm 包名是 [`shimo-net-cli`](https://www.npmjs.com/package/shimo-net-cli)，安装后的命令是 **`shimo-net`**。支持 macOS、Linux、Windows 的 x64 / ARM64，需要 Node.js 18+（建议受支持的 LTS）。
 
 包内包含各平台完整程序，安装和首次运行均无需再从 GitHub 下载运行程序。不使用 Node.js 时，可选择 [原生程序或其他安装方式](install.md#安装)。
@@ -11,7 +13,7 @@ npm install -g shimo-net-cli --registry=https://registry.npmjs.org
 shimo-net version
 ```
 
-安装后登录石墨：
+能输出真实版本号说明 CLI 可以启动。npm 只安装 CLI，不会自动安装助手技能或登录石墨；使用 Agent 时由它继续完成这两步。终端用户接着登录并尝试搜索：
 
 ```bash
 shimo-net login
@@ -19,9 +21,11 @@ shimo-net whoami --json
 shimo-net search "季度报告" --json
 ```
 
-下载这个公开 npm 包无需注册或登录 npm；访问石墨文件需要你的石墨账号。私有部署、登录与切账号见 [安装说明](install.md)。
+下载这个公开 npm 包无需注册或登录 npm；访问石墨文件需要你的石墨账号。需要网页登录时，由你在浏览器中完成；`whoami` 成功后才表示账号已连通。私有部署、登录与切账号见 [安装说明](install.md)。
 
 ## 更新与指定版本
+
+使用 Agent 时可以说：“请更新 shimo-net，并检查技能版本和登录状态。”Agent 会先检查现有版本，再选择匹配的 CLI 与技能；以下是终端更新命令。
 
 更新到 npm 已发布的最新版本：
 
@@ -48,7 +52,7 @@ npm exec -- shimo-net version
 npm exec -- shimo-net --help
 ```
 
-后续同样通过 `npm exec -- shimo-net <命令>` 调用。这会在当前项目中添加 npm 依赖；技能宿主使用独立工作区时，按 [技能运行说明](agent/runtime.md) 配置。
+后续同样通过 `npm exec -- shimo-net <命令>` 调用。这会在当前项目中添加 npm 依赖；技能宿主使用独立工作区时，由 Agent 按 [技能运行说明](agent/runtime.md) 配置可持续使用的调用入口，用户继续用自然语言提需求。
 
 ## 卸载
 
@@ -67,6 +71,8 @@ npm uninstall shimo-net-cli
 卸载 npm 包不会自动清理石墨登录状态。若也要清除 CLI 保存的登录凭据，请在卸载前运行 `shimo-net logout`；它不会退出你的日常浏览器。数据位置见 [本地数据与卸载](install.md#本地数据与卸载)。
 
 ## 常见问题
+
+在 Agent 中出现以下问题时，把错误提示交给 Agent 处理即可；无需自己照表逐项运行命令。
 
 | 问题 | 处理 |
 |---|---|
