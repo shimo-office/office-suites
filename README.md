@@ -14,16 +14,26 @@
 
 <p align="center">
   <a href="#安装">安装</a> · <a href="#快速开始">快速开始</a> · <a href="#常用命令">常用命令</a> · <a href="#在-ai-助手中使用">AI 助手</a> · <a href="#文档">文档</a>
+  <br />
+  <a href="#使用许可">使用许可</a> · <a href="https://github.com/shimo-office/office-suites/blob/main/SECURITY.md">安全策略</a>
 </p>
 
 ## 能做什么
 
+| 文件与内容 | 编辑与协作 |
+|:---|:---|
+| **文件管理**<br />搜索、上传、下载与目录管理 | **表格处理**<br />读取数据、写入单元格与批量处理 |
+| **内容读取**<br />提取文档正文，供检索与总结 | **文稿与演示**<br />文稿排版与幻灯片内容编辑，范围见场景清单 |
+| **私有部署**<br />指定石墨服务地址，按账号权限操作 | **AI 助手**<br />搭配 Skill，用自然语言发起办公任务 |
+
+<details>
+<summary>查看能力概览图</summary>
+
 <p align="center">
-  <picture>
-    <source media="(max-width: 600px)" srcset="docs/images/readme/capabilities-mobile.png" />
-    <img src="docs/images/readme/capabilities.png" width="960" alt="shimo-net 能力概览：文件管理、内容读取、表格处理、文稿与演示、AI 助手和私有部署" />
-  </picture>
+  <img src="https://cdn.jsdelivr.net/gh/shimo-office/office-suites@f185192/docs/images/readme/capabilities.png" width="960" alt="shimo-net 能力概览：文件管理、内容读取、表格处理、文稿与演示、AI 助手和私有部署" />
 </p>
+
+</details>
 
 具体操作与支持范围见 [场景清单](docs/scenarios.md) 和 [命令参考](docs/cli-reference.md)。
 
@@ -123,4 +133,6 @@ shimo-net doctor --json
 
 CLI 按当前账号权限操作。权限变更、文件锁定、限制编辑和彻底删除由用户在石墨网页完成；CLI 删除只移入回收站。不要分享密码或 cookie，详见 [安全策略](SECURITY.md)。
 
-本仓库保留所有权利；分发或商业使用需获得授权，见 [LICENSE](LICENSE)。[了解石墨办公套件](https://shimo.net/products/office-suites)。
+### 使用许可
+
+本仓库保留所有权利；复制、修改、分发、再许可或商业使用须事先获得 shimo-office 团队的书面授权。完整条款见 [LICENSE](LICENSE)。[了解石墨办公套件](https://shimo.net/products/office-suites)。
