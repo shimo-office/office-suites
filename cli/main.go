@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const version = "0.9.17"
+const version = "0.9.18"
 
 func main() {
 	app := newApp(os.Args[1:])
@@ -26,14 +26,38 @@ type App struct {
 	Pos          []string
 	Flags        map[string]string
 	Bool         map[string]bool
+	parseErr     error
 }
 
 func newApp(args []string) *App {
 	a := &App{Flags: map[string]string{}, Bool: map[string]bool{}}
 	a.Cmd = "help"
+	// Help is a side-effect-free request, even after a command or a missing
+	// option value. An explicit -- terminates options and permits literal text.
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		if arg == "--help" || arg == "-h" {
+			return a
+		}
+	}
 	commandSeen := false
+	literal := false
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
+		if literal {
+			if !commandSeen {
+				a.Cmd, commandSeen = arg, true
+			} else {
+				a.Pos = append(a.Pos, arg)
+			}
+			continue
+		}
+		if arg == "--" {
+			literal = true
+			continue
+		}
 		if arg == "--json" {
 			a.JSON = true
 			continue
@@ -46,22 +70,29 @@ func newApp(args []string) *App {
 			a.Cmd, commandSeen = arg, true
 			continue
 		}
-		if arg == "--default" || arg == "--no-verify" || arg == "--no-browser" || arg == "--verify" {
+		if isBooleanOption(arg) {
 			a.Bool[arg] = true
 			continue
 		}
 		if strings.HasPrefix(arg, "--") {
 			name := arg
 			val := ""
+			hasEquals := strings.Contains(arg, "=")
 			if idx := strings.Index(arg, "="); idx >= 0 {
 				name, val = arg[:idx], arg[idx+1:]
 			}
-			if val == "" && i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+			if !hasEquals && i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
 				val = args[i+1]
 				i++
 			}
+			if !hasEquals && val == "" && a.parseErr == nil {
+				a.parseErr = usageError("参数 %s 缺少值", name)
+			}
 			a.Flags[name] = val
 			continue
+		}
+		if invalidShortOption(arg) && a.parseErr == nil {
+			a.parseErr = usageError("未知参数 %s；运行 shimo-net --help 查看用法", arg)
 		}
 		a.Pos = append(a.Pos, arg)
 	}
@@ -78,6 +109,9 @@ func (a *App) has(name string) bool {
 }
 
 func (a *App) Run() error {
+	if err := a.validateOptions(); err != nil {
+		return err
+	}
 	switch a.Cmd {
 	case "help", "--help", "-h":
 		fmt.Print(helpText())

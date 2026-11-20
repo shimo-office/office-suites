@@ -74,6 +74,8 @@ jobs:
           cp docs/agent/SKILL.md dist/SKILL.md
       - name: Package SkillHub and WorkBuddy uploads
         run: python3 scripts/package_skillhub.py --tag "$GITHUB_REF_NAME" --assets-dir dist --out-dir dist --target both
+      - name: Package self-contained npm distribution
+        run: python3 scripts/package_npm.py --tag "$GITHUB_REF_NAME" --assets-dir dist --out-dir dist
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: dist/*

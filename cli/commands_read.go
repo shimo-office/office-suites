@@ -303,7 +303,7 @@ func (a *App) listSpaces(limit int) ([]map[string]any, error) {
 		}
 		next := str(j, "next")
 		if next == "" {
-			break
+			return out, nil
 		}
 		if strings.HasPrefix(next, "?") {
 			path = "/files/spaces" + next
@@ -311,7 +311,7 @@ func (a *App) listSpaces(limit int) ([]map[string]any, error) {
 			path = "/files/spaces?" + next
 		}
 	}
-	return out, nil
+	return out, errors.New("空间列表分页超过安全上限，扫描未完成")
 }
 
 func (a *App) cmdSpaces() error {
@@ -374,71 +374,86 @@ func (a *App) ancestors(guid string) ([]map[string]any, error) {
 }
 
 func (a *App) listFolder(target string, limit int) ([]map[string]any, error) {
-	guid, err := a.resolveTarget(target)
+	out := []map[string]any{}
+	_, err := a.walkFolder(target, func(row map[string]any) bool {
+		out = append(out, row)
+		return limit <= 0 || len(out) < limit
+	})
 	if err != nil {
 		return nil, err
+	}
+	return out, nil
+}
+
+func folderNextURL(page map[string]any) string {
+	switch next := page["nextURL"].(type) {
+	case string:
+		return next
+	case map[string]any:
+		return firstNonEmpty(str(next, "url"), str(next, "nextURL"))
+	}
+	return ""
+}
+
+// walkFolder reports whether every page was visited. The visitor can stop at a
+// file budget without treating intervening folders as scanned files.
+func (a *App) walkFolder(target string, visit func(map[string]any) bool) (bool, error) {
+	guid, err := a.resolveTarget(target)
+	if err != nil {
+		return false, err
 	}
 	if guid == "" {
 		guid = "Desktop"
 	}
 	path := "/files?folder=" + url.QueryEscape(guid)
-	out := []map[string]any{}
 	for i := 0; i < 1000; i++ {
 		r, err := a.authRequest(path, "GET", nil, nil, nil)
 		if err != nil {
-			return nil, err
+			return false, err
 		}
 		if r.Status != 200 {
-			return nil, fmt.Errorf("读取文件夹失败：HTTP %d %s", r.Status, snippet(r.Raw))
+			return false, fmt.Errorf("读取文件夹失败：HTTP %d", r.Status)
 		}
 		j := asMap(r.Data)
-		for _, item := range asSlice(j["list"]) {
+		rows := asSlice(j["list"])
+		for index, item := range rows {
 			f := asMap(item)
 			isFolder := boolv(f, "isFolder")
-			out = append(out, map[string]any{
+			row := map[string]any{
 				"guid": str(f, "guid"), "name": str(f, "name"), "type": str(f, "type"),
 				"isFolder": isFolder, "isSpace": boolv(f, "isSpace"), "isCloudFile": boolv(f, "isCloudFile"),
 				"fileSize": f["fileSize"], "updatedAt": f["updatedAt"], "shareMode": str(f, "shareMode"),
 				"url": a.urlOf(withFolder(f, isFolder)),
-			})
-			if limit > 0 && len(out) >= limit {
-				return out, nil
+			}
+			if !visit(row) {
+				return index == len(rows)-1 && folderNextURL(j) == "", nil
 			}
 		}
-		next := ""
-		switch n := j["nextURL"].(type) {
-		case string:
-			next = n
-		case map[string]any:
-			next = str(n, "url")
-			if next == "" {
-				next = str(n, "nextURL")
-			}
-		}
+		next := folderNextURL(j)
 		if next == "" {
-			break
+			return true, nil
 		}
 		base, _ := url.Parse(strings.TrimRight(a.Origin, "/") + "/api/v1" + path)
 		ref, err := url.Parse(next)
 		if err != nil {
-			return nil, fmt.Errorf("文件夹分页链接无效：%w", err)
+			return false, fmt.Errorf("文件夹分页链接无效：%w", err)
 		}
 		resolved := base.ResolveReference(ref)
 		if resolved.User != nil || resolved.Fragment != "" || !sameCredentialOrigin(resolved.String(), a.Origin) {
-			return nil, errors.New("文件夹分页链接必须属于当前登录站点")
+			return false, errors.New("文件夹分页链接必须属于当前登录站点")
 		}
 		originURL, _ := url.Parse(a.Origin)
 		nextPath := strings.TrimPrefix(resolved.Path, strings.TrimRight(originURL.Path, "/"))
 		nextPath = strings.TrimPrefix(nextPath, "/api/v1")
 		if nextPath != "/files" {
-			return nil, errors.New("文件夹分页链接不是文件列表接口")
+			return false, errors.New("文件夹分页链接不是文件列表接口")
 		}
 		path = nextPath
 		if resolved.RawQuery != "" {
 			path += "?" + resolved.RawQuery
 		}
 	}
-	return out, nil
+	return false, errors.New("文件夹分页超过安全上限，扫描未完成")
 }
 
 func (a *App) cmdLs() error {

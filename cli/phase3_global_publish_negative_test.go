@@ -101,7 +101,8 @@ func TestPhase3GlobalPublishNegativePipeline(t *testing.T) {
 		t.Run(fault, func(t *testing.T) {
 			t.Setenv("SHIMO_NET_COOKIE", "sid=test")
 			t.Setenv("SHIMO_NET_DISABLE_HARVEST", "1")
-			t.Setenv("SHIMO_NET_NO_BROWSER", "1")
+			t.Setenv("SHIMO_NET_STATE_DIR", t.TempDir())
+			t.Setenv("SHIMO_NET_KEYCHAIN_SERVICE", "shimo-net-cli-synthetic-publish-test")
 			old, oldDefault, oldOpen := httpClient, http.DefaultTransport, phase3OpenFormPublishEditor
 			defer func() { httpClient = old; http.DefaultTransport = oldDefault; phase3OpenFormPublishEditor = oldOpen }()
 			var delta any
@@ -138,6 +139,10 @@ func TestPhase3GlobalPublishNegativePipeline(t *testing.T) {
 				}
 				return b, nil
 			}
+			// Exercise the publication pipeline through the synthetic CDP peer.
+			// Real browser creation is replaced above; no-browser itself is tested
+			// separately as a command boundary that must reject before this point.
+			t.Setenv("SHIMO_NET_NO_BROWSER", "")
 			transport := phase3RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 				trace = append(trace, map[string]any{"method": r.Method, "path": r.URL.Path, "writesObservedBeforeRequest": writes})
 				respond := func(v any) (*http.Response, error) {

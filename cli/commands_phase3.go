@@ -24,6 +24,9 @@ func (a *App) cmdPhase3() (runErr error) {
 		return a.cmdPhase3Artifact()
 	}
 	action := strings.TrimSpace(a.opt("--action"))
+	if explicitNoBrowser(a) && phase3ActionNeedsBrowser(action) {
+		return errors.New("当前设置禁止启动浏览器；该 phase3 动作需要页面或协作门禁，本次未查询或修改目标")
+	}
 	if action == "document-format" {
 		return a.cmdPhase3Document()
 	}
@@ -198,6 +201,17 @@ func (a *App) cmdPhase3() (runErr error) {
 	return nil
 }
 
+func phase3ActionNeedsBrowser(action string) bool {
+	// These actions use only authenticated APIs or downloaded artifacts. Sheet
+	// mutations also have an API/export proof path; no-browser disables their
+	// optional screenshot instead of preventing otherwise valid API work.
+	switch action {
+	case "document-layout-inspect", "table-inspect", "form-inspect", "form-results", "slide-print-pdf":
+		return false
+	}
+	return strings.HasPrefix(action, "document-") || strings.HasPrefix(action, "table-") || strings.HasPrefix(action, "form-") || strings.HasPrefix(action, "slide-")
+}
+
 func (a *App) finishPhase3(guid, target, dir string, spec phase3Spec, before artifactSheetSnapshot, beforeArtifact ArtifactEvidence, submitted any, stage *string) (map[string]any, error) {
 	*stage = "after-readback"
 	readback, err := a.runPhase2HTTP(guid, phase2Actions["sheet-values"], []any{map[string]any{"range": spec.ReadRange}})
@@ -272,7 +286,7 @@ func (a *App) phase3Export(guid, dir string) (ArtifactEvidence, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return ArtifactEvidence{}, err
 	}
-	got, err := a.downloadOne(withGUID(info, guid), dir)
+	got, err := a.downloadOne(withGUID(info, guid), dir, "xlsx")
 	if err != nil {
 		return ArtifactEvidence{}, err
 	}

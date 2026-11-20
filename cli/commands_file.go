@@ -129,7 +129,8 @@ func sanitizeName(name string) string {
 	return strings.TrimSpace(s)
 }
 
-func (a *App) downloadOne(f map[string]any, outDir string) (map[string]any, error) {
+// exactFormat disables fallback for evidence that requires a specific format.
+func (a *App) downloadOne(f map[string]any, outDir string, exactFormat ...string) (map[string]any, error) {
 	if boolv(f, "isFolder") || boolv(f, "isSpace") {
 		return map[string]any{"skipped": true, "guid": str(f, "guid"), "name": str(f, "name"), "url": str(f, "url"), "reason": "仅下载当前层，不递归子目录"}, nil
 	}
@@ -155,7 +156,11 @@ func (a *App) downloadOne(f map[string]any, outDir string) (map[string]any, erro
 	if prefer == "" {
 		prefer = "pdf"
 	}
-	exp, err := a.exportFile(guid, prefer, str(f, "type"))
+	fallbackTypes := []string{str(f, "type")}
+	if len(exactFormat) > 0 {
+		prefer, fallbackTypes = exactFormat[0], nil
+	}
+	exp, err := a.exportFile(guid, prefer, fallbackTypes...)
 	if err != nil {
 		return nil, err
 	}

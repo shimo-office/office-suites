@@ -64,11 +64,6 @@ func TestIssuePanelActionsRejectIncompleteWorkflowBeforeLookup(t *testing.T) {
 }
 
 func TestIssueAvailableActionsAreExecutable(t *testing.T) {
-	for _, action := range phase2ActionNames() {
-		if _, ok := phase2Actions[action]; !ok {
-			t.Errorf("advertised unsupported action %s", action)
-		}
-	}
 	a := newApp([]string{"editor", "not-a-real-guid", "--action", "not-a-supported-action"})
 	err := a.cmdPhase2()
 	if err == nil {

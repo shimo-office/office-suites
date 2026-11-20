@@ -17,6 +17,8 @@
 
 ## 安装
 
+npm 渠道与账号发布步骤见 [npm 分发说明](npm.md)。只有在目标版本已发布 npm 后才能使用该渠道；npm 包包含完整程序，不会通过安装脚本再次从 GitHub 下载。
+
 ### 从仓库安装
 
 macOS / Linux：
@@ -51,11 +53,12 @@ bash bootstrap.sh codex  # 也可选择 workbuddy、dsh、doubao
 
 ```bash
 go build -trimpath -ldflags "-s -w" -o bin/shimo-net ./cli
-./shimo version
-./shimo schema --json
+export PATH="$PWD/bin:$PATH"
+shimo-net version
+shimo-net schema --json
 ```
 
-`./shimo` 优先执行 `bin/shimo-net`；修改源码后应重新构建，不能用旧二进制代替当前代码验证。安装版本用 `shimo-net version` 检查，不根据目录名猜测。
+上面的 PATH 仅用于当前开发终端。`./shimo` 仅为旧开发脚本兼容入口：优先运行 `bin/shimo-net`，缺少二进制才 `go run ./cli`；普通使用与技能示例统一为 `shimo-net`。修改源码后应重新构建，不能用旧二进制代替当前代码验证。安装版本用 `shimo-net version` 检查，不根据目录名猜测。
 
 ## 初始化与私有部署
 
@@ -66,7 +69,7 @@ shimo-net config show
 shimo-net config set https://<客户域名>
 ```
 
-`init` 和 `config set` 都先探测 `GET /api/v1/auth/register/is_new`，只接受 200 JSON、401 或 403，成功后才保存 origin；失败保留旧配置。HTTP 401 只能证明接口可达，不能证明登录成功。普通登录过期无需重跑 `init`。临时覆盖环境使用：
+`init`、`config set` 和 `login --origin` 都先探测 `GET /api/v1/auth/register/is_new`，只接受 200 JSON、401 或 403，成功后才保存 origin；失败保留旧配置。HTTP 401 只能证明接口可达，不能证明登录成功。普通登录过期无需重跑 `init`。临时覆盖环境使用：
 
 ```bash
 SHIMO_NET_ORIGIN=https://<客户域名> shimo-net whoami --json

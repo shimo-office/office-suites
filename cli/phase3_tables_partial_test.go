@@ -174,7 +174,8 @@ func TestPhase3TablePartialPipelineSingleCompose(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("SHIMO_NET_COOKIE", "sid=test")
 			t.Setenv("SHIMO_NET_DISABLE_HARVEST", "1")
-			t.Setenv("SHIMO_NET_NO_BROWSER", "1")
+			t.Setenv("SHIMO_NET_STATE_DIR", t.TempDir())
+			t.Setenv("SHIMO_NET_KEYCHAIN_SERVICE", "shimo-net-cli-synthetic-table-test")
 			harvestMu.Lock()
 			oldHarvestDone, oldHarvestCookie, oldHarvestErr := harvestDone, harvestCookie, harvestErr
 			harvestDone = false
@@ -187,6 +188,9 @@ func TestPhase3TablePartialPipelineSingleCompose(t *testing.T) {
 			oldClient, oldGuard := httpClient, phase3OpenTableGuard
 			defer func() { httpClient = oldClient; phase3OpenTableGuard = oldGuard }()
 			phase3OpenTableGuard = func(string) (phase3TableGuard, error) { return &tableTestGuard{}, nil }
+			// The presence guard is entirely synthetic. Allow dispatch to reach
+			// the partial-write assertions; no real browser constructor is used.
+			t.Setenv("SHIMO_NET_NO_BROWSER", "")
 			before := tableFixtureForSnapshot()
 			before["baseGuid"] = "base12345678"
 			if mode == "update-partial" {

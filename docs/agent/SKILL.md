@@ -14,13 +14,13 @@ examples_en:
   - "Search Shimo for the file named 'Quarterly Plan' and return its link."
   - "Write the timetable to Sheet1 A1:C3 and open the page to verify it."
   - "List my subscribed files and open one to review its latest update."
-version: 0.9.17
+version: 0.9.18
 author: shimo-office
 ---
 
 # shimo-net CLI
 
-涉及 shimo.net 或客户私有部署的文件与办公操作时使用。仓库内入口为 `./shimo`，安装后为 `shimo-net`。
+涉及 shimo.net 或客户私有部署的文件与办公操作时使用。用户调用统一为 `shimo-net`；先按安装渠道完成入口配置，不猜测仓库脚本路径。
 
 ## 执行前
 

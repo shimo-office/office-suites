@@ -1,8 +1,8 @@
 package main
 
-// Session bridging: when the CLI Keychain has no usable shimo.net session but
-// the user is already signed in inside Chrome/Chromium/Edge/Brave, reuse that
-// browser session instead of asking the user to log in a second time.
+// Session bridging: automatic reuse is allowed only when no credential record
+// exists. Expired, unreadable or origin-mismatched records require explicit login;
+// explicit session harvest can select a Chrome/Chromium/Edge/Brave/Vivaldi account.
 //
 // The browser cookie database is encrypted with the browser's own Safe Storage
 // key.  Reading that key with the `security` CLI is blocked by the browser's
@@ -69,6 +69,9 @@ func authCookieForOrigin(origin string) (string, error) {
 	if !errors.Is(err, errNoStoredCredential) {
 		return "", err
 	}
+	if explicitNoBrowser(&App{}) {
+		return "", errors.New("未登录且当前设置禁止启动浏览器；未尝试复用浏览器会话")
+	}
 	if c, err := harvestChromeSessionForOrigin(origin, false); err == nil && c != "" {
 		if err := writeCred(origin, c); err != nil {
 			return "", err
@@ -101,6 +104,9 @@ func resetHarvestCache() {
 // Results are cached only for the same origin. Forced discovery is reserved
 // for explicit login/session harvest, never an automatic response to HTTP 401.
 func harvestChromeSessionForOrigin(origin string, force bool) (string, error) {
+	if explicitNoBrowser(&App{}) {
+		return "", errors.New("当前设置禁止启动浏览器；本次未读取或保存浏览器会话")
+	}
 	if _, err := canonicalCredentialOrigin(origin); err != nil {
 		return "", err
 	}
@@ -130,6 +136,9 @@ func originForHarvest() string {
 }
 
 func harvestFromBrowsers(origin string) (string, string, error) {
+	if explicitNoBrowser(&App{}) {
+		return "", "", errors.New("当前设置禁止启动浏览器；本次未读取或保存浏览器会话")
+	}
 	if harvestDisabled() {
 		return "", "", errors.New("已通过 SHIMO_NET_DISABLE_HARVEST 关闭浏览器登录态复用")
 	}
@@ -253,9 +262,9 @@ func browserRoots() []browserRoot {
 	}
 }
 
-func browserBinary(kind string) string {
+func browserCandidates(system, kind string) []string {
 	var candidates []string
-	switch runtime.GOOS {
+	switch system {
 	case "darwin":
 		candidates = map[string][]string{
 			"chrome":   {"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"},
@@ -275,6 +284,9 @@ func browserBinary(kind string) string {
 			"brave":    "BraveSoftware\\Brave-Browser\\Application\\brave.exe",
 			"vivaldi":  "Vivaldi\\Application\\vivaldi.exe",
 		}[kind]
+		if sub == "" {
+			return nil
+		}
 		for _, b := range []string{base, base86, local} {
 			if b != "" {
 				candidates = append(candidates, filepath.Join(b, sub))
@@ -289,7 +301,11 @@ func browserBinary(kind string) string {
 			"vivaldi":  {"/usr/bin/vivaldi"},
 		}[kind]
 	}
-	for _, p := range candidates {
+	return candidates
+}
+
+func browserBinary(kind string) string {
+	for _, p := range browserCandidates(runtime.GOOS, kind) {
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {
 			return p
 		}
@@ -490,7 +506,7 @@ func (a *App) cmdSession() error {
 			"env":      os.Getenv("SHIMO_NET_COOKIE") != "",
 			"keychain": source == "keychain",
 			"file":     source == "file",
-			"harvest":  !harvestDisabled(),
+			"harvest":  !harvestDisabled() && !explicitNoBrowser(a),
 			"profiles": len(browserProfiles()),
 		}
 		if a.JSON {
@@ -501,6 +517,9 @@ func (a *App) cmdSession() error {
 		fmt.Printf("浏览器复用：%v（发现 %v 个浏览器配置）\n", out["harvest"], out["profiles"])
 		return nil
 	case "harvest":
+		if explicitNoBrowser(a) {
+			return errors.New("当前设置禁止启动浏览器；本次未读取或保存浏览器会话")
+		}
 		if os.Getenv("SHIMO_NET_COOKIE") != "" && !a.has("--no-save") {
 			return errors.New("SHIMO_NET_COOKIE 正在覆盖本机账号；请先取消环境变量再保存浏览器会话，或用 --no-save 仅验证")
 		}

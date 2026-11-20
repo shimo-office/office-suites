@@ -82,9 +82,10 @@ def build(root, out_dir, tag=None, target='skillhub', digests=None):
     skill = '---\n' + ''.join(f'{key}: {json.dumps(value, ensure_ascii=False)}\n'
                              for key, value in extra.items()) + source[4:]
     intro = ('\n## 此上传包的 CLI 入口\n\n'
-             '先阅读 [运行与首次使用](runtime.md)。下文所有 `shimo-net` 命令都通过本包的 '
-             '`scripts/shimo-net.sh`（macOS/Linux）或 `scripts/shimo-net.ps1`（Windows）执行，'
-             '参数保持不变。脚本按系统获取固定版本的完整 CLI、校验 SHA-256 并复用本地缓存；'
+             '先按 [运行与首次使用](runtime.md) 检查已安装 `shimo-net` 的版本；版本匹配时直接复用，'
+             '缺失时优先安装已发布的同版本 npm 包；无适用 npm 渠道时才绑定本包启动脚本。'
+             '随后示例统一执行 `shimo-net`，参数保持不变；不要运行仓库开发入口。'
+             '脚本按系统获取固定版本的完整 CLI、校验 SHA-256 并复用本地缓存；'
              '首次需要网络，不自动登录，也不修改全局 PATH。技能安装成功不等于 CLI 已就绪或账号已登录。\n')
     skill_header, body = skill.split('\n---\n', 1)
     skill = skill_header + '\n---\n' + intro + '\n' + body

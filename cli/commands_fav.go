@@ -201,7 +201,7 @@ func (a *App) cmdOpen() error {
 	if err != nil {
 		return err
 	}
-	return a.openManagedBrowser(chrome, "Chromium", "managed", target)
+	return a.openManagedBrowser(chrome, browserLabelForBinary(chrome), "managed", target)
 }
 
 // openManagedBrowser leaves only a normal, non-debuggable browser running.
@@ -252,10 +252,14 @@ func defaultChromiumBinary() (string, string) {
 		case "com.vivaldi.vivaldi":
 			return browserBinary("vivaldi"), "Vivaldi"
 		}
+	case "windows":
+		return windowsDefaultChromiumBinary()
 	case "linux":
 		out, _ := exec.Command("xdg-settings", "get", "default-web-browser").Output()
 		s := strings.ToLower(string(out))
 		switch {
+		case strings.Contains(s, "vivaldi"):
+			return browserBinary("vivaldi"), "Vivaldi"
 		case strings.Contains(s, "brave"):
 			return browserBinary("brave"), "Brave"
 		case strings.Contains(s, "edge"):

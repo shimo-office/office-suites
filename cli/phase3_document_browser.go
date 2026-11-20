@@ -60,6 +60,9 @@ func openPhase3EditorOnce(target, readiness string) (*phase3EditorBrowser, error
 
 // setup installs read-only diagnostics before the initial navigation.
 func openPhase3EditorWithSetup(target, readiness string, setup func(*phase3EditorBrowser) error) (*phase3EditorBrowser, error) {
+	if explicitNoBrowser(&App{}) {
+		return nil, errors.New("当前设置禁止启动浏览器；本次未创建或启动隔离编辑器")
+	}
 	if !sameCookieHost(target) {
 		return nil, errors.New("目标 host 与登录 origin 不一致；未启动编辑器")
 	}
