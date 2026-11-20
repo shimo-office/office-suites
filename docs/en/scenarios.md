@@ -69,20 +69,30 @@ Payloads, readback, and screenshot requirements for `editor` actions are maintai
 
 ## Browser selection
 
-This is the English translation of the [canonical browser rules](../scenarios.md#浏览器优先级). Tutorials and skills should link to this policy instead of maintaining their own browser order.
+This translates the [canonical browser rules](../scenarios.md#浏览器优先级). **Choose display and execution separately: a built-in preview does not need editing controls.**
 
-1. Check the current assistant's actual built-in browser capabilities and use them first when available. Availability depends on the current tools, not the product name.
-2. If no built-in browser is available, explain the separate browser and obtain the user's consent before using `agent-browser`. Do not claim it is available without checking.
-3. If those routes are unavailable, obtain consent to launch a local external browser, then use `shimo-net open <url>`. It uses a separate `open-profile`, does not inject the CLI session, and leaves no remote debugging port. The user completes login if needed; available page tools can then operate it.
-4. Use `shimo-net open <url> --default` only as the final fallback, with consent to open the default local browser. Supported Chromium applications still use an isolated CLI profile; other browsers are opened by the system. Existing login is not guaranteed.
+| When | What to show |
+|---|---|
+| A file link is provided, or before page work | Open the original file in the built-in browser or preview so the user can see the target |
+| Creation or import succeeds | Show the real file URL returned by the service; do not invent a URL or import another copy for display |
+| Editing or organizing finishes | Show the same file's result link; reuse an existing preview instead of opening duplicate tabs |
 
-These authorization rules also cover `login`, session reuse, `subscriptions --open`, `editor --verify`, `mentions-list/comments-list`, and advanced page actions when they involve a local browser. Read-only operations may still require one. If the user declines, complete only the API work possible and state which page verification remains incomplete; do not switch tools to bypass the refusal. `--no-browser` or `SHIMO_NET_NO_BROWSER=1` disables relevant browser launches. Existing authorization for the chosen route does not need to be requested again.
+1. **Display the link first.** Check the host's actual link-opening or preview tools. Show the original URL when supported; a PDF export, CLI installation or CLI login is not a prerequisite. Preview-only tools are useful for display. If the URL is unsupported, return a clickable link and continue choosing an execution path without repeatedly opening it. A login page, blank page or stale preview does not verify file contents or results.
+2. **Choose how to operate.** Use the CLI for supported API actions. For page work, prefer built-in browser tools with the required reading, clicking and screenshot capabilities. If the built-in surface only previews, use available Computer Use / Browser Use tools to control an external browser, preferably reusing its session and tab. Check the current tools instead of inferring capabilities from the WorkBuddy name. Do not require installation of `agent-browser`; it is one possible external tool. If no browser can be controlled, explain the limitation and leave the link for the user.
+3. **Open external pages only as needed.** Reuse existing authorization; explain and obtain consent if launching an external browser is not yet authorized. Prefer the selected control tool's own open or reuse operation. `shimo-net open <url>` only opens a page: it uses an independent open-profile, does not inject the CLI session and leaves no remote debugging port. It does not grant control to the agent. `--default` selects the default browser app; supported Chromium apps still use an isolated profile, while others are opened by the system. Existing login is not guaranteed.
+4. **Verify through the execution path.** After a write, wait for saving, read back and inspect the page, then show the result in the built-in preview. That preview may not update automatically. Opening it does not prove saving succeeded; do not repeatedly navigate or reopen windows just to update the display. An unavailable preview does not block authorized external work. Return the original file link and verification result.
 
-A login page, blank page, or unloaded editor is not successful verification. Bounded waiting and read-only retries are permitted; blindly replaying an accepted write is not. Browser availability does not make user-only operations available to the assistant.
+**Keep the operating session throughout the task when possible.** Do not close the browser, stop its daemon or create a new profile after each step. For slow loading, perform spaced, read-only checks in the same page within a total time limit. On timeout, report the stage and original error without automatically refreshing, reopening or restarting the task. Read back writes that may have succeeded instead of replaying creation, deletion or submission. If a tool recycles idle sessions, inspect its actual documentation and session state; use only supported keepalive or session settings. Do not invent timeout flags or repeatedly relaunch closed windows. Slow loading or missing login does not mean the tool is unavailable.
+
+**The CLI cannot manage another tool's browser lifecycle.** Page-based `phase3` actions, `editor --verify`, `open`, `login`, comment/mention reads and session harvesting can launch a local browser. They cannot take over host previews, built-in tabs or Computer Use sessions. Some fixed actions open a separate window to verify persistence; use them only when choosing the external CLI path. A flashing window alone does not identify a CLI retry; check the actual calls and errors.
+
+- For supporting API calls before a CLI browser path is selected, pass `--no-browser` on every call, including `doctor` and `whoami`, or set `SHIMO_NET_NO_BROWSER=1` in each task shell. This blocks CLI launches and session harvesting without disabling host tools. It does not hand page commands to another browser. Use the selected operation tools when a command is rejected; do not simply remove the guard and retry.
+- The preview, external browser and CLI may have separate login sessions. Let the user sign in on the selected page when needed. Do not request, manually inject or transfer cookies, or clear the user's browser profile as a troubleshooting step. Missing CLI credentials do not make the page unavailable.
+- Do not request existing browser authorization again or bypass a refusal by changing tools. Browser availability does not authorize operations reserved for the user.
 
 ## Login and sessions
 
-Check `whoami --json` and `session status --json`. Ordinary login may reuse an existing browser account. To switch accounts, use `login --new`, then verify with `whoami`. The complete workflow and authentication troubleshooting are in [Installation](install.md).
+These checks apply to the CLI/API path; pure page tasks use the selected browser session. Until a CLI browser path is selected, use `whoami --no-browser --json` and `session status --no-browser --json`. CLI login and session harvesting require an authorized CLI browser login path. Ordinary login may reuse an existing browser account. To switch accounts, use `login --new`, then verify with `whoami`. The complete workflow and authentication troubleshooting are in [Installation](install.md).
 
 ## Describing a precise task
 

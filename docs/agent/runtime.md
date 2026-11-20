@@ -2,11 +2,13 @@
 
 本页是 **Agent 执行说明**。用户从 [一句话接入](README.md) 开始后，下面的检查、下载、调用入口配置和验证均由 Agent 完成，不要求用户打开终端或复制命令。用户只需在确有需要时完成网页登录与宿主授权；连通后直接用自然语言操作。
 
+先按[浏览器规则](../scenarios.md#浏览器优先级)区分展示与操作：文件链接先在内置预览展示；新建、导入或编辑成功后再展示实际结果链接。预览只能展示时，页面操作使用当前可用的外部 Computer Use / Browser Use，复用会话。包内运行器不能接管这些浏览器；纯页面任务跳过下面的 CLI 初始化。需要辅助 API 且未选定 CLI 浏览器方案时，每条命令加 `--no-browser`，包括 `doctor`、`whoami`；该参数不转交页面命令。各浏览器登录态与 CLI 凭据独立。
+
 本页针对从 SkillHub 或 WorkBuddy 导入的完整技能 ZIP；仅有 `SKILL.md` 的本地技能没有下文的包内启动脚本，应按 [安装说明](../install.md) 获取 CLI。
 
 技能 ZIP 包含技能定义、调用脚本和参考资料，完整 `shimo-net` 程序单独获取。Agent 依次选择：复用同版本 CLI → 安装已发布的同版本 npm 包 → 使用固定版本的包内启动器。npm 包内已有完整程序；启动器仅在缺少缓存时从 GitHub Releases 下载。两种方式均使用完整 CLI，访问业务文件仍需连接目标石墨服务。
 
-Agent 要分别确认技能可用、CLI 可执行和账号已连通；不能把 ZIP 导入成功或技能显示在列表中当作全部配置完成。
+需要 API 通道时，Agent 要分别确认技能可用、CLI 可执行和账号已连通；不能把 ZIP 导入成功或技能显示在列表中当作全部配置完成。
 
 ## 先复用已安装的同版本命令
 
@@ -48,8 +50,8 @@ macOS / Linux 的 Bash 或 Zsh 终端：
 shimo-net() { sh "<技能目录>/scripts/shimo-net.sh" "$@"; }
 shimo-net --version
 shimo-net schema --json
-shimo-net doctor --json
-shimo-net whoami --json
+shimo-net doctor --no-browser --json
+shimo-net whoami --no-browser --json
 ```
 
 Windows PowerShell：
@@ -58,8 +60,8 @@ Windows PowerShell：
 function shimo-net { & "<技能目录>\scripts\shimo-net.ps1" @args }
 shimo-net --version
 shimo-net schema --json
-shimo-net doctor --json
-shimo-net whoami --json
+shimo-net doctor --no-browser --json
+shimo-net whoami --no-browser --json
 ```
 
 这个绑定仅在当前终端会话有效；Agent 每次新建 shell 时，须自行先绑定再调用，用户仍然只需描述任务。不要把它写入全局配置，也不要用 `./shimo` 替代。仅有 POSIX sh 的环境可直接调用完整路径的包内 `.sh` 脚本，命令参数与 `shimo-net` 相同。PowerShell 宿主通过独立进程调用时，命令后用 `exit $LASTEXITCODE` 传回真实退出码，不用最后一条成功的展示命令覆盖失败。
@@ -70,11 +72,11 @@ macOS/Linux 需要系统 shell、curl 及 shasum 或 sha256sum；Windows 需要 
 
 ## 登录与真实验收
 
-由 Agent 运行版本、schema、doctor 和 whoami。doctor 报未登录不是安装失败；若 whoami 返回 401，按 [安装与会话](../install.md) 使用上述入口显式执行 `login`。切账号使用 `login --new`，由用户完成浏览器登录，再由 Agent 继续检查；不索取密码或 cookie，不自动改变文件权限。
+以下检查仅用于确需 CLI/API 的任务；CLI 登录或会话收取还要求已选定且获准使用 CLI 浏览器方案。由 Agent 运行版本、schema、doctor 和 whoami。doctor 报未登录不是安装失败；若 whoami 返回 401，按 [安装与会话](../install.md) 使用上述入口显式执行 `login`。切账号使用 `login --new`，由用户完成浏览器登录，再由 Agent 继续检查；不索取密码或 cookie，不自动改变文件权限。
 
-用户给出已有权限的文件链接后，由 Agent 执行 `info <链接> --json`，核对文件名、类型和链接；也可以先响应用户的搜索需求。不需要为安装检查创建或改写业务文件。页面编辑能力仍依赖宿主提供且获准使用的真实浏览器；仅 API 成功不代表页面验收通过。完整命令见 [命令参考](../cli-reference.md)，操作范围见 [场景清单](../scenarios.md)，已验收与保留项见 [阶段记录](../phase3-acceptance.md)。
+用户给出已有权限的文件链接后，由 Agent 执行 `info <链接> --no-browser --json`，核对文件名、类型和链接；也可以先响应用户的搜索需求。不需要为安装检查创建或改写业务文件。页面编辑能力仍依赖宿主提供且获准使用的真实浏览器；仅 API 成功不代表页面验收通过。完整命令见 [命令参考](../cli-reference.md)，操作范围见 [场景清单](../scenarios.md)，已验收与保留项见 [阶段记录](../phase3-acceptance.md)。
 
-首次下载失败应报告网络错误；保留有效缓存。宿主没有本地命令执行工具时，本技能不能宣称可执行；应切换到支持本地工具的会话。不能把“代码包已解析”当作完整功能已经可用。
+首次下载失败应报告网络错误；保留有效缓存。宿主没有本地命令执行工具时，不能宣称 CLI/API 通道可用；需要该通道时应切换到支持本地工具的会话。已有可操作浏览器工具的页面任务及内置预览不受此限制。不能把“代码包已解析”当作完整功能已经可用。
 
 ## 自动下载超时时
 

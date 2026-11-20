@@ -32,27 +32,18 @@ func openPhase3Editor(target string) (*phase3EditorBrowser, error) {
 	return openPhase3EditorWhen(target, `Boolean((typeof window._sdk?.editor?.getParagraphs==="function"&&typeof window._sdk?.editor?.docsApi?.setFontSize==="function")||(typeof window.presentationSDK?.API?.slides?.getSlides==="function"&&window.presentationSDK?.editor?.workbench?.isReady()))`)
 }
 
-// readiness is a fixed expression supplied by the typed command implementation,
-// never a user-provided CLI argument. Only this read-only poll is retried.
+// Offline tests replace only the process-launch boundary.
+var phase3StartEditor = openPhase3EditorOnce
+
+// readiness is fixed by the typed command, never a user-provided expression.
 func openPhase3EditorWhen(target, readiness string) (*phase3EditorBrowser, error) {
-	var last error
-	for attempt := 1; attempt <= 3; attempt++ {
-		b, err := openPhase3EditorOnce(target, readiness)
-		if err == nil {
-			return b, nil
-		}
-		last = err
-		var readinessErr *phase3ReadinessFailure
-		if errors.As(err, &readinessErr) {
-			return nil, err
-		}
-		msg := strings.ToLower(err.Error())
-		transport := strings.Contains(msg, "eof") || strings.Contains(msg, "connection reset") || strings.Contains(msg, "broken pipe") || strings.Contains(msg, "use of closed network connection") || strings.Contains(msg, "i/o timeout")
-		if !transport {
-			return nil, err
-		}
+	// A failed launch must not replace the user's window with a new profile.
+	// Readiness can reconnect the existing target without restarting the process.
+	browser, err := phase3StartEditor(target, readiness)
+	if err != nil {
+		return nil, fmt.Errorf("编辑器启动失败，已停止且不自动重开窗口：%w", err)
 	}
-	return nil, fmt.Errorf("编辑器启动传输失败（3 次全新配置重试；本次启动仅包含只读检查与导航）：%w", last)
+	return browser, nil
 }
 func openPhase3EditorOnce(target, readiness string) (*phase3EditorBrowser, error) {
 	return openPhase3EditorWithSetup(target, readiness, nil)
@@ -243,7 +234,6 @@ func phase3PollReady(timeout, interval time.Duration, probe func() (map[string]a
 	deadline := time.Now().Add(timeout)
 	attempts := 0
 	var last map[string]any
-	transientErrors := 0
 	for {
 		if attempts > 0 && time.Now().After(deadline) {
 			break
@@ -257,14 +247,12 @@ func phase3PollReady(timeout, interval time.Duration, probe func() (map[string]a
 				return attempts, fmt.Errorf("编辑器就绪检查异常，第 %d 次（last=%s）：%w", attempts, detail, err)
 			}
 			transient := strings.Contains(msg, "execution context was destroyed") || strings.Contains(msg, "cannot find context") || strings.Contains(msg, "cannot find default execution context") || strings.Contains(msg, "inspected target navigated or closed")
-			transientErrors++
-			if !transient || transientErrors > 5 {
+			if !transient {
 				detail, _ := json.Marshal(last)
 				return attempts, fmt.Errorf("编辑器就绪检查异常，第 %d 次（last=%s）：%w", attempts, detail, err)
 			}
 			last = map[string]any{"documentState": "navigation-context-unavailable"}
 		} else {
-			transientErrors = 0
 			if state["budgetExpired"] == true {
 				break
 			}

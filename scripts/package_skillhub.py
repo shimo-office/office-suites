@@ -82,7 +82,8 @@ def build(root, out_dir, tag=None, target='skillhub', digests=None):
     skill = '---\n' + ''.join(f'{key}: {json.dumps(value, ensure_ascii=False)}\n'
                              for key, value in extra.items()) + source[4:]
     intro = ('\n## 此上传包的 CLI 入口\n\n'
-             '先按 [运行与首次使用](runtime.md) 检查已安装 `shimo-net` 的版本；版本匹配时直接复用，'
+             '先按下方“先选执行通道，再检查 CLI”区分展示与操作：文件链接先内置预览，新建、导入和编辑后展示结果；内置只能预览时用可用的外部 Computer Use。纯页面任务跳过 CLI 初始化。'
+             '只有需要 CLI/API 时，才按 [运行与首次使用](runtime.md) 检查版本；未选择 CLI 浏览器方案时每次调用加 `--no-browser`。版本匹配时直接复用，'
              '缺失时优先安装已发布的同版本 npm 包；无适用 npm 渠道时才绑定本包启动脚本。'
              '随后示例统一执行 `shimo-net`，参数保持不变；不要运行仓库开发入口。'
              '脚本按系统获取固定版本的完整 CLI、校验 SHA-256 并复用本地缓存；'

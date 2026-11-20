@@ -1,5 +1,7 @@
 # 三期幻灯片命令参考
 
+**链接先内置展示，操作按工具能力选择。** 本页列出外部 CLI 通道的固定动作；`slide-inspect`、`slide-design-inspect` 和页面编辑会自行启动临时本机浏览器，部分写后核验还会重开窗口，并不复用 WorkBuddy 内置标签页。内置浏览器能操作时优先使用；只有预览能力时可用外部 Computer Use 在原文件页面检查、编辑和核验，完成后再内置展示链接，不必先运行这些命令。`slide-print-pdf` 是导出动作，不能代替在内置页面查看背景、页数或保存状态。选择规则见[浏览器优先级](scenarios.md#浏览器优先级)。
+
 当前实现接口与线上验收分开；完整场景状态见 [验收记录](phase3-acceptance.md)。
 
 Use `phase3 <presentation-url> --action <action> [--payload '<JSON>'] --out <evidence-dir> --json`.
