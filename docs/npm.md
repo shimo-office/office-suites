@@ -2,6 +2,8 @@
 
 包名为 `shimo-net-cli`，安装后统一运行 `shimo-net`。本页描述打包及验收流程；生成 `.tgz`、上传 GitHub Release 与发布到 npm 是三个不同步骤，不能互相替代。是否已上架及具体版本须以官方 npm registry 查询结果为准。
 
+2026-11-20：[`shimo-net-cli@0.9.19`](https://www.npmjs.com/package/shimo-net-cli/v/0.9.19) 已由维护者发布。官方 registry 的 SHA-512 完整性值与已验收的 GitHub Release `.tgz` 一致；macOS 上使用空缓存、无 npm 登录配置重新安装通过，版本、帮助、schema、帮助无副作用和未知选项退出码检查通过，包内六个平台程序的 SHA-256 与 Release 一致。这是分发与安装验收，不代替真实账号办公操作或 Windows 桌面浏览器验收。
+
 ## 为什么另加 npm
 
 技能 ZIP 中的旧启动器首次需要从 GitHub Releases 下载 CLI，网络不可达时无法启动。npm 分发把 macOS、Linux、Windows 各自 amd64 / arm64 的六个完整程序直接装入同一个包；安装和运行都不再通过脚本转去 GitHub 下载程序。
@@ -12,10 +14,10 @@ npm 入口需要 Node.js 18+，建议使用受支持的 Node.js LTS。原 Go CLI
 
 ## 用户安装
 
-在指定版本已经发布到 npm 后，运行：
+安装已发布并验收的版本：
 
 ```bash
-npm install --global shimo-net-cli@<版本> --registry=https://registry.npmjs.org
+npm install --global shimo-net-cli@0.9.19 --registry=https://registry.npmjs.org
 shimo-net version
 shimo-net --help
 shimo-net schema --json
@@ -41,10 +43,10 @@ Release workflow 自动生成 `.tgz` 附件；目前不自动发布 npm。这个
 
 ## 首次发布账号操作
 
-1. 维护者在 [npm 官网](https://www.npmjs.com/signup)注册或登录自己控制的账号，完成邮箱验证，并按 npm 当前提示配置双重验证。
-2. 在自己的终端执行 `npm login --registry=https://registry.npmjs.org`，按浏览器提示完成登录。无需在聊天中发送密码、验证码或 token。
+1. 维护者在 [npm 官网](https://www.npmjs.com/signup)注册或登录自己控制的账号，完成邮箱验证，并在头像 → Account → Two-Factor Authentication 启用 2FA。按[官方步骤](https://docs.npmjs.com/configuring-two-factor-authentication)配置安全密钥并自行保存恢复码；只有网页登录或邮箱验证还不足以发布。
+2. 在自己的终端执行 `npm login --registry=https://registry.npmjs.org`，按浏览器提示完成终端授权。网页登录不会自动让终端获得发布身份。无需在聊天中发送密码、验证码、恢复码或 token。
 3. 用 `npm whoami --registry=https://registry.npmjs.org` 检查当前身份；确认其拥有待发布包的权限。未注册包名能否占用仍以发布时 registry 校验为准。
-4. 检查包内文件与真实安装验收结果，再运行以下命令。交互式验证由账号持有人完成，不把凭据写入仓库。
+4. 检查包内文件与真实安装验收结果，再运行以下命令。发布时可能再次要求网页验证，由账号持有人完成，不把凭据写入仓库。npm 提示发布正在处理时，等待官方 registry 可查询并安装后再宣布可用，不重复提交同一版本。
 
 ```bash
 npm publish ./dist/shimo-net-cli-<版本>.tgz --access public --registry=https://registry.npmjs.org

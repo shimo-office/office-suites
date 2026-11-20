@@ -1,6 +1,6 @@
 # 安装、登录与环境
 
-`shimo-net` 是 Go 单二进制，运行时不需要 Python 或 Node。命令参数见 [命令参考](cli-reference.md)，Agent 接入见 [文档导航](README.md)。
+`shimo-net` 原生程序是 Go 单二进制，不需要 Python 或 Node；使用 npm 包的命令入口时需要 Node.js 18+（建议受支持的 LTS）。命令参数见 [命令参考](cli-reference.md)，Agent 接入见 [文档导航](README.md)。
 
 ## 环境要求
 
@@ -9,7 +9,7 @@
 | 系统 | macOS、Linux、Windows 10/11 |
 | 浏览器 | 可从 Chrome / Chromium / Microsoft Edge / Brave / Vivaldi 复用会话；CLI 专用新登录和普通 `open` 的自动发现当前支持 Chrome / Chromium / Edge |
 | 构建 | 仅从源码构建时需要 Go 1.26.11+；下载 Release 不需要 Go |
-| 网络 | 能访问目标 shimo.net 或客户私有部署域名；下载发行包时需访问 GitHub |
+| 网络 | 能访问目标 shimo.net 或客户私有部署域名；npm 安装需访问官方 npm registry，仓库/Release 安装需访问 GitHub |
 
 仅安装 Brave 时可以复用其已登录会话，但 `login --new` 与普通 `open` 所需的浏览器发现尚不覆盖 Brave；新登录需另有 Chrome / Chromium / Edge。不要把会话复用支持误写成所有浏览器启动路径都支持。
 
@@ -17,7 +17,17 @@
 
 ## 安装
 
-npm 渠道与账号发布步骤见 [npm 分发说明](npm.md)。只有在目标版本已发布 npm 后才能使用该渠道；npm 包包含完整程序，不会通过安装脚本再次从 GitHub 下载。
+### 从 npm 安装
+
+`shimo-net-cli@0.9.19` 已发布并通过官方源重新安装验收。已有 Node.js 18+ / npm 时执行：
+
+```bash
+npm install --global shimo-net-cli@0.9.19 --registry=https://registry.npmjs.org
+shimo-net version
+shimo-net schema --json
+```
+
+npm 包包含六平台完整程序，不会通过安装脚本再次从 GitHub 下载。无全局目录写权限的安装方式与维护者发布步骤见 [npm 分发说明](npm.md)。
 
 ### 从仓库安装
 

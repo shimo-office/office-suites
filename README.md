@@ -7,6 +7,17 @@
 
 ## 30 秒安装
 
+已有 Node.js 18+ / npm 时，macOS、Linux、Windows 均可安装已发布的完整程序（建议使用受支持的 Node.js LTS）：
+
+```bash
+npm install --global shimo-net-cli@0.9.19 --registry=https://registry.npmjs.org
+shimo-net version
+shimo-net login
+shimo-net whoami --json
+```
+
+npm 包无需从 GitHub 二次下载；包名是 `shimo-net-cli`，使用命令是 `shimo-net`。无全局安装权限时见 [npm 分发说明](docs/npm.md)。也可通过下面的仓库安装器安装不依赖 Node 的原生程序。
+
 macOS / Linux：
 
 ```bash
