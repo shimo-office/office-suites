@@ -1,58 +1,79 @@
-# npm 分发与发布
+# 使用 npm 安装 shimo-net
 
-包名为 `shimo-net-cli`，安装后统一运行 `shimo-net`。本页描述打包及验收流程；生成 `.tgz`、上传 GitHub Release 与发布到 npm 是三个不同步骤，不能互相替代。是否已上架及具体版本须以官方 npm registry 查询结果为准。
+npm 包名是 [`shimo-net-cli`](https://www.npmjs.com/package/shimo-net-cli)，安装后的命令是 **`shimo-net`**。支持 macOS、Linux、Windows 的 x64 / ARM64，需要 Node.js 18+（建议受支持的 LTS）。
 
-2026-11-20：[`shimo-net-cli@0.9.19`](https://www.npmjs.com/package/shimo-net-cli/v/0.9.19) 已由维护者发布。官方 registry 的 SHA-512 完整性值与已验收的 GitHub Release `.tgz` 一致；macOS 上使用空缓存、无 npm 登录配置重新安装通过，版本、帮助、schema、帮助无副作用和未知选项退出码检查通过，包内六个平台程序的 SHA-256 与 Release 一致。这是分发与安装验收，不代替真实账号办公操作或 Windows 桌面浏览器验收。
+包内包含各平台完整程序，安装和首次运行均无需再从 GitHub 下载运行程序。不使用 Node.js 时，可选择 [原生程序或其他安装方式](install.md#安装)。
 
-## 为什么另加 npm
-
-技能 ZIP 中的旧启动器首次需要从 GitHub Releases 下载 CLI，网络不可达时无法启动。npm 分发把 macOS、Linux、Windows 各自 amd64 / arm64 的六个完整程序直接装入同一个包；安装和运行都不再通过脚本转去 GitHub 下载程序。
-
-这个方案用较大的 npm 安装包换取完整、自包含的分发和单包版本管理。npm registry 仍可能遇到网络问题，不能保证永不超时；访问石墨文件仍需要目标服务可达和用户登录。Homebrew 只是一种安装方式：若公式依旧指向 GitHub Releases，下载依赖并未改变。
-
-npm 入口需要 Node.js 18+，建议使用受支持的 Node.js LTS。原 Go CLI 和直接二进制安装方式不新增 Node 依赖。包内没有第三方 npm 依赖，没有 `postinstall` 等生命周期脚本；启动器验证包内 SHA-256 后执行当前系统的原生程序，不拼接 shell 命令。
-
-## 用户安装
-
-安装已发布并验收的版本：
+## 安装
 
 ```bash
-npm install --global shimo-net-cli@0.9.19 --registry=https://registry.npmjs.org
+npm install -g shimo-net-cli --registry=https://registry.npmjs.org
 shimo-net version
-shimo-net --help
-shimo-net schema --json
 ```
 
-无全局目录写权限时，可使用用户拥有的 npm prefix，或在项目中执行 `npm install shimo-net-cli@<版本>` 后通过 `npm exec -- shimo-net version` 调用；不要通过关闭系统安全保护解决安装问题。
-
-随后按[安装与登录说明](install.md)运行 `doctor`、登录和真实文件检查。无登录状态下 `doctor` 非零退出不等于 npm 安装失败；帮助和版本正常也不等于业务功能已验收。
-
-## 维护者构建与验收
-
-`scripts/package_npm.py` 使用与 Release 相同的六个二进制，校验 CLI、技能、标签版本一致，只打包白名单文件：包元数据、说明、许可证、启动器、六个二进制及 SHA-256 清单。它不会读取或打包账号配置、Cookie、`.npmrc` 或工作目录中的其他文件。
+安装后登录石墨：
 
 ```bash
-python3 scripts/package_npm.py --tag v<版本> --assets-dir dist --out-dir dist
-npm install --global --prefix <隔离安装目录> --cache <隔离缓存目录> \
-  --offline --ignore-scripts --no-audit --no-fund ./dist/shimo-net-cli-<版本>.tgz
+shimo-net login
+shimo-net whoami --json
+shimo-net search "季度报告" --json
 ```
 
-通过隔离目录安装出的命令执行版本、帮助、schema；再核对参数传递、退出码、错误路径与目标系统兼容性。Unix 的命令在 `<隔离安装目录>/bin/shimo-net`；Windows 在 `<隔离安装目录>/shimo-net.cmd`。使用当前系统真实二进制执行，不能用跨平台包结构检查冒充 Windows/Linux 实际运行。
+下载这个公开 npm 包无需注册或登录 npm；访问石墨文件需要你的石墨账号。私有部署、登录与切账号见 [安装说明](install.md)。
 
-Release workflow 自动生成 `.tgz` 附件；目前不自动发布 npm。这个附件用于 npm 安装/发布，不能上传到要求技能 ZIP 的 SkillHub 或 WorkBuddy 表单。
+## 更新与指定版本
 
-## 首次发布账号操作
-
-1. 维护者在 [npm 官网](https://www.npmjs.com/signup)注册或登录自己控制的账号，完成邮箱验证，并在头像 → Account → Two-Factor Authentication 启用 2FA。按[官方步骤](https://docs.npmjs.com/configuring-two-factor-authentication)配置安全密钥并自行保存恢复码；只有网页登录或邮箱验证还不足以发布。
-2. 在自己的终端执行 `npm login --registry=https://registry.npmjs.org`，按浏览器提示完成终端授权。网页登录不会自动让终端获得发布身份。无需在聊天中发送密码、验证码、恢复码或 token。
-3. 用 `npm whoami --registry=https://registry.npmjs.org` 检查当前身份；确认其拥有待发布包的权限。未注册包名能否占用仍以发布时 registry 校验为准。
-4. 检查包内文件与真实安装验收结果，再运行以下命令。发布时可能再次要求网页验证，由账号持有人完成，不把凭据写入仓库。npm 提示发布正在处理时，等待官方 registry 可查询并安装后再宣布可用，不重复提交同一版本。
+更新到 npm 已发布的最新版本：
 
 ```bash
-npm publish ./dist/shimo-net-cli-<版本>.tgz --access public --registry=https://registry.npmjs.org
-npm view shimo-net-cli@<版本> version dist.integrity --registry=https://registry.npmjs.org
+npm install -g shimo-net-cli@latest --registry=https://registry.npmjs.org
+shimo-net version
 ```
 
-同一版本不能覆写。修改代码或二进制应递增版本。发布后还需从官方 npm registry 重新安装、执行版本及帮助，确认消费者拿到的产物与待发布包一致。
+需要固定版本时，将 `latest` 改成版本号，例如：
 
-官方参考：[npm 包元数据与命令入口](https://docs.npmjs.com/cli/v11/configuring-npm/package-json)、[npm publish](https://docs.npmjs.com/cli/v11/commands/npm-publish)。
+```bash
+npm install -g shimo-net-cli@0.9.19 --registry=https://registry.npmjs.org
+```
+
+可用版本见 [npm 版本列表](https://www.npmjs.com/package/shimo-net-cli?activeTab=versions)。已安装的程序不会随 GitHub 提交自动更新；使用固定版本的技能包时，CLI 版本应与技能要求一致。
+
+## 仅安装到当前项目
+
+没有全局安装权限，或只想在一个项目中使用时，在项目目录执行：
+
+```bash
+npm install shimo-net-cli --registry=https://registry.npmjs.org
+npm exec -- shimo-net version
+npm exec -- shimo-net --help
+```
+
+后续同样通过 `npm exec -- shimo-net <命令>` 调用。这会在当前项目中添加 npm 依赖；技能宿主使用独立工作区时，按 [技能运行说明](agent/runtime.md) 配置。
+
+## 卸载
+
+全局安装的版本：
+
+```bash
+npm uninstall -g shimo-net-cli
+```
+
+项目内安装的版本：
+
+```bash
+npm uninstall shimo-net-cli
+```
+
+卸载 npm 包不会自动清理石墨登录状态。若也要清除 CLI 保存的登录凭据，请在卸载前运行 `shimo-net logout`；它不会退出你的日常浏览器。数据位置见 [本地数据与卸载](install.md#本地数据与卸载)。
+
+## 常见问题
+
+| 问题 | 处理 |
+|---|---|
+| `command not found` | 重新打开终端，确认 npm 全局命令目录在 PATH；项目安装使用 `npm exec -- shimo-net`。 |
+| Node.js 版本不符合要求 | 升级到受支持的 Node.js LTS，或使用不依赖 Node 的原生程序。 |
+| 下载超时 | 确认能访问 `registry.npmjs.org`，恢复网络后重试；也可选择 GitHub Release 安装。 |
+| 更新后还是旧版本 | 检查 `command -v shimo-net`（macOS/Linux）或 `Get-Command shimo-net`（PowerShell），确认当前调用的是 npm 安装的入口。 |
+| `doctor` 报未登录 | 安装成功与石墨登录是两件事；运行 `shimo-net login` 后用 `whoami --json` 核对。 |
+
+命令与参数见 [命令参考](cli-reference.md)。

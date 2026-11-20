@@ -19,15 +19,41 @@
 
 ### 从 npm 安装
 
-`shimo-net-cli@0.9.19` 已发布并通过官方源重新安装验收。已有 Node.js 18+ / npm 时执行：
+已有 Node.js 18+ / npm 时，安装 npm 已发布的最新版本：
 
 ```bash
-npm install --global shimo-net-cli@0.9.19 --registry=https://registry.npmjs.org
+npm install -g shimo-net-cli --registry=https://registry.npmjs.org
 shimo-net version
 shimo-net schema --json
 ```
 
-npm 包包含六平台完整程序，不会通过安装脚本再次从 GitHub 下载。无全局目录写权限的安装方式与维护者发布步骤见 [npm 分发说明](npm.md)。
+npm 包包含各平台完整程序，安装后无需再从 GitHub 下载运行程序。更新、指定版本、项目内安装和卸载见 [npm 安装指南](npm.md)。
+
+### 直接下载原生程序
+
+不使用 Node.js 或 Go 时，从 [GitHub Releases](https://github.com/shimo-office/office-suites/releases/latest) 下载对应文件：
+
+| 系统 | Intel / AMD x64 | ARM64 / Apple Silicon |
+|---|---|---|
+| macOS | `shimo-net_darwin_amd64` | `shimo-net_darwin_arm64` |
+| Linux | `shimo-net_linux_amd64` | `shimo-net_linux_arm64` |
+| Windows | `shimo-net_windows_amd64.exe` | `shimo-net_windows_arm64.exe` |
+
+macOS/Linux 可用 `uname -m` 检查当前终端架构：`x86_64` 对应 amd64，`arm64` / `aarch64` 对应 arm64。Windows 在系统“关于”页面查看系统类型。
+
+macOS/Linux：将下载的文件重命名为 `shimo-net`，放到 `~/.local/bin/`（目录不存在时先创建），然后执行：
+
+```bash
+chmod u+x "$HOME/.local/bin/shimo-net"
+export PATH="$HOME/.local/bin:$PATH"
+shimo-net version
+```
+
+上面的 PATH 设置只作用于当前终端；长期使用时将该目录加入终端的 PATH 配置。
+
+Windows：将下载的文件重命名为 `shimo-net.exe`，放到 `%LOCALAPPDATA%\shimo-net\`（目录不存在时先创建），把该目录加入用户 PATH，重新打开终端后运行 `shimo-net version`。
+
+升级时下载新版本并替换同一位置的程序，再用 `shimo-net version` 核对。这里下载的是原生程序；技能 ZIP 用于配置 AI 助手。
 
 ### 从仓库安装
 

@@ -6,7 +6,7 @@ SkillHub 和 WorkBuddy 上传的是技能定义、调用脚本和参考资料。
 
 先检查宿主是否已有 `shimo-net`（Bash/Zsh 用 `command -v shimo-net`，PowerShell 用 `Get-Command shimo-net`），存在时执行 `shimo-net version --json`，与本包 SKILL.md 的 version 比较。版本一致就直接使用该命令，不再绑定下面的函数，也不触发包内 GitHub 下载。官方 npm 渠道安装的命令同样适用；npm 包内已包含程序，安装和首次运行均无需从 GitHub 下载。
 
-缺少命令或版本不匹配时，才使用下面的包内启动器。不要静默执行版本不匹配的程序，也不要仅因需要某个命令就卸载用户已有版本。npm 发布状态和安装方式见 [npm 分发说明](../npm.md)；目标版本尚未发布 npm 时不能声称该渠道可用。
+缺少命令或版本不匹配时，才使用下面的包内启动器。不要静默执行版本不匹配的程序，也不要仅因需要某个命令就卸载用户已有版本。npm 安装与可用版本见 [npm 安装指南](../npm.md)；目标版本尚未发布 npm 时不能声称该渠道可用。
 
 ## 新环境优先使用已发布的 npm 包
 

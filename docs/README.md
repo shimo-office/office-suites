@@ -5,6 +5,7 @@
 | 读者 / 主题 | 文档 |
 |---|---|
 | 安装、登录、账号切换、环境与 FAQ | [安装说明](install.md) |
+| npm 安装、更新、指定版本和卸载 | [npm 指南](npm.md) |
 | 参数、JSON、退出码、别名 | [命令参考](cli-reference.md) |
 | 办公场景、自然语言话术、浏览器顺序 | [唯一场景清单](scenarios.md) |
 | Agent 指令包 | [SKILL.md](agent/SKILL.md) |

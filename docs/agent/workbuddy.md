@@ -27,10 +27,6 @@ shimo-net doctor --json
 
 `agent-browser` 是独立的浏览器工具，不是 shimo-net-cli 技能，也不是 WorkBuddy 自带面板；只有[浏览器规则](../scenarios.md#浏览器优先级)要求且用户同意时才启用。是否可调用 `present_files` 等内置入口，以当前宿主实际工具为准。
 
-维护者分别上架两个平台：SkillHub 使用 `shimo-net-cli-v<版本>-skillhub.zip`（最多 200 文件、10 MB）；WorkBuddy 开放平台的技能入口使用 `shimo-net-cli-v<版本>-workbuddy.zip`（ZIP 不超过 3 MB）。从 [GitHub Release](https://github.com/shimo-office/office-suites/releases/latest) 选择对应产物，不要上传整仓 `Source code (zip)`。两包包含技能定义、`LICENSE.md`、系统调用脚本和本地关键参考资料；完整 CLI 按系统下载固定版本并校验哈希，见 [运行与首次使用](runtime.md)。上传解析不等于通过审核或客户端实测。
-
-发布流程自动生成双包。本地先准备六个平台的已核对发行二进制，再运行 `python3 scripts/package_skillhub.py --tag v<版本> --assets-dir <二进制目录> --target both`，结果位于 `dist/`；脚本只读取二进制哈希，不把二进制放入技能 ZIP。
-
 ![SkillHub 技能入口示意](../images/tutorials/workbuddy/real-installed.jpg)
 
 ## 5. 执行第一个任务
