@@ -1,54 +1,42 @@
-# 使用指南
+# 文档导航
 
-第一次使用，先选一种方式：
+**简体中文** · [English](en/README.md) · [项目首页](../README.md)
 
-| 你怎么使用石墨 | 从这里开始 |
+按你要完成的任务选一条路径，不必从头读完所有文档。
+
+| 使用方式 | 建议阅读顺序 |
 |---|---|
-| 在 AI 助手里说一句话，让它帮你办公 | [四步图文教程](agent/README.md) |
-| 自己在终端安装和运行 CLI | [安装说明](install.md) |
+| 用 AI 助手办公 | [四步入门](agent/README.md) → [办公场景](scenarios.md) |
+| 在终端或脚本中使用 | [安装与登录](install.md) → [命令参考](cli-reference.md) |
+| 为助手接入工具 | [自动安装执行说明](agent/setup.md) → [Skill](agent/SKILL.md) → [运行说明](agent/runtime.md) |
 
-## 用 Agent 开始
+<a id="用-agent-开始"></a>
+<a id="按需查阅"></a>
 
-1. 打开 [WorkBuddy](agent/workbuddy.md)、[Codex](agent/codex.md)、[DSH](agent/dsh.md) 或 [豆包工作](agent/doubao.md)。
-2. 复制教程里的安装请求，Agent 自动完成 CLI 和技能接入。
-3. 按提示完成必要的登录或授权。
-4. 直接用自然语言找文件、读文档、下载或编辑；从[办公话术](scenarios.md#从这些话开始)选一个任务试试。
+## 用户指南
 
-已经安装过就直接发任务，不用每次从头配置。报错时先让 Agent 检查并修复，参照[常见问题与排错话术](agent/README.md#下次使用与常见问题)。
-
-## 按需查阅
-
-| 你想了解 | 文档 |
+| 文档 | 只在这里查什么 |
 |---|---|
-| 能做哪些办公任务，哪些需要人工处理 | [场景与支持范围](scenarios.md) |
-| npm / curl / 原生程序安装、登录和私有部署 | [安装说明](install.md) |
-| npm 更新、指定版本和卸载 | [npm 指南](npm.md) |
-| 命令、参数和脚本调用 | [命令参考](cli-reference.md) |
-| 新版本变化 | [更新记录](../CHANGELOG.md) |
-| 凭据、权限和安全边界 | [安全策略](../SECURITY.md) |
-| 软件使用许可 | [LICENSE](../LICENSE) |
+| [AI 助手入门](agent/README.md) | 安装请求、登录配合、第一项任务和日常排错话术 |
+| [各助手说明](agent/README.md#第-1-步打开你正在用的助手) | WorkBuddy、Codex、DSH、豆包工作的入口和接入范围 |
+| [安装指南](install.md) | 平台选择、安装、服务地址、账号、环境与排错 |
+| [npm 指南](npm.md) | npm 更新、固定版本、项目内安装和卸载 |
+| [办公场景](scenarios.md) | 怎样描述任务、支持范围和浏览器选择规则 |
+| [命令参考](cli-reference.md) | 参数、数据格式、退出码和失败恢复 |
 
-## 给 Agent 的执行参考
+<a id="给-agent-的执行参考"></a>
 
-用户只需发安装请求，以下内容由 Agent 按需读取：
+## 进阶编辑与 Agent 参考
 
-- [自动安装与技能接入](agent/setup.md)
-- [技能指令](agent/SKILL.md)
-- [平台技能包的 CLI 运行说明](agent/runtime.md)
-- [页面操作的浏览器选择](scenarios.md#浏览器优先级)
-- 扩展编辑：[命令总览](phase3-commands.md) · [文稿](phase3-document-commands.md) · [幻灯片](phase3-slide-commands.md) · [表单](phase3-form-commands.md)
+- **固定编辑动作：**[总览](phase3-commands.md) · [文稿](phase3-document-commands.md) · [幻灯片](phase3-slide-commands.md) · [表单](phase3-form-commands.md)。先确认文件类型，再查动作与验证要求。
+- **Agent 执行：**[自动安装](agent/setup.md)负责接入，[Skill](agent/SKILL.md)负责操作规则，[运行说明](agent/runtime.md)负责技能 ZIP 的调用与缓存。
+- **安全与许可：**[安全策略](../SECURITY.md)集中维护权限和凭据边界；[LICENSE](../LICENSE)为使用条款。
+- **维护与历史：**[维护导航](internal/README.md)集中收录验收、回归、能力目录与报告；[更新记录](../CHANGELOG.md)记录版本变化。
 
-<details>
-<summary>维护与历史验收资料</summary>
+## 文档维护约定
 
-以下记录用于追溯实现和验收，不是新用户的安装步骤，也不代表当前环境的操作已验证。
+中文主文档保留原路径；英文首页为 [`README.en.md`](../README.en.md)，英文用户指南放在 [`docs/en/`](en/README.md)。两种语言分页面阅读、顶部互链；命令、选项、JSON 字段和产品名保持一致，不翻译成另一套接口。
 
-- [Agent 历史连通记录](agent/validation.md)
-- [能力矩阵](internal/capability-matrix.md)与[能力目录源](internal/capabilities.json)
-- [历史回归记录](internal/test-results.md)
-- [扩展编辑实施计划](phase3-plan.md)与[验收记录](phase3-acceptance.md)
-- [报告生成与检查](phase3-report/README.md)
-- [改进清单核查](improvement-checklist-review.md)
-- [Issue #1 复核](issue-1-review.md) · [Issue #3 复核](issue-3-review.md)
+首页负责帮助读者选择入口，教程解释任务步骤，参考页维护参数，历史报告记录当时的证据。同一规则只维护一个主要出处，其他页面链接过去。高级执行说明和历史报告尚以中文维护，英文入口会明确标注。
 
-</details>
+图示使用仓库内相对路径、可编辑源文件与有意义的替代文字；示意图不冒充实际运行截图。修改后运行 `python3 scripts/check_docs.py`，并检查中英文页面及手机宽度的显示效果。旧入口继续保留短跳转，避免破坏已分享的链接。

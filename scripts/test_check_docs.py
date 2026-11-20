@@ -11,6 +11,25 @@ from check_docs import link_errors, tracking_errors, main, ROOT
 
 
 class LinkChecks(unittest.TestCase):
+    def test_checks_local_html_links_and_responsive_images(self):
+        with tempfile.TemporaryDirectory() as directory:
+            page = Path(directory) / 'README.md'
+            page.write_text('<a href="missing.md">English</a>\n'
+                            '<img src="missing.svg" alt="Workflow" />\n'
+                            '<source srcset="small.svg 480w, large.svg 960w" />\n')
+            self.assertEqual(len(link_errors(page)), 4)
+
+    def test_html_links_ignore_remote_urls_anchors_and_code(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'guide.md').write_text('# Guide')
+            page = root / 'README.md'
+            page.write_text('<a href="guide.md#guide">Guide</a>\n'
+                            '<a href="#local">Local</a>\n'
+                            '<img src="https://example.org/badge.svg" />\n'
+                            '```html\n<img src="example.svg" />\n```\n')
+            self.assertEqual(link_errors(page), [])
+
     def test_docs_check_under_non_utf8_process_locale(self):
         env = {**os.environ, 'LC_ALL': 'C', 'PYTHONUTF8': '0', 'PYTHONCOERCECLOCALE': '0'}
         result = subprocess.run([sys.executable, str(ROOT / 'scripts/check_docs.py')],

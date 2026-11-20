@@ -1,8 +1,8 @@
 # 安装、登录与环境
 
-**在 AI 助手里使用？** 从 [一句话接入](agent/README.md) 开始。安装程序、配置技能、处理命令路径和检查连通都交给 Agent；你只需按提示完成网页登录或必要授权，之后直接用自然语言操作石墨。
+**中文** | [English](en/install.md) · [文档导航](README.md)
 
-本页供想自己使用终端的用户，以及执行自动安装的 Agent 查阅。下面的命令不需要每个人手动执行。
+本页负责 CLI 的安装、服务地址、登录和环境排错。在 AI 助手中使用时，从 [Agent 接入教程](agent/README.md) 开始，由助手执行配置；以下命令供终端用户和 Agent 查阅。
 
 | 你现在要做什么 | 从哪里开始 |
 |---|---|
@@ -23,9 +23,7 @@
 | 构建 | 仅从源码构建时需要 Go 1.26.11+；下载 Release 不需要 Go |
 | 网络 | 能访问目标 shimo.net 或客户私有部署域名；npm 安装需访问官方 npm registry，仓库/Release 安装需访问 GitHub |
 
-仅安装 Brave 时可以复用其已登录会话，但 `login --new` 与普通 `open` 所需的浏览器发现尚不覆盖 Brave；新登录需另有 Chrome / Chromium / Edge。不要把会话复用支持误写成所有浏览器启动路径都支持。
-
-安装后使用 `shimo-net doctor --json` 检查当前平台的浏览器发现、配置和会话状态。浏览器存在不代表账号已登录；新安装未登录时 doctor 返回非 0 应按具体检查项处理。浏览器控制选择遵循 [场景清单中的唯一规则](scenarios.md#浏览器优先级)。
+`shimo-net doctor --json` 检查浏览器、配置和账号状态；未登录时可能返回非 0，按具体检查项处理。仅安装 Brave / Vivaldi 时可复用已有会话，但新登录仍需 Chrome / Chromium / Edge。Agent 使用浏览器时遵循 [浏览器选择规则](scenarios.md#浏览器优先级)。
 
 ## 安装
 
@@ -40,15 +38,12 @@
 
 ### 从 npm 安装
 
-已有 Node.js 18+ / npm 时，安装 npm 已发布的最新版本：
-
 ```bash
 npm install -g shimo-net-cli --registry=https://registry.npmjs.org
 shimo-net version
-shimo-net schema --json
 ```
 
-npm 包包含各平台完整程序，安装后无需再从 GitHub 下载运行程序。看到真实版本号后，继续 [登录石墨](#登录复用会话与切账号)；使用 AI 助手时由 Agent 完成登录检查和技能接入。npm 本身不安装技能。更新、指定版本、项目内安装和卸载见 [npm 安装指南](npm.md)。
+包名为 `shimo-net-cli`，命令名为 `shimo-net`。包内包含完整程序，运行时无需从 GitHub 再下载；npm 不安装助手技能。输出版本号后，继续 [登录](#登录复用会话与切账号)。更新、固定版本、项目安装和卸载见 [npm 指南](npm.md)。
 
 ### curl 一键配置
 
@@ -63,7 +58,7 @@ bash shimo-net-bootstrap.sh codex
 
 `codex` 可替换为 `workbuddy`、`dsh` 或 `doubao`。脚本下载当前系统的 CLI，初始化服务地址、检查登录，并在需要时打开登录窗口，由你完成登录。
 
-当前脚本会把技能写到 `~/.codex/skills/shimo-net-cli/` 或 `~/.dsh/skills/shimo-net-cli/`，但不安装 WorkBuddy 或豆包的技能。Agent 必须按当前宿主实际加载的目录继续接入并核对生效情况；例如新版 Codex 的技能目录与旧目录可能不同。完整流程见 [Agent 接入教程](agent/README.md)。脚本运行成功不等于当前助手已经加载技能。
+脚本只为 Codex / DSH 写入预设技能目录（`~/.codex/skills/shimo-net-cli/`、`~/.dsh/skills/shimo-net-cli/`），不安装 WorkBuddy / 豆包技能。Agent 还需按 [接入教程](agent/README.md) 核对当前助手实际加载的位置和生效范围；脚本成功不等于技能已加载。
 
 程序安装在 `~/.local/bin/shimo-net`。如果该目录不在 PATH，完成后在当前终端执行：
 
@@ -72,7 +67,7 @@ export PATH="$HOME/.local/bin:$PATH"
 shimo-net version
 ```
 
-长期使用时将该目录加入终端的 PATH 配置。仅需要安装程序、不需要助手配置时，可选择 npm 或下面的原生程序下载方式。
+长期使用时将该目录加入终端的 PATH 配置。默认 `latest` 会重新下载程序，不要用反复运行脚本代替状态检查。
 
 ### 直接下载原生程序
 
@@ -122,17 +117,17 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ### Agent 一键配置
 
-想直接交给 Agent 完成全部配置，请使用 [一句话接入](agent/README.md)。下面是供 Agent 或终端用户选择的脚本入口，不是额外必做步骤。
-
-Agent 应先检查已有 CLI 与技能；可用时直接复用，避免重复安装。确实需要脚本配置时，macOS/Linux 可在仓库内执行：
+从 [Agent 接入教程](agent/README.md) 发起安装；助手应先复用已有 CLI 与技能。已克隆仓库时也可使用本地脚本：
 
 ```bash
 bash bootstrap.sh codex  # 也可选择 workbuddy、dsh、doubao
 ```
 
-脚本的具体行为与技能范围见 [curl 一键配置](#curl-一键配置)。默认 `latest` 会重新下载程序，不能把反复运行脚本当作检查已安装状态的方法。Agent 仍需完成当前宿主的技能接入、命令路径处理和实际连通验证。
+与 [curl 一键配置](#curl-一键配置) 是同一个流程，无需重复执行。
 
 ### 源码构建与本地开发
+
+在仓库根目录使用 Go 1.26.11+ 构建。macOS / Linux：
 
 ```bash
 go build -trimpath -ldflags "-s -w" -o bin/shimo-net ./cli
@@ -141,18 +136,27 @@ shimo-net version
 shimo-net schema --json
 ```
 
+Windows PowerShell：
+
+```powershell
+go build -trimpath -ldflags "-s -w" -o bin/shimo-net.exe ./cli
+$env:Path = "$PWD\bin;$env:Path"
+shimo-net version
+shimo-net schema --json
+```
+
 上面的 PATH 仅用于当前开发终端。`./shimo` 仅为旧开发脚本兼容入口：优先运行 `bin/shimo-net`，缺少二进制才 `go run ./cli`；普通使用与技能示例统一为 `shimo-net`。修改源码后应重新构建，不能用旧二进制代替当前代码验证。安装版本用 `shimo-net version` 检查，不根据目录名猜测。
 
 ## 初始化与私有部署
 
-使用 shimo.net 公有云无需准备额外地址；私有部署用户把公司的石墨网址告诉 Agent 即可，由 Agent 完成以下配置。终端用户可自行执行，并将示例中的客户域名替换为实际地址。
+公有云使用默认地址；私有部署请将 `<客户域名>` 替换为公司的石墨域名。以下两条 `init` 命令选一条执行：
 
 ```bash
-shimo-net init                          # 默认 https://shimo.net
-shimo-net init --origin "https://<客户域名>"
-shimo-net config show
-shimo-net config set "https://<客户域名>"
+shimo-net init --json                          # 默认 https://shimo.net
+shimo-net init --origin "https://<客户域名>" --json
 ```
+
+用 `shimo-net config show --json` 查看地址，用 `shimo-net config set "https://<客户域名>" --json` 修改地址。
 
 `init`、`config set` 和 `login --origin` 都先探测 `GET /api/v1/auth/register/is_new`，只接受 200 JSON、401 或 403，成功后才保存 origin；失败保留旧配置。HTTP 401 只能证明接口可达，不能证明登录成功。普通登录过期无需重跑 `init`。临时覆盖环境使用：
 
@@ -164,9 +168,7 @@ PowerShell 使用 `$env:SHIMO_NET_ORIGIN = 'https://<客户域名>'`。环境变
 
 ## 登录、复用会话与切账号
 
-Agent 会检查登录状态，并在需要时启动登录流程。你在弹出的石墨网页完成登录后，告诉 Agent“已登录”，由它继续验证。已有可用会话时可以直接进入任务，不必重复登录。
-
-以下为 Agent 执行或终端用户自行操作的命令：
+已有可用会话时无需重登。首次使用或登录过期时，执行登录并在网页完成验证，再核对当前账号：
 
 ```bash
 shimo-net login
@@ -174,7 +176,7 @@ shimo-net whoami --json
 shimo-net session status --json
 ```
 
-仅在完全没有已存凭据时，CLI 才尝试复用 Chrome / Chromium / Edge / Brave / Vivaldi 的目标域名会话并保存。已有凭据过期、域名不匹配或记录损坏时不会静默换浏览器账号；401 直接失败，需显式登录。普通 login 在没有已存记录时仍可能复用浏览器账号，login --new 总是使用全新临时配置。
+仅在没有已存凭据时，CLI 才自动尝试复用目标域名的浏览器会话。凭据过期、域名不匹配或记录损坏时，不会静默换号；401 需要显式登录。
 
 手动检查浏览器会话：
 
@@ -191,9 +193,9 @@ shimo-net login --new
 shimo-net whoami --json
 ```
 
-`logout` 删除 CLI 本地凭据并清理旧 chrome-profile，不会退出日常浏览器或 open-profile 中用户手动登录的账号。因此 `logout` 后运行普通 `login` 可能再次收取同一个旧账号；`login --new` 明确跳过会话复用，登录窗口使用全新临时配置并在结束后清理。设置了 SHIMO_NET_COOKIE 时须先取消环境覆盖才能登录/切账号，否则 CLI 会拒绝，避免实际账号仍被环境变量覆盖。始终用 `whoami` 核对实际账号。
+`logout` 删除 CLI 凭据及旧 `chrome-profile`，不会退出日常浏览器或 `open-profile` 的账号。普通 `login` 因而可能复用原账号；`login --new` 跳过复用，使用结束后清理的临时配置。若设置了 `SHIMO_NET_COOKIE`，须先取消该环境变量，否则 CLI 拒绝登录或切账号。
 
-如果没有可复用会话，CLI 会打开专用登录窗口，用户自行完成登录，成功后保存会话。不要向 Agent 提供密码或 cookie。沙箱可能阻止读取系统凭据或浏览器配置，应按宿主最小权限要求放行，不要因“未登录”反复初始化或默认关闭所有沙箱限制。
+不要向 Agent 提供密码或 cookie。沙箱阻止读取系统凭据或浏览器配置时，仅申请必要权限；登录过期无需重复初始化或关闭全部沙箱限制。
 
 `--relogin` 仅对只读命令允许用户在全新登录窗口完成登录后重试；所有写命令和固定编辑入口 `phase3` 禁止自动重放。写入已受理但后验失败时，应先读回原文件与检查证据，不能再次提交追加、删除、发布或答卷来“试一次”。
 
@@ -210,13 +212,13 @@ shimo-net whoami --json
 
 ## FAQ
 
-在 Agent 中遇到问题，可以直接说“请检查并修复石墨连接”，并附上错误提示。下面的检查由 Agent 执行；涉及登录、组织权限或安全确认时，再按提示配合。
+先运行 `shimo-net doctor --json`。使用 Agent 时可直接发送错误提示，让它检查并继续原任务。
 
 | 现象 | 处理 |
 |---|---|
-| 401 / 未登录 | 先看 `session status --json` 与 `whoami --json`；完全没有已存凭据时可自动尝试复用；401/损坏/域名不匹配时不会自动换号，须显式 login。要换账号必须 `login --new`，普通重登可能复用旧账号。 |
+| 401 / 未登录 | 检查 `session status --json` 和 `whoami --json`，按 [登录流程](#登录复用会话与切账号) 重新登录。 |
 | logout 后还是原账号 | 日常浏览器仍登录原账号；执行上面的新登录流程，然后核对 `whoami`。 |
-| command not found | macOS/Linux 将 `~/.local/bin` 加入 PATH；Windows 重开终端并核对安装目录是否在用户 PATH。 |
+| command not found | 将所选安装方式的命令目录加入 PATH；原生安装路径见上文，npm 安装见 [npm 排错](npm.md#常见问题)。重开终端再试。 |
 | 找不到浏览器 | 在当前操作系统安装 Chrome / Chromium / Edge，再运行 `doctor --json`；Brave 已登录会话可复用，但不代表专用新登录的自动发现已支持。不要只检查 macOS 的固定应用路径。 |
 | 找不到 Go | 使用平台 Release 安装，或安装 Go 1.26.11+ 后从源码构建。 |
 | 进入登录页 / 页面空白 | 不能算截图核验成功。先确认目标域名会话与编辑器加载，再按 [浏览器规则](scenarios.md#浏览器优先级) 处理。 |
