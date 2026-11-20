@@ -27,7 +27,7 @@ shimo-net version
 需要固定版本时，将 `latest` 改成版本号，例如：
 
 ```bash
-npm install -g shimo-net-cli@0.9.19 --registry=https://registry.npmjs.org
+npm install -g shimo-net-cli@0.9.20 --registry=https://registry.npmjs.org
 ```
 
 可用版本见 [npm 版本列表](https://www.npmjs.com/package/shimo-net-cli?activeTab=versions)。已安装的程序不会随 GitHub 提交自动更新；使用固定版本的技能包时，CLI 版本应与技能要求一致。

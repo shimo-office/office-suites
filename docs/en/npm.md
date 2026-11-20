@@ -27,7 +27,7 @@ shimo-net version
 For a pinned installation, replace `latest` with a published version. For example:
 
 ```bash
-npm install -g shimo-net-cli@0.9.19 --registry=https://registry.npmjs.org
+npm install -g shimo-net-cli@0.9.20 --registry=https://registry.npmjs.org
 ```
 
 Check the [npm version list](https://www.npmjs.com/package/shimo-net-cli?activeTab=versions) for available releases. GitHub commits do not update an installed binary. If an assistant skill pins a CLI version, keep the executable aligned with that requirement.

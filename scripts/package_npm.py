@@ -120,7 +120,9 @@ shimo-net schema --json
 
 需要 Node.js 18+（建议使用受支持的 Node.js LTS）。本包包含 macOS/Linux/Windows 的 amd64、arm64 完整 Go 二进制，无第三方 npm 依赖、无安装脚本、无首次执行下载，不访问 GitHub 获取运行程序。每次启动会校验包内二进制 SHA-256，参数、标准输入输出及退出码传递给 `shimo-net`。
 
-安装成功不等于石墨已登录。访问真实文件仍需连接目标石墨服务并由用户完成授权登录；页面功能另需支持的浏览器。首次使用运行 `shimo-net doctor --json`，按检查结果运行 `shimo-net login`，再用 `shimo-net whoami --json` 核对登录状态。不要公开密码或 cookie。
+安装成功不等于石墨已登录。文件链接优先在宿主内置预览展示；新建、导入或编辑后同样展示实际结果链接。内置工具能操作就优先使用，只能预览时使用可用的外部 Computer Use / Browser Use 并复用会话。预览不代表保存成功，纯页面任务无需先登录 CLI。
+
+确需 CLI/API 时，先用 `shimo-net doctor --no-browser --json` 和 `shimo-net whoami --no-browser --json` 检查；这不会接管其他浏览器。需要配置 CLI 登录时，说明其独立浏览器要求并沿用用户授权，再执行 `shimo-net login`。各通道登录态可能独立；不要公开或手动搬运密码、cookie。完整选择规则见 [浏览器规则](https://github.com/shimo-office/office-suites/blob/v{version}/docs/scenarios.md#浏览器优先级)。
 
 CLI 本身不依赖 Node.js；直接二进制安装方式仍可用。完整说明见 [仓库安装文档](https://github.com/shimo-office/office-suites/blob/v{version}/docs/install.md)、[命令参考](https://github.com/shimo-office/office-suites/blob/v{version}/docs/cli-reference.md) 和 [安全说明](https://github.com/shimo-office/office-suites/blob/v{version}/SECURITY.md)。许可证见本包 LICENSE。
 '''
