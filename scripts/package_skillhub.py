@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Build usable SkillHub and WorkBuddy packages without embedding CLI binaries."""
 import argparse
-import hashlib
 import io
 import json
 from pathlib import Path
@@ -12,8 +11,11 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCES = ('docs/install.md', 'docs/scenarios.md', 'docs/cli-reference.md',
-              'SECURITY.md', 'docs/agent/runtime.md')
+              'SECURITY.md')
 REFERENCE_PATHS = {name: 'references/' + Path(name).name for name in REFERENCES}
+# Ships with the package so the first run can report its own state offline
+# instead of failing with "command not found".
+SELFCHECK = 'docs/agent/selfcheck.py'
 
 
 def local_links(text, source_path, destination, version):
@@ -34,18 +36,6 @@ def local_links(text, source_path, destination, version):
             return f'{label}({path}{suffix})'
         return f'{label}(https://github.com/shimo-office/office-suites/blob/v{version}/{quote(repository_path, safe="/")}{suffix})'
     return re.sub(r'(!?\[[^\]\n]*\])\(([^)\s]+)\)', replace, text)
-
-
-def asset_digests(directory):
-    result = {}
-    for system in ('darwin', 'linux', 'windows'):
-        for arch in ('amd64', 'arm64'):
-            name = f'shimo-net_{system}_{arch}' + ('.exe' if system == 'windows' else '')
-            path = directory / name
-            if path.is_symlink() or not path.is_file() or not path.stat().st_size:
-                raise ValueError(f'missing regular release binary: {name}')
-            result[name] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return result
 
 
 def scalar(header, key):
@@ -88,7 +78,7 @@ def validate_header(header):
                              'an unquoted colon ends the scalar')
 
 
-def build(root, out_dir, tag=None, target='skillhub', digests=None):
+def build(root, out_dir, tag=None, target='skillhub'):
     source = (root / 'docs/agent/SKILL.md').read_text(encoding='utf-8')
     if not source.startswith('---\n') or '\n---\n' not in source[4:]:
         raise ValueError('SKILL.md requires YAML frontmatter')
@@ -118,13 +108,13 @@ def build(root, out_dir, tag=None, target='skillhub', digests=None):
     validate_header(skill_header.split('\n', 1)[1])
     skill = skill_header + '\n---\n' + body
     skill = local_links(skill, 'docs/agent/SKILL.md', 'SKILL.md', version)
-    from skill_runtime import render_launchers
-    if digests is None:
-        digests = asset_digests(root / 'dist')
     # Explicit allowlist: never zip the checkout, credentials, or build outputs.
+    # Commands are documented, not shipped: the marketplace scans packaged
+    # scripts, and a downloader that fetches and executes a remote binary both
+    # trips that scan and cannot work in an offline sandbox.
     files = {'SKILL.md': skill.encode('utf-8'),
-             'LICENSE.md': (root / 'LICENSE').read_bytes()}
-    files.update(render_launchers(version, digests))
+             'LICENSE.md': (root / 'LICENSE').read_bytes(),
+             'scripts/selfcheck.py': (root / SELFCHECK).read_bytes()}
     for path, destination in REFERENCE_PATHS.items():
         files[destination] = local_links((root / path).read_text(encoding='utf-8'),
                                          path, destination, version).encode('utf-8')
@@ -153,12 +143,10 @@ def main():
     parser.add_argument('--out-dir', type=Path, default=ROOT / 'dist')
     parser.add_argument('--tag', help='Require this release tag to match the skill version')
     parser.add_argument('--target', choices=['skillhub', 'workbuddy', 'both'], default='both')
-    parser.add_argument('--assets-dir', type=Path, default=ROOT / 'dist', help='Six verified release binaries to hash')
     args = parser.parse_args()
     try:
-        digests = asset_digests(args.assets_dir)
         for target in (('skillhub', 'workbuddy') if args.target == 'both' else (args.target,)):
-            print(build(ROOT, args.out_dir, args.tag, target, digests))
+            print(build(ROOT, args.out_dir, args.tag, target))
     except (ValueError, OSError) as error:
         parser.exit(1, f'{error}\n')
 
