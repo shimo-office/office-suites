@@ -79,6 +79,9 @@ jobs:
     needs: build
     permissions:
       contents: write
+      # npm verifies this job's OIDC identity against the trusted publisher
+      # registered for shimo-net-cli, so no long-lived token is stored.
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,25 +112,45 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/verify_release.py dist --tag "$GITHUB_REF_NAME" --token "$GH_TOKEN"
-      # The skill installs shimo-net-cli at the same version, so npm has to carry
-      # it too. Skipped with a warning until the NPM_TOKEN secret exists, and
-      # idempotent when the version is already published.
+      # The skill installs shimo-net-cli from npm, so the registry has to carry
+      # this version too. Publishing is tokenless: npm matches this job's OIDC
+      # identity against the trusted publisher registered on npmjs.com.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+      - name: Ensure an npm CLI that can publish over OIDC
+        run: |
+          # Trusted publishing requires npm >= 11.5.1.
+          if ! node -e 'const v=require("child_process").execSync("npm --version").toString().trim().split("-")[0].split(".").map(Number);process.exit(v[0]>11||(v[0]===11&&(v[1]>5||(v[1]===5&&v[2]>=1)))?0:1)'; then
+            npm install -g npm@latest
+          fi
+          npm --version
       - name: Publish to npm
         env:
+          # Fallback only. OIDC wins when the trusted publisher is registered;
+          # a granular token keeps the step working during migration.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::warning::NPM_TOKEN is not set; publish shimo-net-cli@${version} manually"
-            exit 0
-          fi
           if npm view "shimo-net-cli@${version}" version >/dev/null 2>&1; then
             echo "shimo-net-cli@${version} is already published; skipping"
             exit 0
           fi
-          npm publish dist/shimo-net-cli-*.tgz --access public
-          npm view "shimo-net-cli@${version}" version
+          if npm publish "dist/shimo-net-cli-${version}.tgz" --access public; then
+            npm view "shimo-net-cli@${version}" version
+            exit 0
+          fi
+          # A missing trusted publisher fails here, after the Release assets are
+          # already verified, so the run reports the fix instead of failing the
+          # whole release. Re-running is safe: builds are reproducible.
+          {
+            echo "### npm 未发布 ${version}"
+            echo
+            echo "在 npmjs.com → shimo-net-cli → Settings → Trusted publishing 添加 GitHub Actions："
+            echo "organization/user = shimo-office，repository = office-suites，workflow = release.yml，勾选 npm publish。"
+            echo "保存后重跑本 job 即可补发；构建可复现，重跑不会改变已上传资产的哈希。"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::npm publish ${version} failed; register the trusted publisher on npmjs.com and re-run this job"
+          exit 0
