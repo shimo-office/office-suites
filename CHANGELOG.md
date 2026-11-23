@@ -316,3 +316,12 @@
 - 镜像的 `main` 多一个提交：`scripts/render_mirror_readme.py` 把 README 中的仓库链接改指 Gitee（版本与 CI 徽标保留图片、去掉外链，Issue 与文档链接指向镜像）。
 - 二进制下载地址仍指向 GitHub Releases，因为发布资产只在 GitHub；本地提交的 README 仍保留 GitHub 地址，改写只发生在镜像侧。
 - Gitee 镜像地址统一为 `gitee.com/shimo-office/office-suites`；旧 `graphite-office` 路径会 302 重定向，镜像不再写入这个跳转地址。
+
+## 未发布
+
+### 发布流程
+
+- npm 发布改用 Trusted Publishing（OIDC）：`release` job 声明 `id-token: write`，由 npm 校验“仓库 + workflow 文件”身份后签发一次性发布凭据，仓库不再依赖长期 `NPM_TOKEN`。NPM Token 只保留为迁移期兜底。
+- 发布步骤改用 Node.js 24，并在 npm 版本低于 11.5.1 时升级，因为 OIDC 发布会话要求该版本；`package-manager-cache` 关闭，避免发布构建命中缓存。
+- npm 发布失败不再中断整个发布：此时 Release 资产已上传并自校验通过，失败原因写入 run summary 并给出可信发布者登记字段；`-buildvcs=false` 保证重跑产物字节一致，补发不会改变已上传资产的哈希。
+
