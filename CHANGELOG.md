@@ -294,3 +294,12 @@
 - 许可证明确允许通过 WorkBuddy 技能市场下载、安装、使用，并允许原样转发作安装用途。
 - 技能描述包含 `shimo-net-cli` 检索词，便于在市场中按包名搜索。
 - 版本号统一为 0.9.21：技能包版本、CLI 版本与启动器钉住的 Release 标签保持一致。
+
+## 未发布
+
+### 发布流程
+
+- `Release` 工作流先校验 tag 是否位于 `main`，避免从过期分支发布旧代码。
+- 构建加 `-buildvcs=false`：同一提交在任意 git 状态下产出相同字节，重跑不会改变哈希。
+- 发布后自动运行 `scripts/verify_release.py`，把包内钉住的 SHA-256 与 Release 实际资产逐项比对，不一致即失败。
+- `action-gh-release` 显式声明 `overwrite_files: true` 与 `fail_on_unmatched_files: true`，重跑时整套替换资产，不留下新旧混合状态。

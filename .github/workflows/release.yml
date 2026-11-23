@@ -10,8 +10,26 @@ permissions:
 jobs:
   verify:
     uses: ./.github/workflows/ci.yml
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      # A tag pushed from a stale branch would publish old code under a new
+      # version number, so releases must be cut from main.
+      - name: Require the tag to be cut from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${GITHUB_SHA}...main" --jq .status)
+          echo "tag ${GITHUB_REF_NAME} vs main: ${status}"
+          case "$status" in
+            ahead|identical) ;;
+            *)
+              echo "::error::${GITHUB_REF_NAME} is not on main (compare status: ${status}); tag the released commit instead"
+              exit 1
+              ;;
+          esac
   build:
-    needs: verify
+    needs: [verify, guard]
     strategy:
       matrix:
         include:
@@ -50,7 +68,9 @@ jobs:
           mkdir -p dist
           EXT=""
           if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
-          go build -trimpath -ldflags "-s -w" -o "dist/shimo-net_${GOOS}_${GOARCH}${EXT}" ./cli
+          # -buildvcs=false keeps bytes independent of git state, so rebuilding
+          # the same commit reproduces the same SHA-256 the launchers pin.
+          go build -trimpath -buildvcs=false -ldflags "-s -w" -o "dist/shimo-net_${GOOS}_${GOARCH}${EXT}" ./cli
       - uses: actions/upload-artifact@v4
         with:
           name: shimo-net_${{ matrix.goos }}_${{ matrix.goarch }}
@@ -76,6 +96,19 @@ jobs:
         run: python3 scripts/package_skillhub.py --tag "$GITHUB_REF_NAME" --assets-dir dist --out-dir dist --target both
       - name: Package self-contained npm distribution
         run: python3 scripts/package_npm.py --tag "$GITHUB_REF_NAME" --assets-dir dist --out-dir dist
+      # Overwrite every asset from this run so a re-run replaces the whole set
+      # instead of leaving a mix of old and new binaries behind.
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: dist/*
+          overwrite_files: true
+          fail_on_unmatched_files: true
+      # The launchers pin a SHA-256 per platform, so the release is only usable
+      # while those digests match the uploaded binaries. Fail the run otherwise.
+      - name: Verify published assets match the packaged launchers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for archive in dist/*-workbuddy.zip dist/*-skillhub.zip; do
+            python3 scripts/verify_release.py "$archive" --token "$GH_TOKEN"
+          done
