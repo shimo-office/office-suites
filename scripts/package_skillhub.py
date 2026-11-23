@@ -16,6 +16,8 @@ REFERENCE_PATHS = {name: 'references/' + Path(name).name for name in REFERENCES}
 # Ships with the package so the first run can report its own state offline
 # instead of failing with "command not found".
 SELFCHECK = 'docs/agent/selfcheck.py'
+# Local preview of a sheet write: standard library only, no network, no account.
+PLAN = 'docs/agent/plan.py'
 
 
 def local_links(text, source_path, destination, version):
@@ -114,7 +116,8 @@ def build(root, out_dir, tag=None, target='skillhub'):
     # trips that scan and cannot work in an offline sandbox.
     files = {'SKILL.md': skill.encode('utf-8'),
              'LICENSE.md': (root / 'LICENSE').read_bytes(),
-             'scripts/selfcheck.py': (root / SELFCHECK).read_bytes()}
+             'scripts/selfcheck.py': (root / SELFCHECK).read_bytes(),
+             'scripts/plan.py': (root / PLAN).read_bytes()}
     for path, destination in REFERENCE_PATHS.items():
         files[destination] = local_links((root / path).read_text(encoding='utf-8'),
                                          path, destination, version).encode('utf-8')

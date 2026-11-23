@@ -85,6 +85,10 @@ def next_step(cli, profile):
     if not cli['found']:
         return {'action': 'install', 'command': INSTALL,
                 'reason': 'shimo-net is not on PATH; the skill cannot run any command yet'}
+    if cli['outdated']:
+        return {'action': 'upgrade', 'command': INSTALL + '@latest',
+                'reason': 'installed %s is older than the required %s'
+                          % (cli['version'], cli['minimum'])}
     if not profile['initialized']:
         return {'action': 'init', 'command': 'shimo-net init --origin https://shimo.net',
                 'reason': 'no service origin is configured'}
@@ -101,13 +105,20 @@ def check():
            'minimum': MINIMUM_CLI,
            'outdated': bool(version) and parse_version(version) < parse_version(MINIMUM_CLI)}
     profile = profile_state()
-    return {'ready': cli['found'] and profile['credentials'],
+    # This report only reads local files and never contacts the service, so it
+    # is a lead, not proof: "credentials" just means a credential file exists.
+    # The agent has to re-check with real commands before claiming anything.
+    return {'ready': cli['found'] and not cli['outdated'] and profile['credentials'],
             'skillVersion': skill_version(),
             'cli': cli,
             'origin': os.environ.get('SHIMO_NET_ORIGIN'),
             'profile': profile,
             'python': sys.version.split()[0],
-            'next': next_step(cli, profile)}
+            'next': next_step(cli, profile),
+            'notProof': 'local files only; confirm with the commands in verifiedBy',
+            'verifiedBy': ['command -v shimo-net', 'shimo-net version --json',
+                           'shimo-net doctor --json --no-browser']}
+
 
 
 def main():

@@ -27,6 +27,9 @@ class SkillHubPackageTests(unittest.TestCase):
                           encoding='utf-8')
         (root / 'docs/agent/selfcheck.py').write_text(
             'import json\nprint(json.dumps({"ready": False}))\n', encoding='utf-8')
+        (root / 'docs/agent/plan.py').write_text(
+            'import json\nprint(json.dumps({"ok": True, "written": False}))\n',
+            encoding='utf-8')
         (root / 'LICENSE').write_text('All rights reserved.\n', encoding='utf-8')
         (root / 'credentials.json').write_text('must never be packaged', encoding='utf-8')
         for name in ['docs/install.md', 'docs/scenarios.md', 'docs/cli-reference.md',
@@ -46,6 +49,7 @@ class SkillHubPackageTests(unittest.TestCase):
                 with zipfile.ZipFile(archive) as z:
                     expected = {'shimo-net-cli/SKILL.md', 'shimo-net-cli/LICENSE.md',
                                 'shimo-net-cli/scripts/selfcheck.py',
+                                'shimo-net-cli/scripts/plan.py',
                                 'shimo-net-cli/references/install.md',
                                 'shimo-net-cli/references/scenarios.md',
                                 'shimo-net-cli/references/cli-reference.md',
