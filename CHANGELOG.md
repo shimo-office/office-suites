@@ -321,11 +321,23 @@
 
 ### 版本
 
-- CLI、技能包与 npm 包统一为 0.9.23，为 OIDC 发布的首个版本，也是提审市场的版本。
+- CLI、技能包与发布流水线统一为 0.9.23。该版本的 npm 包没有发出：发布命令的 tarball 参数被 npm 当成 GitHub 简写，详见 0.9.24。
 
 ### 发布流程
 
 - npm 发布改用 Trusted Publishing（OIDC）：`release` job 声明 `id-token: write`，由 npm 校验“仓库 + workflow 文件”身份后签发一次性发布凭据，仓库不再依赖长期 `NPM_TOKEN`。NPM Token 只保留为迁移期兜底。
 - 发布步骤改用 Node.js 24，并在 npm 版本低于 11.5.1 时升级，因为 OIDC 发布会话要求该版本；`package-manager-cache` 关闭，避免发布构建命中缓存。
 - npm 发布失败不再中断整个发布：此时 Release 资产已上传并自校验通过，失败原因写入 run summary 并给出可信发布者登记字段；`-buildvcs=false` 保证重跑产物字节一致，补发不会改变已上传资产的哈希。
+
+## 0.9.24 — 2026-11-23
+
+### 版本
+
+- npm 上首个由 OIDC 自动发布的版本，同时作为提审市场的版本；CLI、技能包与 npm 包统一为 0.9.24。
+
+### 发布流程
+
+- 修正 `npm publish` 的 tarball 参数：`dist/shimo-net-cli-<版本>.tgz` 会被 npm 解析成 GitHub 简写 `owner/repo` 并去 `git ls-remote`，报 `Permission denied (publickey)`；加上 `./` 前缀后才按本地文件发布。旧写法即使配置了 token 也发不出去。
+- 修正 Gitee 镜像在标签触发时的分支清理：`git push --prune` 在只检出标签的运行里没有本地分支，会把镜像的默认分支 `main` 当成“多余分支”删除，被 Gitee 拒绝。改为按 GitHub 与镜像各自的分支列表做差集，跳过默认分支；标签清理同样改成两侧 `ls-remote` 比对。
+
 

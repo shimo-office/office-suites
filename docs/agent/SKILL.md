@@ -5,7 +5,7 @@ display_name_en: shimo-net CLI
 description: 用 shimo-net 命令行操作石墨（shimo.net）的文件与表格，支持搜索、上传下载、新建改名、读文稿和写表格。
 description_zh: 在终端或 AI 助手里操作石墨文件与表格，覆盖搜索、上传下载、整理目录和读写表格。
 description_en: Operate Shimo (shimo.net) files and sheets from a terminal or an AI assistant.
-version: 0.9.23
+version: 0.9.24
 author: shimo-office
 allowed-tools: Bash, Read, Write, Edit
 examples_zh:
@@ -46,7 +46,7 @@ python3 <技能目录>/scripts/selfcheck.py --pretty
 
 ```json
 {"ready": false,
- "skillVersion": "0.9.23",
+ "skillVersion": "0.9.24",
  "cli": {"found": false, "path": null, "version": null, "minimum": "0.9.20", "outdated": false},
  "origin": null,
  "profile": {"dir": "~/.shimo-net-cli", "initialized": false, "origin": null, "credentials": false},
