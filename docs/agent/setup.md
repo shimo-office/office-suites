@@ -28,10 +28,10 @@ npm 和原生程序安装不会替你完成登录。`bootstrap.sh` 会主动执�
 
 ## 3. 由 Agent 接入技能
 
-先检查宿主已经发现的技能及其版本。缺失时，获取与 CLI 对应的正式 Release 的 `SKILL.md`；例如 CLI 为 `0.9.20`，来源为：
+先检查宿主已经发现的技能及其版本。缺失时，获取与 CLI 对应的正式 Release 的 `SKILL.md`；例如 CLI 为 `0.9.21`，来源为：
 
 ```text
-https://github.com/shimo-office/office-suites/releases/download/v0.9.20/SKILL.md
+https://github.com/shimo-office/office-suites/releases/download/v0.9.21/SKILL.md
 ```
 
 版本号须替换为实际版本，不固定使用示例版本。文件先下载到临时位置，确认不是 HTML 错误页、元数据 `name` 为 `shimo-net-cli` 且 `version` 匹配，再安装到当前宿主支持的位置。平台 ZIP 还包含运行器和引用文档，应按包内结构安装，不能只取其中的 SKILL.md 后丢弃依赖。对已有平台技能包遵循其版本要求，不混用其他版本的运行器。

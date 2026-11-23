@@ -141,7 +141,7 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 
 扩展固定动作保持 `phase3` 命令入口，接受动作白名单及受约束的 JSON 参数；不接受任意 JavaScript。参数与示例见 [总览](phase3-commands.md)、[文稿](phase3-document-commands.md)、[幻灯片](phase3-slide-commands.md)、[表单](phase3-form-commands.md)。
 
-电子表格补强动作 `sheet-update/append/insert/delete/format/merge` 必须提供 `--read-range`；`--out` 保存逐次运行证据。`phase3 artifact <本地文件>` 只检查文件包结构，明确 `actionVerified:false`，不证明线上写入。具体限制以 [验收记录](phase3-acceptance.md) 为准，不能将本地检查或只读查询当成整项需求通过。
+电子表格补强动作 `sheet-update/append/insert/delete/format/merge` 必须提供 `--read-range`；`--out` 保存逐次运行证据。`phase3 artifact <本地文件>` 只检查文件包结构，明确 `actionVerified:false`，不证明线上写入，不能将本地检查或只读查询当成整项需求通过。
 
 ## 人工禁用
 
