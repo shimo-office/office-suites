@@ -29,7 +29,7 @@
 ## 进阶编辑与 Agent 参考
 
 - **固定编辑动作：**[总览](phase3-commands.md) · [文稿](phase3-document-commands.md) · [幻灯片](phase3-slide-commands.md) · [表单](phase3-form-commands.md)。先确认文件类型，再查动作与验证要求。
-- **Agent 执行：**[自动安装](agent/setup.md)负责接入，[Skill](agent/SKILL.md)负责操作规则，[运行说明](agent/runtime.md)负责技能 ZIP 的调用与缓存。
+- **Agent 执行：**[自动安装](agent/setup.md)负责接入，[Skill](agent/SKILL.md)负责操作规则，[运行说明](agent/runtime.md)负责运行环境与首次使用。
 - **安全与许可：**[安全策略](../SECURITY.md)集中维护权限和凭据边界；[LICENSE](../LICENSE)为使用条款。
 - **维护与历史：**[维护导航](internal/README.md)集中收录验收、回归、能力目录与报告；[更新记录](../CHANGELOG.md)记录版本变化。
 

@@ -295,13 +295,21 @@
 - 技能描述包含 `shimo-net-cli` 检索词，便于在市场中按包名搜索。
 - 版本号统一为 0.9.21：技能包版本、CLI 版本与启动器钉住的 Release 标签保持一致。
 
-## 未发布
+## 0.9.22 — 2026-11-23
+
+### 技能包
+
+- 移除包内启动器 `scripts/shimo-net.sh` / `shimo-net.ps1`。它会在安装后从 GitHub Releases 下载二进制并执行，既触发市场安全扫描，在离线评测沙箱里也必然失败；程序改由 npm 包提供，包内已自带各平台程序。
+- 新增 `scripts/selfcheck.py`：纯标准库、不联网、不读取凭据，输出环境状态与下一步命令，让首次运行拿到确定结果而不是 `command not found`。
+- `SKILL.md` 重写：能力边界（能做/不做）、可离线执行的自检步骤、一次完整任务示例、失败分级处理（401/403/锁定/超时分别怎么办）、数据真实性约定。
+- 不再要求程序版本与技能版本严格相等，改为最低版本要求；避免技能版本递增时把安装指令变成死链。
 
 ### 发布流程
 
+
 - `Release` 工作流先校验 tag 是否位于 `main`，避免从过期分支发布旧代码。
 - 构建加 `-buildvcs=false`：同一提交在任意 git 状态下产出相同字节，重跑不会改变哈希。
-- 发布后自动运行 `scripts/verify_release.py`，把包内钉住的 SHA-256 与 Release 实际资产逐项比对，不一致即失败。
+- 发布后自动运行 `scripts/verify_release.py`，把本地构建产物与 Release 实际资产的 SHA-256 逐项比对，缺项或不一致即失败。
 - `action-gh-release` 显式声明 `overwrite_files: true` 与 `fail_on_unmatched_files: true`，重跑时整套替换资产，不留下新旧混合状态。
 - 打 tag 时顺带发布 npm 包：已有 `NPM_TOKEN` 则自动 `npm publish` 并回读版本，未配置时给出警告并跳过；版本已存在则直接跳过，可安全重跑。
 - 新增 `Mirror` 工作流：推 `main` 或 `v*` 标签时把分支和标签同步到 Gitee 镜像仓库。GitHub 仍是主仓库与唯一产物源，Gitee 只承接代码；未配置 `GITEE_TOKEN` / `GITEE_USER` 时跳过并告警。

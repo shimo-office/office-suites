@@ -93,7 +93,7 @@ jobs:
           cp bootstrap.sh dist/bootstrap.sh
           cp docs/agent/SKILL.md dist/SKILL.md
       - name: Package SkillHub and WorkBuddy uploads
-        run: python3 scripts/package_skillhub.py --tag "$GITHUB_REF_NAME" --assets-dir dist --out-dir dist --target both
+        run: python3 scripts/package_skillhub.py --tag "$GITHUB_REF_NAME" --out-dir dist --target both
       - name: Package self-contained npm distribution
         run: python3 scripts/package_npm.py --tag "$GITHUB_REF_NAME" --assets-dir dist --out-dir dist
       # Overwrite every asset from this run so a re-run replaces the whole set
@@ -103,15 +103,12 @@ jobs:
           files: dist/*
           overwrite_files: true
           fail_on_unmatched_files: true
-      # The launchers pin a SHA-256 per platform, so the release is only usable
-      # while those digests match the uploaded binaries. Fail the run otherwise.
-      - name: Verify published assets match the packaged launchers
+      # Every asset must be byte-identical to what this build produced, so an
+      # upload that silently kept an older file fails the run instead of users.
+      - name: Verify published assets match this build
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          for archive in dist/*-workbuddy.zip dist/*-skillhub.zip; do
-            python3 scripts/verify_release.py "$archive" --token "$GH_TOKEN"
-          done
+        run: python3 scripts/verify_release.py dist --tag "$GITHUB_REF_NAME" --token "$GH_TOKEN"
       # The skill installs shimo-net-cli at the same version, so npm has to carry
       # it too. Skipped with a warning until the NPM_TOKEN secret exists, and
       # idempotent when the version is already published.

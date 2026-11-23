@@ -1,50 +1,38 @@
 #!/usr/bin/env python3
-"""Check a packaged skill ZIP against the binaries actually published in its release.
+"""Check that a release carries exactly the files this build produced.
 
-The launchers shipped inside a skill package pin a SHA-256 per platform, so a
-package is only usable while those hashes match the release assets. Nothing in
-the packaging path can detect a mismatch after upload, because the hashes are
-computed from whatever binaries were on disk at build time. This verifier closes
-that gap: it reads the pinned hashes out of the ZIP and compares them with the
-digests GitHub reports for the release assets.
+Packaging cannot detect an upload that went wrong: the ZIP, the npm tarball and
+the six binaries are all built from whatever was on disk at the time. This
+verifier closes that gap after upload. It reads the SHA-256 GitHub reports for
+each asset and compares it with the local file of the same name, and it fails
+when a required asset is missing from either side.
+
+Usage: verify_release.py dist --tag v0.9.22
 """
 import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import sys
 import urllib.error
 import urllib.request
-import zipfile
 
 DEFAULT_REPO = 'shimo-office/office-suites'
-POSIX_PIN = re.compile(r"^\s*(shimo-net_[a-z0-9_]+?)\) expected='([0-9a-f]{64})'", re.M)
-POWERSHELL_PIN = re.compile(r"'(shimo-net_windows_[a-z0-9_]+?\.exe)'\s*=\s*'([0-9a-f]{64})'", re.M)
-RELEASE_URL = re.compile(r'releases/download/(v[0-9][0-9A-Za-z.\-]*)/')
+BINARIES = tuple(f'shimo-net_{system}_{arch}' + ('.exe' if system == 'windows' else '')
+                 for system in ('darwin', 'linux', 'windows')
+                 for arch in ('amd64', 'arm64'))
 
 
-def pinned_hashes(archive):
-    """Return the platform digests a packaged skill will accept, plus its tag."""
-    with zipfile.ZipFile(archive) as z:
-        names = z.namelist()
-        scripts = [n for n in names if n.endswith('/scripts/shimo-net.sh')]
-        if len(scripts) != 1:
-            raise ValueError('archive must contain exactly one scripts/shimo-net.sh')
-        launcher = z.read(scripts[0]).decode('utf-8')
-        powershell = [n for n in names if n.endswith('/scripts/shimo-net.ps1')]
-        if len(powershell) != 1:
-            raise ValueError('archive must contain exactly one scripts/shimo-net.ps1')
-        launcher += z.read(powershell[0]).decode('utf-8')
-    digests = dict(POSIX_PIN.findall(launcher))
-    digests.update(dict(POWERSHELL_PIN.findall(launcher)))
-    tags = set(RELEASE_URL.findall(launcher))
-    if not digests:
-        raise ValueError('archive pins no platform digests')
-    if len(tags) != 1:
-        raise ValueError(f'launchers must pin exactly one release tag, found {sorted(tags)}')
-    return digests, tags.pop()
+def required_assets(version):
+    """Names this release must ship, derived from the version alone."""
+    return BINARIES + (
+        'bootstrap.sh',
+        'SKILL.md',
+        f'shimo-net-cli-{version}.tgz',
+        f'shimo-net-cli-v{version}-skillhub.zip',
+        f'shimo-net-cli-v{version}-workbuddy.zip',
+    )
 
 
 def fetch_release(repo, tag, token=None):
@@ -63,65 +51,64 @@ def fetch_release(repo, tag, token=None):
 
 
 def published_digests(release):
-    """GitHub reports sha256 for every uploaded asset; none means no digest yet."""
+    """GitHub reports sha256 per asset; a missing digest cannot be verified."""
     digests, missing = {}, []
     for asset in release.get('assets', []):
         digest = asset.get('digest') or ''
         if digest.startswith('sha256:'):
             digests[asset['name']] = digest.split(':', 1)[1]
-        elif asset['name'].startswith('shimo-net_'):
+        else:
             missing.append(asset['name'])
     return digests, missing
 
 
-def verify(archive, repo=DEFAULT_REPO, tag=None, token=None, expected_zip_digest=True):
-    """Return (problems, report). An empty problem list means the package is usable."""
-    archive = Path(archive)
-    pinned, launcher_tag = pinned_hashes(archive)
-    tag = tag or launcher_tag
-    problems = []
-    if tag != launcher_tag:
-        problems.append(f'launchers pin {launcher_tag}, verifying against {tag}')
+def verify(directory, tag, repo=DEFAULT_REPO, token=None):
+    """Return (problems, report). An empty problem list means the release is sound."""
+    version = tag[1:] if tag.startswith('v') else tag
     release = fetch_release(repo, tag, token)
+    problems = []
     if release.get('draft') or release.get('prerelease'):
         problems.append(f'release {tag} is draft or prerelease')
-    digests, missing = published_digests(release)
-    for name, want in sorted(pinned.items()):
-        got = digests.get(name)
-        if got is None:
-            problems.append(f'{name}: not published in release {tag}')
-        elif got != want:
-            problems.append(f'{name}: package pins {want[:16]}…, release has {got[:16]}…')
-    for name in missing:
+    digests, undigested = published_digests(release)
+    for name in undigested:
         problems.append(f'{name}: release asset has no sha256 digest to compare')
-    if expected_zip_digest:
-        local = hashlib.sha256(archive.read_bytes()).hexdigest()
-        published = digests.get(archive.name)
+
+    checked = 0
+    for name in required_assets(version):
+        local = Path(directory) / name
+        if not local.is_file():
+            problems.append(f'{name}: missing from the build output')
+            continue
+        published = digests.get(name)
         if published is None:
-            problems.append(f'{archive.name}: not published in release {tag}')
-        elif published != local:
-            problems.append(f'{archive.name}: local file differs from the published asset')
-    report = {'repo': repo, 'tag': tag, 'archive': str(archive),
-              'platforms': len(pinned), 'releaseAssets': len(digests),
-              'problems': problems}
+            problems.append(f'{name}: not published in release {tag}')
+            continue
+        local_digest = hashlib.sha256(local.read_bytes()).hexdigest()
+        if local_digest != published:
+            problems.append(f'{name}: local build {local_digest[:16]}…, '
+                            f'release has {published[:16]}…')
+            continue
+        checked += 1
+
+    report = {'repo': repo, 'tag': tag, 'version': version,
+              'required': len(required_assets(version)), 'checked': checked,
+              'releaseAssets': len(digests), 'problems': problems}
     return problems, report
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('archive', type=Path, help='Packaged skill ZIP, e.g. dist/…-workbuddy.zip')
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('directory', type=Path,
+                        help='Build output holding the files to be released')
+    parser.add_argument('--tag', required=True, help='Release tag, e.g. v0.9.22')
     parser.add_argument('--repo', default=DEFAULT_REPO)
-    parser.add_argument('--tag', help='Release tag to verify; defaults to the tag the launchers pin')
     parser.add_argument('--token', default=os.environ.get('GITHUB_TOKEN'),
                         help='Optional token; public releases need none')
-    parser.add_argument('--skip-zip-digest', action='store_true',
-                        help='Only compare platform binaries, not this ZIP asset')
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args()
     try:
-        problems, report = verify(args.archive, args.repo, args.tag, args.token,
-                                  expected_zip_digest=not args.skip_zip_digest)
-    except (ValueError, OSError, zipfile.BadZipFile) as error:
+        problems, report = verify(args.directory, args.tag, args.repo, args.token)
+    except (ValueError, OSError) as error:
         parser.exit(1, f'{error}\n')
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -130,8 +117,8 @@ def main():
         for problem in problems:
             print(f'  - {problem}')
     else:
-        print(f'{report["tag"]}: {report["platforms"]} platform digests and '
-              f'{args.archive.name} match the published release')
+        print(f'{report["tag"]}: all {report["checked"]} required assets match '
+              f'the published release')
     parser.exit(1 if problems else 0)
 
 

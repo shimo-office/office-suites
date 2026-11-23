@@ -26,7 +26,7 @@ Choose a path for your task. You do not need to read every guide in order.
 The following resources are currently maintained in Chinese:
 
 - **Fixed editing actions:** [overview](../phase3-commands.md), [documents](../phase3-document-commands.md), [slides](../phase3-slide-commands.md) and [forms](../phase3-form-commands.md). Check the file type and verification requirements before choosing an action.
-- **Agent execution:** [setup](../agent/setup.md) covers integration; the [Skill](../agent/SKILL.md) defines operating rules; the [runtime guide](../agent/runtime.md) covers packaged runners and caches.
+- **Agent execution:** [setup](../agent/setup.md) covers integration; the [Skill](../agent/SKILL.md) defines operating rules; the [runtime guide](../agent/runtime.md) covers environment setup and first use.
 - **Security and licensing:** [security policy](../../SECURITY.md) and [LICENSE](../../LICENSE).
 - **Maintenance:** [maintainer index](../internal/README.md), including historical evidence and capability data; [changelog](../../CHANGELOG.md).
 
