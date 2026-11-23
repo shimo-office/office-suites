@@ -305,3 +305,5 @@
 - `action-gh-release` 显式声明 `overwrite_files: true` 与 `fail_on_unmatched_files: true`，重跑时整套替换资产，不留下新旧混合状态。
 - 打 tag 时顺带发布 npm 包：已有 `NPM_TOKEN` 则自动 `npm publish` 并回读版本，未配置时给出警告并跳过；版本已存在则直接跳过，可安全重跑。
 - 新增 `Mirror` 工作流：推 `main` 或 `v*` 标签时把分支和标签同步到 Gitee 镜像仓库。GitHub 仍是主仓库与唯一产物源，Gitee 只承接代码；未配置 `GITEE_TOKEN` / `GITEE_USER` 时跳过并告警。
+- 镜像的 `main` 多一个提交：`scripts/render_mirror_readme.py` 把 README 中的仓库链接改指 Gitee（版本与 CI 徽标保留图片、去掉外链，Issue 与文档链接指向镜像）。
+- 二进制下载地址仍指向 GitHub Releases，因为发布资产只在 GitHub；本地提交的 README 仍保留 GitHub 地址，改写只发生在镜像侧。

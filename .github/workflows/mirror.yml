@@ -40,3 +40,18 @@ jobs:
           git push --force --prune --prune-tags "$remote" \
             '+refs/heads/*:refs/heads/*' \
             '+refs/tags/*:refs/tags/*'
+
+          # The mirror's main is then replaced by one extra commit whose READMEs
+          # point at Gitee. Build it from origin/main explicitly: a tag-triggered
+          # run has a tag checked out, not the branch head.
+          git fetch --no-tags origin main
+          git checkout -B mirror-main FETCH_HEAD
+          python3 scripts/render_mirror_readme.py
+          if git diff --quiet -- README.md README.en.md; then
+            echo "READMEs already point at the mirror; nothing to commit"
+            exit 0
+          fi
+          git -c user.name='gitee-mirror' \
+              -c user.email='gitee-mirror@users.noreply.gitee.com' \
+              commit -am 'docs: point README links at this Gitee mirror'
+          git push --force "$remote" 'mirror-main:refs/heads/main'
