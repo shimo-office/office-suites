@@ -2,6 +2,7 @@
 """Offline behaviour of the packaged write-plan helper."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import stat
 import tempfile
@@ -77,7 +78,9 @@ class PlanTests(unittest.TestCase):
     def test_generated_script_is_executable_and_never_hardcodes_a_link(self):
         result = self.build()
         script = Path(result['files']['script'])
-        self.assertTrue(script.stat().st_mode & stat.S_IXUSR)
+        # Windows has no executable bit on files; chmod only toggles read-only.
+        if os.name != 'nt':
+            self.assertTrue(script.stat().st_mode & stat.S_IXUSR)
         text = script.read_text(encoding='utf-8')
         self.assertIn('--action sheet-update', text)
         self.assertIn('payload.json', text)
