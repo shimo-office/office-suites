@@ -317,7 +317,11 @@
 - 二进制下载地址仍指向 GitHub Releases，因为发布资产只在 GitHub；本地提交的 README 仍保留 GitHub 地址，改写只发生在镜像侧。
 - Gitee 镜像地址统一为 `gitee.com/shimo-office/office-suites`；旧 `graphite-office` 路径会 302 重定向，镜像不再写入这个跳转地址。
 
-## 未发布
+## 0.9.23 — 2026-11-23
+
+### 版本
+
+- CLI、技能包与 npm 包统一为 0.9.23，为 OIDC 发布的首个版本，也是提审市场的版本。
 
 ### 发布流程
 
