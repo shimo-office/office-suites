@@ -35,22 +35,39 @@ jobs:
             exit 0
           fi
           remote="https://${GITEE_USER}:${GITEE_TOKEN}@gitee.com/shimo-office/office-suites.git"
-          # GitHub is authoritative, so mirror with force and prune: a rebase or
-          # a deleted branch on GitHub has to win here as well.
-          git push --force --prune "$remote" \
+          # GitHub is authoritative, so mirror with force. Do not use --prune
+          # here: a tag-triggered run has no local branches, and --prune would
+          # then try to delete the mirror's default branch, which Gitee rejects.
+          git push --force "$remote" \
             '+refs/heads/*:refs/heads/*' \
             '+refs/tags/*:refs/tags/*'
 
-          # Tags deleted on GitHub must disappear from the mirror too. Some git
-          # builds ship without --prune-tags, so remove them explicitly instead.
-          stale=$(comm -13 <(git tag -l | sort) \
-            <(git ls-remote --tags --refs "$remote" | sed 's#.*refs/tags/##' | sort))
-          if [ -n "$stale" ]; then
-            echo "removing tags absent from the source: $stale"
-            for tag in $stale; do
-              git push --quiet "$remote" ":refs/tags/$tag"
-            done
-          fi
+          # Refs deleted on GitHub must disappear from the mirror too. Compare
+          # against GitHub, not the local clone, so a tag run still knows the
+          # full branch list. The default branch is never deleted.
+          default_branch=main
+          stale_branches=$(comm -13 \
+            <(git ls-remote --heads origin | sed 's#.*refs/heads/##' | sort) \
+            <(git ls-remote --heads "$remote" | sed 's#.*refs/heads/##' | sort) || true)
+          for branch in $stale_branches; do
+            if [ "$branch" = "$default_branch" ]; then
+              continue
+            fi
+            echo "removing branch absent from the source: $branch"
+            git push --quiet "$remote" ":refs/heads/$branch" ||
+              echo "::warning::could not delete mirrored branch $branch"
+          done
+
+          # Some git builds ship without --prune-tags, so remove stale tags
+          # explicitly instead of relying on --prune.
+          stale_tags=$(comm -13 \
+            <(git ls-remote --tags --refs origin | sed 's#.*refs/tags/##' | sort) \
+            <(git ls-remote --tags --refs "$remote" | sed 's#.*refs/tags/##' | sort) || true)
+          for tag in $stale_tags; do
+            echo "removing tag absent from the source: $tag"
+            git push --quiet "$remote" ":refs/tags/$tag" ||
+              echo "::warning::could not delete mirrored tag $tag"
+          done
 
           # The mirror's main is then replaced by one extra commit whose READMEs
           # point at Gitee. Build it from origin/main explicitly: a tag-triggered
