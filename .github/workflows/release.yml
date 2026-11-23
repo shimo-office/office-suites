@@ -138,7 +138,9 @@ jobs:
             echo "shimo-net-cli@${version} is already published; skipping"
             exit 0
           fi
-          if npm publish "dist/shimo-net-cli-${version}.tgz" --access public; then
+          # The ./ prefix matters: without it npm reads the argument as the
+          # GitHub shorthand owner/repo and fails with a git ls-remote error.
+          if npm publish "./dist/shimo-net-cli-${version}.tgz" --access public; then
             npm view "shimo-net-cli@${version}" version
             exit 0
           fi
