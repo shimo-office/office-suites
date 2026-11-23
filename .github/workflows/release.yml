@@ -141,7 +141,16 @@ jobs:
           # The ./ prefix matters: without it npm reads the argument as the
           # GitHub shorthand owner/repo and fails with a git ls-remote error.
           if npm publish "./dist/shimo-net-cli-${version}.tgz" --access public; then
-            npm view "shimo-net-cli@${version}" version
+            # The registry accepts the upload several seconds before the new
+            # version becomes readable, so poll instead of failing on the gap.
+            for attempt in $(seq 1 12); do
+              if npm view "shimo-net-cli@${version}" version; then
+                exit 0
+              fi
+              echo "registry has not exposed ${version} yet (attempt ${attempt}); waiting"
+              sleep 15
+            done
+            echo "::warning::published ${version} but the registry did not expose it within 180s"
             exit 0
           fi
           # A missing trusted publisher fails here, after the Release assets are
