@@ -303,3 +303,4 @@
 - 构建加 `-buildvcs=false`：同一提交在任意 git 状态下产出相同字节，重跑不会改变哈希。
 - 发布后自动运行 `scripts/verify_release.py`，把包内钉住的 SHA-256 与 Release 实际资产逐项比对，不一致即失败。
 - `action-gh-release` 显式声明 `overwrite_files: true` 与 `fail_on_unmatched_files: true`，重跑时整套替换资产，不留下新旧混合状态。
+- 打 tag 时顺带发布 npm 包：已有 `NPM_TOKEN` 则自动 `npm publish` 并回读版本，未配置时给出警告并跳过；版本已存在则直接跳过，可安全重跑。
