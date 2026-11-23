@@ -18,3 +18,6 @@ tmp/
 
 # Local acceptance evidence and reports are delivered separately.
 /output/
+
+# Local agent workspace notes and caches.
+.workbuddy/

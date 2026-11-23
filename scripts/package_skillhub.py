@@ -12,7 +12,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCES = ('docs/install.md', 'docs/scenarios.md', 'docs/cli-reference.md',
-              'docs/phase3-acceptance.md', 'SECURITY.md', 'docs/agent/runtime.md')
+              'SECURITY.md', 'docs/agent/runtime.md')
 REFERENCE_PATHS = {name: 'references/' + Path(name).name for name in REFERENCES}
 
 
@@ -57,6 +57,37 @@ def scalar(header, key):
     return matches[0]
 
 
+PLAIN_SCALAR_START = ('"', "'", '[', '{', '|', '>', '&', '*', '!', '%', '@', '`')
+
+
+def validate_header(header):
+    """Fail before upload on YAML that readers reject with a mapping error.
+
+    A plain scalar containing ": " is parsed as a nested mapping, which the
+    marketplace reports as "mapping values are not allowed in this context".
+    Line numbers match the platform report, where the first metadata line is 1.
+    """
+    for index, line in enumerate(header.split('\n'), start=1):
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        stripped = line.lstrip()
+        if len(stripped) != len(line):
+            if not stripped.startswith('- '):
+                raise ValueError(f'frontmatter line {index}: unsupported indentation')
+            key, value = 'list item', stripped[2:]
+        else:
+            match = re.fullmatch(r'([A-Za-z_][\w-]*):(?: (.*))?', line)
+            if not match:
+                raise ValueError(f'frontmatter line {index}: expected "key: value"')
+            key, value = match.group(1), match.group(2) or ''
+        value = value.strip()
+        if not value or value.startswith(PLAIN_SCALAR_START):
+            continue
+        if ': ' in value or value.endswith(':'):
+            raise ValueError(f'frontmatter line {index}: {key} needs quotes; '
+                             'an unquoted colon ends the scalar')
+
+
 def build(root, out_dir, tag=None, target='skillhub', digests=None):
     source = (root / 'docs/agent/SKILL.md').read_text(encoding='utf-8')
     if not source.startswith('---\n') or '\n---\n' not in source[4:]:
@@ -65,7 +96,8 @@ def build(root, out_dir, tag=None, target='skillhub', digests=None):
     name, version = scalar(header, 'name'), scalar(header, 'version')
     if not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', name) or not 2 <= len(name) <= 128:
         raise ValueError('invalid skill slug')
-    # Release packaging currently supports stable numeric release versions.
+    # Skill and CLI versions stay in lockstep: the marketplace compares the skill
+    # version, and the launcher pins the same release tag for its downloads.
     if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', version):
         raise ValueError('invalid stable release version')
     if tag is not None and tag != 'v' + version:
@@ -81,15 +113,10 @@ def build(root, out_dir, tag=None, target='skillhub', digests=None):
             raise ValueError(f'{key} already exists; reconcile packaging metadata')
     skill = '---\n' + ''.join(f'{key}: {json.dumps(value, ensure_ascii=False)}\n'
                              for key, value in extra.items()) + source[4:]
-    intro = ('\n## 此上传包的 CLI 入口\n\n'
-             '先按下方“先选执行通道，再检查 CLI”区分展示与操作：文件链接先内置预览，新建、导入和编辑后展示结果；内置只能预览时用可用的外部 Computer Use。纯页面任务跳过 CLI 初始化。'
-             '只有需要 CLI/API 时，才按 [运行与首次使用](runtime.md) 检查版本；未选择 CLI 浏览器方案时每次调用加 `--no-browser`。版本匹配时直接复用，'
-             '缺失时优先安装已发布的同版本 npm 包；无适用 npm 渠道时才绑定本包启动脚本。'
-             '随后示例统一执行 `shimo-net`，参数保持不变；不要运行仓库开发入口。'
-             '脚本按系统获取固定版本的完整 CLI、校验 SHA-256 并复用本地缓存；'
-             '首次需要网络，不自动登录，也不修改全局 PATH。技能安装成功不等于 CLI 已就绪或账号已登录。\n')
     skill_header, body = skill.split('\n---\n', 1)
-    skill = skill_header + '\n---\n' + intro + '\n' + body
+    # Validate what the marketplace will parse, after metadata injection.
+    validate_header(skill_header.split('\n', 1)[1])
+    skill = skill_header + '\n---\n' + body
     skill = local_links(skill, 'docs/agent/SKILL.md', 'SKILL.md', version)
     from skill_runtime import render_launchers
     if digests is None:
@@ -99,17 +126,19 @@ def build(root, out_dir, tag=None, target='skillhub', digests=None):
              'LICENSE.md': (root / 'LICENSE').read_bytes()}
     files.update(render_launchers(version, digests))
     for path, destination in REFERENCE_PATHS.items():
-        files[destination] = local_links((root / path).read_text(encoding='utf-8'), path, destination, version).encode('utf-8')
+        files[destination] = local_links((root / path).read_text(encoding='utf-8'),
+                                         path, destination, version).encode('utf-8')
     limit = 3_000_000 if target == 'workbuddy' else 10_000_000
     if len(files) > 200 or sum(map(len, files.values())) > limit:
         raise ValueError('marketplace package file count or expanded size exceeded')
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as z:
         for filename, data in files.items():
-            entry = zipfile.ZipInfo(filename, date_time=(1980, 1, 1, 0, 0, 0))
+            # Marketplaces require a single top-level {skill-name}/ directory.
+            entry = zipfile.ZipInfo(f'{name}/{filename}', date_time=(1980, 1, 1, 0, 0, 0))
             entry.compress_type = zipfile.ZIP_DEFLATED
             entry.create_system = 3
-            entry.external_attr = 0o100644 << 16
+            entry.external_attr = (0o100755 if filename.endswith('.sh') else 0o100644) << 16
             z.writestr(entry, data)
     if len(buffer.getvalue()) > limit:
         raise ValueError('marketplace ZIP size exceeded')
