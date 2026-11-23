@@ -307,3 +307,4 @@
 - 新增 `Mirror` 工作流：推 `main` 或 `v*` 标签时把分支和标签同步到 Gitee 镜像仓库。GitHub 仍是主仓库与唯一产物源，Gitee 只承接代码；未配置 `GITEE_TOKEN` / `GITEE_USER` 时跳过并告警。
 - 镜像的 `main` 多一个提交：`scripts/render_mirror_readme.py` 把 README 中的仓库链接改指 Gitee（版本与 CI 徽标保留图片、去掉外链，Issue 与文档链接指向镜像）。
 - 二进制下载地址仍指向 GitHub Releases，因为发布资产只在 GitHub；本地提交的 README 仍保留 GitHub 地址，改写只发生在镜像侧。
+- Gitee 镜像地址统一为 `gitee.com/shimo-office/office-suites`；旧 `graphite-office` 路径会 302 重定向，镜像不再写入这个跳转地址。

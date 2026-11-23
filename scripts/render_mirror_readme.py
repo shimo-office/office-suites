@@ -23,7 +23,7 @@ import re
 import sys
 
 GITHUB = 'https://github.com/shimo-office/office-suites'
-GITEE = 'https://gitee.com/graphite-office/office-suites'
+GITEE = 'https://gitee.com/shimo-office/office-suites'
 
 # Paths that exist only on GitHub: linking to them from the mirror would land
 # the reader on a 404 or an empty page.

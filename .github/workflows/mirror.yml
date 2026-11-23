@@ -34,7 +34,7 @@ jobs:
             echo "::warning::GITEE_TOKEN or GITEE_USER is not set; skipping the Gitee mirror"
             exit 0
           fi
-          remote="https://${GITEE_USER}:${GITEE_TOKEN}@gitee.com/graphite-office/office-suites.git"
+          remote="https://${GITEE_USER}:${GITEE_TOKEN}@gitee.com/shimo-office/office-suites.git"
           # GitHub is authoritative, so mirror with force and prune: a rebase or
           # a deleted branch on GitHub has to win here as well.
           git push --force --prune "$remote" \

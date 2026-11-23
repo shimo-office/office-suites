@@ -7,7 +7,7 @@ import unittest
 import render_mirror_readme as renderer
 
 GITHUB = 'https://github.com/shimo-office/office-suites'
-GITEE = 'https://gitee.com/graphite-office/office-suites'
+GITEE = 'https://gitee.com/shimo-office/office-suites'
 
 
 class RenderTest(unittest.TestCase):
