@@ -360,3 +360,11 @@
 - `selfcheck.py` 的 `ready` 忽略了版本过低：装的是 0.9.19 时仍返回 `true`，会让 Agent 把过期环境当可用。现在版本低于最低要求即 `ready: false`，`next.action` 为 `upgrade`。
 - `selfcheck.py` 增加 `notProof` 与 `verifiedBy` 字段，自报「这只是本地推断」并给出复核命令。
 - 打包清单纳入 `scripts/plan.py`，并保持「零可执行脚本」：包内只有 `.py`，没有 `.sh`/`.ps1`/二进制。
+
+## 0.9.26 — 2026-11-24
+
+### 命名与检索
+
+- 中文显示名由「石墨办公 CLI」改为「石墨办公套件私有部署 CLI」，与需求文档里的正式名称一致；英文显示名同步为 `Shimo Office Suite Private Deployment CLI`。
+- 描述字段补入包名 `shimo-net-cli` 与命令名 `shimo-net`，并说明公有云 `shimo.net` 与客户私有部署共用同一套命令，市场里搜中文名或 `shimo-net-cli` 都能命中。
+

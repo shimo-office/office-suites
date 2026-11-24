@@ -1,11 +1,11 @@
 ---
 name: shimo-net-cli
-display_name: 石墨办公 CLI
-display_name_en: shimo-net CLI
-description: 用 shimo-net 命令行操作石墨（shimo.net）的文件与表格，支持搜索、上传下载、新建改名、读文稿和写表格；未登录时先产出可执行的写入计划与命令清单。
-description_zh: 在终端或 AI 助手里操作石墨文件与表格，覆盖搜索、上传下载、整理目录和读写表格；没有账号权限时先交出可复核的环境结论与写入计划。
-description_en: Operate Shimo (shimo.net) files and sheets from a terminal or an AI assistant; without a signed-in account it still returns a verified environment report and a ready-to-run write plan.
-version: 0.9.25
+display_name: 石墨办公套件私有部署 CLI
+display_name_en: Shimo Office Suite Private Deployment CLI
+description: 石墨办公套件私有部署的命令行工具 shimo-net-cli（命令名 shimo-net），在终端或 AI 助手里操作石墨文件与表格，支持搜索、上传下载、新建改名、读文稿和写表格；未登录时先产出可执行的写入计划与命令清单。
+description_zh: 石墨办公套件私有部署 CLI（包名 shimo-net-cli，命令 shimo-net）覆盖搜索文件、读文稿、上传下载、整理目录和读写表格，公有云 shimo.net 与客户私有部署同一套命令；没有账号权限时先交出可复核的环境结论与写入计划。
+description_en: shimo-net-cli (command shimo-net) is the CLI for the Shimo office suite private deployment, covering search, upload and download, rename, reading documents and writing sheets on shimo.net or a customer deployment; without a signed-in account it still returns a verified environment report and a ready-to-run write plan.
+version: 0.9.26
 author: shimo-office
 allowed-tools: Bash, Read, Write, Edit
 examples_zh:
@@ -18,7 +18,7 @@ examples_en:
   - "Write this timetable into Sheet1 A1:C3, then read it back to verify."
 ---
 
-# 石墨办公 CLI
+# 石墨办公套件私有部署 CLI
 
 `shimo-net` 是石墨（shimo.net，以及客户的私有部署）的命令行程序。本技能负责把它调起来，把真实结果和链接交回用户。
 
