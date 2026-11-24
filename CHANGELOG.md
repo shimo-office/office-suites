@@ -368,3 +368,21 @@
 - 中文显示名由「石墨办公 CLI」改为「石墨办公套件私有部署 CLI」，与需求文档里的正式名称一致；英文显示名同步为 `Shimo Office Suite Private Deployment CLI`。
 - 描述字段补入包名 `shimo-net-cli` 与命令名 `shimo-net`，并说明公有云 `shimo.net` 与客户私有部署共用同一套命令，市场里搜中文名或 `shimo-net-cli` 都能命中。
 
+## 0.9.27 — 2026-11-24
+
+按 #4、#5 两条复核 issue 修正技能包文档，CLI 行为与命令集不变。
+
+### 文档与代码对齐（#4）
+
+- 删掉「退出码 401 / 403」的判据：CLI 只用 0/1/2，401/403 是 HTTP 状态。未登录、无权限、被锁定改为按 `ok:false` 加 `error` 文本判断。
+- 修正 `doctor` 的读法：`checks` 是数组（`{"name":"credentials","ok":false,...}`），要看 `name` 为 `credentials` 那一项的 `ok`；任一项不过即退出 1，且 JSON 只写 stderr、stdout 为空，非 0 不代表环境损坏。
+- 判定表补第三行「`shimo-net` 不可用（装不上）」；第 1 步命令补 `shimo-net whoami --json --no-browser`，并统一 `2>&1` 收集 stderr。
+- 超时口径由 15 秒改为 90 秒，与 `cli/api.go` 的 HTTP 客户端超时一致。
+- 登录说明改为「Chrome / Chromium / Edge 专用窗口」，不再写成系统默认浏览器；`doctor` 的 `chrome` 项为 `ok:false` 时不征求同意、不尝试登录，直接转第 3 步。
+- 恢复 python3 兜底：没有 `python3` 时跳过自检与 `plan.py`，按实际命令输出判定；写入计划改为手写 payload 并标注「未经 `plan.py` 校验」。
+
+### 示例（#5）
+
+- `examples_zh` / `examples_en` 调整为 2 条离线可完成（环境自检、CSV 转写入计划）+ 1 条需登录（搜索文件）；原来 3 条里有 2 条必须有账号，评测按示例出题时任务完成度必然为零。
+- 需要账号的示例写清「登录后」前提，写入计划示例写明「课表 CSV 我随后贴给你」，不再依赖评测输入里不存在的附件或链接。
+
