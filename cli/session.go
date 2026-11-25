@@ -351,17 +351,15 @@ func cookiesFromProfile(p browserProfile, origin string) (string, error) {
 	}
 
 	noSandbox := browserSandboxDisabled()
-	cmd, port, logPath, err := startHarvestBrowser(p.Binary, tmp, noSandbox)
-	if logPath != "" {
-		defer func() { _ = os.Remove(logPath) }()
-	}
+	cmd, port, logPath, cleanupLog, err := startHarvestBrowser(p.Binary, tmp, noSandbox)
+	defer cleanupLog()
 	if err != nil {
 		return "", explainBrowserFailure(err, logPath)
 	}
 	defer func() {
 		if cmd != nil && cmd.Process != nil {
 			_ = cmd.Process.Kill()
-			_, _ = cmd.Process.Wait()
+			_ = cmd.Wait()
 		}
 	}()
 
@@ -372,7 +370,7 @@ func cookiesFromProfile(p browserProfile, origin string) (string, error) {
 	return cookieJarForOrigin(cookies, origin), nil
 }
 
-func startHarvestBrowser(binary, profileDir string, noSandbox bool) (*exec.Cmd, int, string, error) {
+func startHarvestBrowser(binary, profileDir string, noSandbox bool) (*exec.Cmd, int, string, func(), error) {
 	portFile := filepath.Join(profileDir, "DevToolsActivePort")
 	_ = os.Remove(portFile)
 	args := []string{
@@ -396,18 +394,17 @@ func startHarvestBrowser(binary, profileDir string, noSandbox bool) (*exec.Cmd, 
 	}
 	cmd := exec.Command(binary, args...)
 	// 浏览器把沙箱初始化、渲染进程崩溃等原因写在 stderr 上；留档才能在失败时给出结论。
-	logPath, _ := captureBrowserOutput(cmd)
+	logPath, cleanupLog := captureBrowserOutput(cmd)
 	if err := cmd.Start(); err != nil {
-		_ = os.Remove(logPath)
-		return nil, 0, "", err
+		return nil, 0, logPath, cleanupLog, err
 	}
 	port, err := waitDevToolsPort(portFile, 8*time.Second)
 	if err != nil {
 		_ = cmd.Process.Kill()
-		_, _ = cmd.Process.Wait()
-		return nil, 0, logPath, err
+		_ = cmd.Wait()
+		return nil, 0, logPath, cleanupLog, err
 	}
-	return cmd, port, logPath, nil
+	return cmd, port, logPath, cleanupLog, nil
 }
 
 func readBrowserCookies(port int) ([]browserCookie, error) {

@@ -111,7 +111,10 @@ func credentialForOriginURL(origin string, u *url.URL) (string, string, error) {
 	}
 	// 共享会话：同一系统用户下所有 CLI 读写同一份记录。只有记录存在时才生效，
 	// 未启用共享的机器行为不变。
-	header, state := sharedSessionCookieFor(origin, u)
+	header, state, err := sharedSessionCookieFor(origin, u)
+	if err != nil {
+		return "", "session", err
+	}
 	switch {
 	case header != "":
 		return header, "session", nil
@@ -307,10 +310,8 @@ func (a *App) cmdLogin() error {
 	fmt.Printf("产品网址：%s\n", terminalText(a.Origin))
 	fmt.Printf("正在打开 %s 浏览器，请在窗口里用你自己的账号登录 %s…\n", browserLabelForBinary(chrome), terminalText(a.Origin))
 	cmd := exec.Command(chrome, args...)
-	logPath, _ := captureBrowserOutput(cmd)
-	if logPath != "" {
-		defer func() { _ = os.Remove(logPath) }()
-	}
+	logPath, cleanupLog := captureBrowserOutput(cmd)
+	defer cleanupLog()
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("启动浏览器失败：%w", err)
 	}
