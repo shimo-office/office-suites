@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -62,7 +63,11 @@ func harvestDisabled() bool {
 // Only the absence of stored credentials permits automatic browser discovery.
 // An expired, unreadable or origin-mismatched record requires explicit login.
 func authCookieForOrigin(origin string) (string, error) {
-	c, err := readCookieForOrigin(origin)
+	return authCookieForURL(origin, nil)
+}
+
+func authCookieForURL(origin string, u *url.URL) (string, error) {
+	c, err := readCookieForURL(origin, u)
 	if err == nil && c != "" {
 		return c, nil
 	}
@@ -72,11 +77,13 @@ func authCookieForOrigin(origin string) (string, error) {
 	if explicitNoBrowser(&App{}) {
 		return "", errors.New("未登录且当前设置禁止启动浏览器；未尝试复用浏览器会话")
 	}
+	// 抓取前取 revision：抓取期间若有人登录或退出，这次镜像会撞版本而不是覆盖。
+	baseRev := sessionRevision(origin)
 	if c, err := harvestChromeSessionForOrigin(origin, false); err == nil && c != "" {
 		if err := writeCred(origin, c); err != nil {
 			return "", err
 		}
-		warnSharedMirror(mirrorSession(origin, c, "harvest", nil))
+		warnSharedMirror(mirrorSession(origin, c, "harvest", nil, baseRev))
 		return c, nil
 	}
 	return "", errors.New("未登录：没有已存凭据或可复用的浏览器会话；请运行 shimo-net login")
@@ -87,10 +94,16 @@ func authCookie() (string, error) {
 }
 
 func (a *App) requestCookie() (string, error) {
+	return a.requestCookieFor(nil)
+}
+
+// requestCookieFor 解析具体请求要用的 cookie。共享会话按该地址的 Secure/Path
+// 过滤；env、文件、钥匙串没有属性可判，返回整串。
+func (a *App) requestCookieFor(u *url.URL) (string, error) {
 	if explicitNoBrowser(a) {
-		return readCookieForOrigin(a.Origin)
+		return readCookieForURL(a.Origin, u)
 	}
-	return authCookieForOrigin(a.Origin)
+	return authCookieForURL(a.Origin, u)
 }
 
 func resetHarvestCache() {
@@ -542,6 +555,7 @@ func (a *App) cmdSession() error {
 			return errors.New("SHIMO_NET_COOKIE 正在覆盖本机账号；请先取消环境变量再保存浏览器会话，或用 --no-save 仅验证")
 		}
 		resetHarvestCache()
+		baseRev := sessionRevision(a.Origin)
 		cookie, err := harvestChromeSessionForOrigin(a.Origin, true)
 		if err != nil {
 			return err
@@ -554,7 +568,7 @@ func (a *App) cmdSession() error {
 			if err := writeCred(a.Origin, cookie); err != nil {
 				return err
 			}
-			warnSharedMirror(mirrorSession(a.Origin, cookie, "harvest", me))
+			warnSharedMirror(mirrorSession(a.Origin, cookie, "harvest", me, baseRev))
 		}
 		out := map[string]any{"ok": true, "source": "browser", "saved": !a.has("--no-save"),
 			"storage": "none", "cookieCount": len(strings.Split(cookie, "; ")), "account": map[string]any{

@@ -428,3 +428,20 @@
 
 - `session import` 支持 `{"cookies":[{...}]}` 输入，保留 Domain / Path / Secure / HttpOnly / SameSite / Expires；原有 `{"cookie":"..."}` 与纯 cookie 头仍然兼容。
 
+## 0.9.30 — 2026-11-25
+
+修复共享会话在 cookie 发送范围与写入前提上的两个问题。0.9.29 及更早版本会把整份 cookie 记录发给任意路径。
+
+### Cookie 发送范围
+
+- 共享会话的 cookie 改按实际请求地址筛选：Domain、Path 前缀（RFC 6265）、Secure（只发 https）、Expires。此前只检查 Domain 和过期时间，`Path=/admin` 的 cookie 会被发到 `/api/v1`，私有部署走 http 时 Secure cookie 也会明文发出。
+- 记录存在但没有适用 cookie 时直接报错，不回退钥匙串或 `credentials.json`——那可能是另一个账号的旧凭据。
+- `session import` 的默认校验也按 `/users/me` 的真实地址计算，属性不适用在导入时就失败。
+
+### 写入前提
+
+- 已有 `signedIn` 记录时，不带 `--expected-revision` 的 `session import` 只允许同一 `sid` 的属性刷新；`sid` 不同视为切号，必须带当前 revision。此前可以直接覆盖，并发切号会互相盖掉。
+- `login` / `session harvest` 在开始前记下 revision，成功后以它为前提写入。登录期间有人退出或切号，这次镜像会冲突并提示，不会把对方的状态盖掉。
+- 首次写入也带版本前提（revision 0），两个进程同时初始化时后一个会撞版本而不是覆盖。
+- `Set-Cookie` 续期合并遇冲突会重读重试一次；仍冲突则放弃本次合并，不影响请求本身。
+

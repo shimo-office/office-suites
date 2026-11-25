@@ -1,6 +1,6 @@
 # shimo-net CLI 完整方法附录
 
-附件 A，配套：[跨 Agent 共享登录态与接入方案](harness-cli-net-integration.md)。本附录由当前源码构建的 `0.9.29 schema --json` 核对，供 Harness 开发侧映射工具。能力目录含 API、页面动作和禁用项，不代表全部能力都能无浏览器执行。
+附件 A，配套：[跨 Agent 共享登录态与接入方案](harness-cli-net-integration.md)。本附录由当前源码构建的 `0.9.30 schema --json` 核对，供 Harness 开发侧映射工具。能力目录含 API、页面动作和禁用项，不代表全部能力都能无浏览器执行。
 
 ## 命令目录
 
@@ -112,6 +112,7 @@ schema 将 `37.2` 关联字段列为 deferred；动作名存在不等于任意�
 - 数据命令成功通常在 stdout 输出 JSON；失败非 0，在 stderr 输出 {"ok":false,"error":"..."}，可能附带部分结果。退出码 1 为一般失败，2 为未知命令。登录/退出/help 可能仍输出文本。
 - 处理超时、取消和有界输出；成功不等于编辑已核验，仍检查 verified/actionVerified 及证据范围。写请求失败后先读回，禁止盲目重放。
 - --no-browser 适用于 API 路径；部分 editor 与 phase3 动作依赖临时浏览器，当前没有附着 Harness WebContents 的公开参数。open 使用独立 open-profile，不注入 CLI 会话。
-- session 有 status/harvest/import/watch/logout。import 从 stdin 读 cookie 头或带 Domain/Path 属性的 cookies 数组，缺 sid 拒绝写入；带 --expected-revision 时按该版本提交，不带时不允许覆盖已退出的记录。watch 轮询 revision，输出不含 cookie 值。status 不证明在线有效，需用 whoami。
+- session 有 status/harvest/import/watch/logout。import 从 stdin 读 cookie 头或带 Domain/Path 属性的 cookies 数组，缺 sid 拒绝写入；记录已存在时，不带 --expected-revision 只允许同一 sid 的属性刷新，切号与退出后恢复必须带当前 revision。watch 轮询 revision，输出不含 cookie 值。status 不证明在线有效，需用 whoami。
+- 共享会话的 cookie 按实际请求地址过滤（Domain、Path 前缀、Secure 只发 https、Expires）；sid 不适用时命令直接失败，不回退钥匙串或环境变量。
 - 响应 Set-Cookie 会合并回共享会话（source: renew），续期对其他端可见。没有常驻进程，也没有从 CLI 到宿主的主动回调；宿主靠 watch 或读文件感知变化。
 - 正式共享模式必须让所有 Agent 与 Harness 使用同一个状态目录；不得用独立状态目录、常驻注入 SHIMO_NET_COOKIE 或单向注入代替同步。SHIMO_NET_COOKIE 优先于共享会话，常驻注入会让共享退出失效。石墨办公关闭后会话文件仍可供 CLI 使用。

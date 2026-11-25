@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -36,6 +37,10 @@ var (
 	errSessionRevision   = errors.New("共享会话版本已变化；请重新读取后再提交")
 	errSessionNoCookie   = errors.New("共享会话没有可用 cookie")
 	errSessionBadPayload = errors.New("无法解析会话数据：需要 cookie 头文本，或 {\"cookie\":\"...\"}，或 {\"cookies\":[...]}")
+
+	// errSessionNotApplicable 表示记录存在，但没有 cookie 适用于这次请求。
+	// 这种情况必须直接失败：静默回退到钥匙串会用到另一个账号的旧凭据。
+	errSessionNotApplicable = errors.New("共享会话没有适用于该请求的 cookie（Secure 与 Path 属性不匹配）；请核对导入的 cookie 属性")
 )
 
 // sessionCookie 保留 Domain/Path/Secure/HttpOnly/SameSite/Expires，便于宿主回填浏览器。
@@ -113,6 +118,22 @@ func sessionFileStamp(origin string) (int64, int64, bool) {
 	return st.ModTime().UnixNano(), st.Size(), true
 }
 
+func signedOutOverwriteError(rev int64) error {
+	return fmt.Errorf("共享会话已退出（revision %d），拒绝用旧会话覆盖；确认是新登录请重新读取后带 --expected-revision %d 提交", rev, rev)
+}
+
+func accountLabel(rec *sessionRecord) string {
+	if rec == nil {
+		return ""
+	}
+	for _, v := range []string{rec.Account.Email, rec.Account.Name, rec.Account.ID} {
+		if v != "" {
+			return v
+		}
+	}
+	return "未记录"
+}
+
 // withSessionLock 用 O_EXCL 锁文件串行化读改写；超过 15 秒的锁视为残留。
 func withSessionLock(origin string, fn func() error) error {
 	p, err := sessionStorePath(origin)
@@ -154,7 +175,7 @@ func commitSession(origin string, next sessionRecord, expectedRevision int64, al
 		if current != nil {
 			currentRev = current.Revision
 			if !allowAfterLogout && current.AuthState == sessionSignedOut && next.AuthState != sessionSignedOut {
-				return fmt.Errorf("共享会话已退出（revision %d），拒绝用旧会话覆盖；确认是新登录请重新读取后带 --expected-revision %d 提交", currentRev, currentRev)
+				return signedOutOverwriteError(currentRev)
 			}
 		}
 		if expectedRevision >= 0 && currentRev != expectedRevision {
@@ -213,11 +234,29 @@ func parseCookieHeader(header string) []sessionCookie {
 	return out
 }
 
+// sessionCookieHeader 返回按 origin 根路径计算的 cookie 头，仅用于“是否存在可用
+// 会话”的判断，不用于实际请求。
 func sessionCookieHeader(rec *sessionRecord) string {
+	return sessionCookieHeaderFor(rec, nil)
+}
+
+// sessionCookieHeaderFor 按实际要请求的 URL 过滤 cookie：Domain、Expires、
+// Secure（只发给 https）和 Path 前缀。u 为 nil 时取 origin 的 scheme 与根路径。
+// 浏览器的同源策略就是按这四条挑 cookie 的，CLI 直接把整份记录拼成头会突破它。
+func sessionCookieHeaderFor(rec *sessionRecord, u *url.URL) string {
 	if rec == nil {
 		return ""
 	}
 	host := hostOf(rec.Origin)
+	scheme, path := "", "/"
+	if ou, err := url.Parse(rec.Origin); err == nil {
+		scheme = ou.Scheme
+	}
+	if u != nil {
+		scheme = u.Scheme
+		host = u.Hostname()
+		path = u.Path
+	}
 	now := time.Now().Unix()
 	values := map[string]string{}
 	for _, c := range rec.Cookies {
@@ -228,6 +267,12 @@ func sessionCookieHeader(rec *sessionRecord) string {
 			continue
 		}
 		if c.Expires > 0 && c.Expires < now {
+			continue
+		}
+		if c.Secure && scheme != "https" {
+			continue
+		}
+		if !cookiePathMatches(c.Path, path) {
 			continue
 		}
 		values[c.Name] = c.Value
@@ -247,6 +292,26 @@ func sessionCookieHeader(rec *sessionRecord) string {
 	return strings.Join(parts, "; ")
 }
 
+// cookiePathMatches 按 RFC 6265 §5.1.4 判断请求路径是否命中 cookie 的 Path。
+func cookiePathMatches(cookiePath, requestPath string) bool {
+	if cookiePath == "" {
+		cookiePath = "/"
+	}
+	if requestPath == "" {
+		requestPath = "/"
+	}
+	if cookiePath == requestPath {
+		return true
+	}
+	if !strings.HasPrefix(requestPath, cookiePath) {
+		return false
+	}
+	if strings.HasSuffix(cookiePath, "/") {
+		return true
+	}
+	return len(requestPath) > len(cookiePath) && requestPath[len(cookiePath)] == '/'
+}
+
 func domainMatchesHost(domain, host string) bool {
 	domain = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(domain, ".")))
 	host = strings.ToLower(strings.TrimSpace(host))
@@ -256,9 +321,10 @@ func domainMatchesHost(domain, host string) bool {
 	return host == domain || strings.HasSuffix(host, "."+domain)
 }
 
-// sharedSessionCookie 返回共享会话中的请求 cookie。第二个返回值用于区分
-// “没有记录”和“记录为已退出”。
-func sharedSessionCookie(origin string) (string, string) {
+// sharedSessionCookieFor 返回共享会话中适用于该请求的 cookie 头。第二个返回值
+// 区分“没有记录”（""）、“记录为已退出”（signedOut）和“有记录但没有适用的 cookie”
+// （signedIn + 空头，调用方应报错而不是回退旧凭据）。
+func sharedSessionCookieFor(origin string, u *url.URL) (string, string) {
 	rec, ok := readSessionRecord(origin)
 	if !ok {
 		return "", ""
@@ -266,15 +332,19 @@ func sharedSessionCookie(origin string) (string, string) {
 	if rec.AuthState == sessionSignedOut {
 		return "", sessionSignedOut
 	}
-	header := sessionCookieHeader(rec)
-	if header == "" {
-		return "", ""
-	}
-	return header, sessionSignedIn
+	return sessionCookieHeaderFor(rec, u), sessionSignedIn
+}
+
+func sharedSessionCookie(origin string) (string, string) {
+	return sharedSessionCookieFor(origin, nil)
 }
 
 // mirrorSession 把已验证的登录态写入共享存储，account 可为空。
-func mirrorSession(origin, cookieHeader, source string, account map[string]any) error {
+//
+// baseRev 是本次登录/回收开始前读到的 revision（无记录为 0）。用它做写入前提，
+// 保证登录期间发生的退出或切号不会被这次写入覆盖：中途有人写过，revision 就变了，
+// 这次镜像会以冲突告终，由调用方提示而不是静默盖掉别人的状态。
+func mirrorSession(origin, cookieHeader, source string, account map[string]any, baseRev int64) error {
 	cookies := parseCookieHeader(cookieHeader)
 	if len(cookies) == 0 {
 		return errSessionNoCookie
@@ -287,8 +357,26 @@ func mirrorSession(origin, cookieHeader, source string, account map[string]any) 
 		},
 		Cookies: cookies,
 		Source:  source,
-	}, -1, true)
+	}, baseRev, true)
 	return err
+}
+
+// sessionRevision 返回当前 revision；没有记录时为 0，用于登录前的写入前提。
+func sessionRevision(origin string) int64 {
+	rec, ok := readSessionRecord(origin)
+	if !ok {
+		return 0
+	}
+	return rec.Revision
+}
+
+func cookieValue(cookies []sessionCookie, name string) string {
+	for _, c := range cookies {
+		if c.Name == name {
+			return c.Value
+		}
+	}
+	return ""
 }
 
 // warnSharedMirror 在共享写入失败时提示：本地凭据已经有效，但其他 Agent 拿不到新会话。
@@ -313,16 +401,38 @@ func markSessionSignedOut(origin, source string) error {
 
 // mergeSetCookies 把响应里的 Set-Cookie 合并进共享会话。只在记录已存在时生效，
 // 避免普通命令无端创建共享状态。
+//
+// 提交以读到的 revision 为前提：期间有别的进程写过，就重新读取再合并一次，
+// 冲突两次就放弃（这次续期只对本进程有效，下次请求会重新合并）。
+// 记录已退出时直接放弃，续期不能把退出状态复活。
 func mergeSetCookies(origin string, cookies []*http.Cookie) {
 	if len(cookies) == 0 {
 		return
 	}
-	rec, ok := readSessionRecord(origin)
-	if !ok || rec.AuthState != sessionSignedIn {
-		return
+	for attempt := 0; attempt < 2; attempt++ {
+		rec, ok := readSessionRecord(origin)
+		if !ok || rec.AuthState != sessionSignedIn {
+			return
+		}
+		merged := mergeCookieList(rec.Cookies, cookies, hostOf(origin))
+		if cookieValue(merged, "sid") == "" {
+			return
+		}
+		_, err := commitSession(origin, sessionRecord{
+			Origin:    origin,
+			AuthState: sessionSignedIn,
+			Account:   rec.Account,
+			Cookies:   merged,
+			Source:    "renew",
+		}, rec.Revision, false)
+		if err == nil || !errors.Is(err, errSessionRevision) {
+			return
+		}
 	}
-	host := hostOf(origin)
-	merged := append([]sessionCookie(nil), rec.Cookies...)
+}
+
+func mergeCookieList(existing []sessionCookie, cookies []*http.Cookie, host string) []sessionCookie {
+	merged := append([]sessionCookie(nil), existing...)
 	for _, c := range cookies {
 		if c == nil || c.Name == "" {
 			continue
@@ -339,8 +449,8 @@ func mergeSetCookies(origin string, cookies []*http.Cookie) {
 			path = "/"
 		}
 		idx := -1
-		for i, existing := range merged {
-			if existing.Name == c.Name && existing.Path == path {
+		for i, e := range merged {
+			if e.Name == c.Name && e.Path == path {
 				idx = i
 				break
 			}
@@ -369,16 +479,7 @@ func mergeSetCookies(origin string, cookies []*http.Cookie) {
 			merged = append(merged, updated)
 		}
 	}
-	if sessionCookieHeader(&sessionRecord{Origin: origin, Cookies: merged}) == "" {
-		return
-	}
-	_, _ = commitSession(origin, sessionRecord{
-		Origin:    origin,
-		AuthState: sessionSignedIn,
-		Account:   rec.Account,
-		Cookies:   merged,
-		Source:    "renew",
-	}, rec.Revision, false)
+	return merged
 }
 
 func sameSiteText(v http.SameSite) string {
@@ -490,9 +591,11 @@ func (a *App) cmdSessionImport() error {
 		return errors.New("SHIMO_NET_COOKIE 正在覆盖本机账号；请先取消该环境变量再导入会话")
 	}
 	if !a.has("--no-verify") {
-		header := sessionCookieHeader(&sessionRecord{Origin: a.Origin, Cookies: cookies})
+		// 按真实校验地址算头：属性不适用（例如 Secure 的 cookie 交给 http 网址）
+		// 在这里就失败，不要等到正式请求才发现凭据发不出去。
+		header := sessionCookieHeaderFor(&sessionRecord{Origin: a.Origin, Cookies: cookies}, parseURLOrNil(a.apiURL("/users/me")))
 		if header == "" {
-			return errSessionNoCookie
+			return errSessionNotApplicable
 		}
 		me, err := (&App{Origin: a.Origin}).usersMeWithCookie(header)
 		if err != nil {
@@ -517,22 +620,42 @@ func (a *App) cmdSessionImport() error {
 		return errors.New("会话缺少 sid，拒绝写入（共享会话只接受已登录的 cookie 头）")
 	}
 	expected := int64(-1)
-	if a.has("--expected-revision") {
+	explicit := a.has("--expected-revision")
+	if explicit {
 		n, err := strconv.ParseInt(a.opt("--expected-revision"), 10, 64)
 		if err != nil || n < 0 {
 			return errors.New("--expected-revision 必须是非负整数")
 		}
 		expected = n
 	}
-	// 带 revision 说明调用方刚读过当前状态，视为一次明确的重新登录；
-	// 不带 revision 时不允许覆盖已退出的记录。
+	// 已有记录时不允许无条件覆盖，否则并发切号会互相盖掉、迟到的旧导入会把
+	// 已完成的新登录改回旧账号：
+	//   同一 sid —— 同一会话的属性刷新（宿主重复上报），按当前 revision 提交；
+	//   不同 sid —— 切号，必须由调用方带 --expected-revision 明确表示；
+	//   已退出   —— 必须重新读取 revision 后提交，退出优先。
+	if !explicit {
+		if cur, ok := readSessionRecord(a.Origin); ok {
+			if cur.AuthState == sessionSignedOut {
+				return signedOutOverwriteError(cur.Revision)
+			}
+			if cookieValue(cur.Cookies, "sid") != cookieValue(cookies, "sid") {
+				return fmt.Errorf("共享会话已有其他账号的会话（revision %d，%s）；切号请重新读取后带 --expected-revision %d 提交",
+					cur.Revision, terminalText(accountLabel(cur)), cur.Revision)
+			}
+			expected = cur.Revision
+		}
+	}
+	// 首次写入也带上版本前提：两个进程同时初始化时，后一个会撞版本而不是覆盖。
+	if expected < 0 {
+		expected = 0
+	}
 	rev, err := commitSession(a.Origin, sessionRecord{
 		Origin:    a.Origin,
 		AuthState: sessionSignedIn,
 		Account:   sessionAccount{ID: str(account, "id"), Name: str(account, "name"), Email: str(account, "email")},
 		Cookies:   cookies,
 		Source:    source,
-	}, expected, expected >= 0)
+	}, expected, explicit)
 	if err != nil {
 		return err
 	}
