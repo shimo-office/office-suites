@@ -386,3 +386,27 @@
 - `examples_zh` / `examples_en` 调整为 2 条离线可完成（环境自检、CSV 转写入计划）+ 1 条需登录（搜索文件）；原来 3 条里有 2 条必须有账号，评测按示例出题时任务完成度必然为零。
 - 需要账号的示例写清「登录后」前提，写入计划示例写明「课表 CSV 我随后贴给你」，不再依赖评测输入里不存在的附件或链接。
 
+## 0.9.28 — 2026-11-25
+
+同一系统用户的 CLI 与石墨办公共用一份 net 会话；原有单机行为、命令集与输出格式保持不变。
+
+### 共享会话
+
+- 新增共享会话存储 `<状态目录>/sessions/<sha256(canonicalOrigin)>.json`（`0600`），字段含 `authState`、账号、带 Domain/Path/Expires 的 cookie、`revision`；文件锁串行化读改写，写入按 `revision` 做乐观锁。
+- 鉴权顺序改为 `SHIMO_NET_COOKIE` > 共享会话 > 钥匙串/`credentials.json`。共享记录不存在时行为与 0.9.27 完全一致；记录为 `signedOut` 时直接拒绝，不静默回退旧凭据。
+- `login`、`session harvest` 成功后把会话镜像到共享存储；`logout` 先写退出标记再清本地凭据。
+- 响应里的 `Set-Cookie` 合并回共享会话（`source: renew`），续期对其他 CLI 可见。
+
+### 新增子命令
+
+- `session import [--no-verify] [--source NAME] [--expected-revision N]`：从 stdin 读 cookie 头或 `{"cookie":"..."}`，默认用 `/users/me` 校验，缺 `sid` 拒绝写入。
+- `session watch [--interval 1s] [--once]`：revision 变化时输出一行元数据快照，不含 cookie 值。每轮只 stat 会话文件（约 3.4 µs），时间戳与大小未变不读取内容；每 30 轮兜底全量读一次，避免粗精度文件系统漏检。
+- `session logout`：只写共享退出标记；`logout` 仍然清理本地凭据。
+- `session status --json` 增加 `shared`、`authState`、`account`、`revision`、`cookieNames`、`store` 等字段。
+- 新增 `SHIMO_NET_SESSION_DIR` 覆盖共享会话目录。
+
+### 兼容
+
+- 不读共享会话的旧版本不受影响；新版本在没有共享记录时同样按旧逻辑工作。
+- 共享会话只保存请求所需 cookie，不保存浏览器 Local/Session Storage。
+

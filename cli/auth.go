@@ -102,6 +102,13 @@ func credentialForOrigin(origin string) (string, string, error) {
 	if c := os.Getenv("SHIMO_NET_COOKIE"); c != "" {
 		return c, "env", nil
 	}
+	// 共享会话：同一系统用户下所有 CLI 读写同一份记录。只有记录存在时才生效，
+	// 未启用共享的机器行为不变。
+	if header, state := sharedSessionCookie(origin); header != "" {
+		return header, "session", nil
+	} else if state == sessionSignedOut {
+		return "", "", errSharedSignedOut
+	}
 	c := readCredFile()
 	if c == nil {
 		if _, err := os.Stat(credPath()); err == nil || !errors.Is(err, os.ErrNotExist) {
@@ -255,6 +262,7 @@ func (a *App) cmdLogin() error {
 				if err := writeCred(a.Origin, cookie); err != nil {
 					return err
 				}
+				_ = mirrorSession(a.Origin, cookie, "login", me)
 				fmt.Printf("已复用本机浏览器登录态：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
 				fmt.Println("如需切换账号，请先运行 shimo-net logout，再运行 shimo-net login --new")
 				return nil
@@ -333,6 +341,7 @@ func (a *App) cmdLogin() error {
 					if err := writeCred(a.Origin, cookie); err != nil {
 						return err
 					}
+					_ = mirrorSession(a.Origin, cookie, "login", me)
 					fmt.Printf("登录成功：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
 					return nil
 				}
@@ -395,6 +404,8 @@ func hostOf(origin string) string {
 }
 
 func (a *App) cmdLogout() error {
+	// 先落共享退出标记：其他 Agent 的 CLI 会立刻停用，不再回退到本地凭据。
+	_ = markSessionSignedOut(a.Origin, "logout")
 	clearCred()
 	if err := os.RemoveAll(profilePath()); err != nil {
 		return fmt.Errorf("凭据已删除，但专用浏览器配置清理失败：%w", err)

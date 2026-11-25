@@ -12,7 +12,7 @@ func usageError(format string, args ...any) error {
 
 func isBooleanOption(name string) bool {
 	switch name {
-	case "--default", "--no-verify", "--no-browser", "--verify", "--new", "--login", "--no-save":
+	case "--default", "--no-verify", "--no-browser", "--verify", "--new", "--login", "--no-save", "--once":
 		return true
 	}
 	return false
@@ -23,7 +23,7 @@ func isBooleanOption(name string) bool {
 func (a *App) validateOptions() error {
 	options := map[string]string{
 		"init": "--origin --login", "login": "--origin --new",
-		"config": "--origin", "session": "--no-save",
+		"config": "--origin", "session": "--no-save --no-verify --interval --source --expected-revision --once",
 		"search": "--limit", "spaces": "--limit", "ls": "--limit --since",
 		"upload": "--to", "import": "--to --title --share",
 		"new": "--type --to", "mkdir": "--to", "audit": "--limit",

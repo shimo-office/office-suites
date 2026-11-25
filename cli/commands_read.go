@@ -170,7 +170,7 @@ func (a *App) cmdDoctor() error {
 	if runtime.GOOS == "windows" {
 		storageLabel = "Windows Credential Manager"
 	}
-	storage := map[string]string{"keychain": storageLabel, "file": "本机文件 0600", "env": "环境变量 SHIMO_NET_COOKIE"}[credSource()]
+	storage := map[string]string{"keychain": storageLabel, "file": "本机文件 0600", "env": "环境变量 SHIMO_NET_COOKIE", "session": "共享会话（本机多 Agent 共用）"}[credSource()]
 	if storage == "" {
 		storage = "未登录"
 	}
