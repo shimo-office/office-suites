@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -46,16 +47,16 @@ func TestSessionRevisionConflict(t *testing.T) {
 	sessionTestState(t)
 	origin := "https://shimo.net"
 	rev, err := commitSession(origin, sessionRecord{Origin: origin, AuthState: sessionSignedIn,
-		Cookies: parseCookieHeader("sid=a")}, -1)
+		Cookies: parseCookieHeader("sid=a")}, -1, true)
 	if err != nil || rev != 1 {
 		t.Fatalf("首次写入 revision=%d err=%v", rev, err)
 	}
 	if _, err := commitSession(origin, sessionRecord{Origin: origin, AuthState: sessionSignedIn,
-		Cookies: parseCookieHeader("sid=b")}, rev); err != nil {
+		Cookies: parseCookieHeader("sid=b")}, rev, true); err != nil {
 		t.Fatalf("正常提交失败：%v", err)
 	}
 	if _, err := commitSession(origin, sessionRecord{Origin: origin, AuthState: sessionSignedIn,
-		Cookies: parseCookieHeader("sid=c")}, rev); err != errSessionRevision {
+		Cookies: parseCookieHeader("sid=c")}, rev, true); err != errSessionRevision {
 		t.Fatalf("过期 revision 应被拒绝，得到 %v", err)
 	}
 	rec, _ := readSessionRecord(origin)
@@ -150,13 +151,36 @@ func TestSessionCookieExpiryAndHostMatching(t *testing.T) {
 }
 
 func TestSessionImportPayloadShapes(t *testing.T) {
-	header, account, err := readSessionPayload(bufioReader(`{"cookie":"sid=x","account":{"id":"9"}}`))
-	if err != nil || header != "sid=x" || str(account, "id") != "9" {
-		t.Fatalf("JSON 形式解析失败：%q %v %v", header, account, err)
+	origin := "https://shimo.net"
+
+	cookies, account, err := readSessionPayload(bufioReader(`{"cookie":"sid=x","account":{"id":"9"}}`))
+	if err != nil || str(account, "id") != "9" {
+		t.Fatalf("JSON cookie 字段解析失败：%v %v", account, err)
 	}
-	header, account, err = readSessionPayload(bufioReader("sid=y; fp=2"))
-	if err != nil || account != nil || !strings.Contains(header, "sid=y") {
-		t.Fatalf("原始 cookie 头解析失败：%q %v", header, err)
+	if sessionCookieHeader(&sessionRecord{Origin: origin, Cookies: cookies}) != "sid=x" || cookies[0].Path != "/" {
+		t.Fatalf("字符串形式应可用并补默认 Path：%+v", cookies)
+	}
+
+	cookies, account, err = readSessionPayload(bufioReader("sid=y; fp=2"))
+	if err != nil || account != nil || len(cookies) != 2 {
+		t.Fatalf("原始 cookie 头解析失败：%+v %v", cookies, err)
+	}
+
+	// 带属性的对象数组：Domain/Path/属性/有效期都要原样保留。
+	cookies, account, err = readSessionPayload(bufioReader(`{"cookies":[{"name":"sid","value":"z","domain":"shimo.net","path":"/d","secure":true,"httpOnly":true,"sameSite":"Lax","expires":1893456000}],"account":{"email":"a@b.c"}}`))
+	if err != nil || len(cookies) != 1 {
+		t.Fatalf("cookies 数组解析失败：%+v %v", cookies, err)
+	}
+	c := cookies[0]
+	if c.Domain != "shimo.net" || c.Path != "/d" || !c.Secure || !c.HttpOnly || c.SameSite != "Lax" || c.Expires != 1893456000 {
+		t.Fatalf("cookie 属性在导入时丢失：%+v", c)
+	}
+	if str(account, "email") != "a@b.c" {
+		t.Fatalf("account 未解析：%v", account)
+	}
+
+	if _, _, err := readSessionPayload(bufioReader(`{"cookies":[{"name":"","value":""}]}`)); err != errSessionNoCookie {
+		t.Fatalf("空 cookie 数组应报无凭据，得到 %v", err)
 	}
 	if _, _, err := readSessionPayload(bufioReader("   ")); err == nil {
 		t.Fatal("空输入应报错")
@@ -231,5 +255,80 @@ func BenchmarkReadSessionRecord(b *testing.B) {
 		if _, ok := readSessionRecord(origin); !ok {
 			b.Fatal("应读到会话记录")
 		}
+	}
+}
+
+// importAfterLogout 用真实的 cmdSessionImport 跑一遍，stdin 走管道。
+func importAfterLogout(t *testing.T, origin, payload string, extra ...string) error {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("创建管道失败：%v", err)
+	}
+	old := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() {
+		os.Stdin = old
+		_ = r.Close()
+	})
+	go func() {
+		_, _ = w.WriteString(payload)
+		_ = w.Close()
+	}()
+	args := append([]string{"session", "import", "--no-verify"}, extra...)
+	a := newApp(args)
+	a.Origin = origin
+	return a.cmdSessionImport()
+}
+
+func TestSessionImportRefusesToReviveSignedOut(t *testing.T) {
+	sessionTestState(t)
+	origin := "https://shimo.net"
+	if err := mirrorSession(origin, "sid=a; fp=1", "login", nil); err != nil {
+		t.Fatalf("首次写入失败：%v", err)
+	}
+	if err := markSessionSignedOut(origin, "logout"); err != nil {
+		t.Fatalf("标记退出失败：%v", err)
+	}
+	rec, _ := readSessionRecord(origin)
+
+	// 不带 revision：旧会话不得把退出改回 signedIn。
+	err := importAfterLogout(t, origin, `sid=old; fp=1`)
+	if err == nil || !strings.Contains(err.Error(), "共享会话已退出") {
+		t.Fatalf("退出后不带 revision 的导入应被拒绝，得到 %v", err)
+	}
+	if cur, _ := readSessionRecord(origin); cur.AuthState != sessionSignedOut {
+		t.Fatalf("拒绝后状态应保持 signedOut，得到 %s", cur.AuthState)
+	}
+
+	// 带上刚读到的 revision：视为一次明确的新登录，允许覆盖。
+	if err := importAfterLogout(t, origin, `sid=new; fp=1`, "--expected-revision", strconv.FormatInt(rec.Revision, 10)); err != nil {
+		t.Fatalf("明确带 revision 的新登录应允许：%v", err)
+	}
+	if cur, _ := readSessionRecord(origin); cur.AuthState != sessionSignedIn || !strings.Contains(sessionCookieHeader(cur), "sid=new") {
+		t.Fatalf("应恢复 signedIn 并使用新 cookie，得到 %s %s", cur.AuthState, sessionCookieHeader(cur))
+	}
+}
+
+func TestLogoutReportsSharedWriteFailure(t *testing.T) {
+	sessionTestState(t)
+	origin := "https://shimo.net"
+	if err := mirrorSession(origin, "sid=a; fp=1", "login", nil); err != nil {
+		t.Fatalf("首次写入失败：%v", err)
+	}
+	dir := sessionDir()
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatalf("设置只读目录失败：%v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+
+	a := newApp([]string{"logout"})
+	a.Origin = origin
+	err := a.cmdLogout()
+	if err == nil || !strings.Contains(err.Error(), "共享退出未写入") {
+		t.Fatalf("共享写入失败必须上报，得到 %v", err)
+	}
+	if rec, _ := readSessionRecord(origin); rec == nil || rec.AuthState != sessionSignedIn {
+		t.Fatal("测试前提：写入失败时会话应仍为 signedIn")
 	}
 }

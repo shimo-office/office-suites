@@ -262,7 +262,7 @@ func (a *App) cmdLogin() error {
 				if err := writeCred(a.Origin, cookie); err != nil {
 					return err
 				}
-				_ = mirrorSession(a.Origin, cookie, "login", me)
+				warnSharedMirror(mirrorSession(a.Origin, cookie, "login", me))
 				fmt.Printf("已复用本机浏览器登录态：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
 				fmt.Println("如需切换账号，请先运行 shimo-net logout，再运行 shimo-net login --new")
 				return nil
@@ -341,7 +341,7 @@ func (a *App) cmdLogin() error {
 					if err := writeCred(a.Origin, cookie); err != nil {
 						return err
 					}
-					_ = mirrorSession(a.Origin, cookie, "login", me)
+					warnSharedMirror(mirrorSession(a.Origin, cookie, "login", me))
 					fmt.Printf("登录成功：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
 					return nil
 				}
@@ -405,12 +405,21 @@ func hostOf(origin string) string {
 
 func (a *App) cmdLogout() error {
 	// 先落共享退出标记：其他 Agent 的 CLI 会立刻停用，不再回退到本地凭据。
-	_ = markSessionSignedOut(a.Origin, "logout")
+	// 写入失败不能让命令静默成功——否则本机已退出，其他 Agent 还在用旧会话。
+	sessionErr := markSessionSignedOut(a.Origin, "logout")
 	clearCred()
-	if err := os.RemoveAll(profilePath()); err != nil {
-		return fmt.Errorf("凭据已删除，但专用浏览器配置清理失败：%w", err)
-	}
+	profileErr := os.RemoveAll(profilePath())
 	resetHarvestCache()
+	if sessionErr != nil || profileErr != nil {
+		msg := "本机凭据已清除"
+		if sessionErr != nil {
+			msg += fmt.Sprintf("，但共享退出未写入（其他 Agent 可能仍在使用旧会话）：%v", sessionErr)
+		}
+		if profileErr != nil {
+			msg += fmt.Sprintf("，且专用浏览器配置清理失败：%v", profileErr)
+		}
+		return errors.New(msg)
+	}
 	fmt.Println("已删除本机凭据及旧版 CLI 登录浏览器配置；已打开的浏览器账号不变")
 	return nil
 }
