@@ -150,18 +150,17 @@ jobs:
               echo "registry has not exposed ${version} yet (attempt ${attempt}); waiting"
               sleep 15
             done
-            echo "::warning::published ${version} but the registry did not expose it within 180s"
-            exit 0
+            echo "::error::npm accepted ${version}, but registry visibility could not be verified within 180s; check registry availability and re-run this job"
+            exit 1
           fi
-          # A missing trusted publisher fails here, after the Release assets are
-          # already verified, so the run reports the fix instead of failing the
-          # whole release. Re-running is safe: builds are reproducible.
+          # GitHub assets already exist, but npm is required for installation:
+          # an upload failure must fail the release job. Re-running is safe.
           {
             echo "### npm 未发布 ${version}"
             echo
-            echo "在 npmjs.com → shimo-net-cli → Settings → Trusted publishing 添加 GitHub Actions："
+            echo "请先检查上方 npm 错误及 registry 网络状态；若是认证失败，在 npmjs.com → shimo-net-cli → Settings → Trusted publishing 检查 GitHub Actions："
             echo "organization/user = shimo-office，repository = office-suites，workflow = release.yml，勾选 npm publish。"
-            echo "保存后重跑本 job 即可补发；构建可复现，重跑不会改变已上传资产的哈希。"
+            echo "修复后重跑本 job 即可补发；构建可复现，重跑不会改变已上传资产的哈希。"
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::warning::npm publish ${version} failed; register the trusted publisher on npmjs.com and re-run this job"
-          exit 0
+          echo "::error::npm publish ${version} failed; inspect the npm error above, check registry access and publishing credentials, then re-run this job"
+          exit 1

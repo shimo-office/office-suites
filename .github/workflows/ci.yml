@@ -38,6 +38,7 @@ jobs:
       # a ten-minute panic that hides which test broke. The log is kept so the
       # failing case can be named in the summary below.
       - name: Test with statement coverage
+        id: gotests
         shell: bash
         run: |
           set -o pipefail
@@ -45,13 +46,13 @@ jobs:
       # go test prints "--- FAIL" lines that never reach the annotations, so a
       # red job would otherwise say only "exit code 1".
       - name: Name failing tests
-        if: failure()
+        if: failure() && steps.gotests.outcome == 'failure'
         shell: bash
         run: |
           {
             echo "### 失败的测试"
             echo '```'
-            grep -E '^(--- FAIL|panic:|FAIL[[:space:]])' gotest.log | head -40 || echo "no FAIL lines"
+            grep -A 8 -E '^(--- FAIL|panic:|FAIL[[:space:]])' gotest.log | head -120 || echo "no FAIL lines"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Enforce 80 percent statement coverage
@@ -63,10 +64,12 @@ jobs:
         run: go vet ./cli
       - name: Build
         run: go build -trimpath -o bin/shimo-net ./cli
-      - name: Preserve coverage evidence
+      - name: Preserve coverage and test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.os }}
-          path: coverage.out
+          path: |
+            coverage.out
+            gotest.log
           if-no-files-found: ignore

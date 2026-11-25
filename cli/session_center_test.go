@@ -72,7 +72,8 @@ func TestSetCookieRenewalMergesIntoSharedSession(t *testing.T) {
 	if err := mirrorSession(origin, "sid=old; fp=1", "login", nil, sessionRevision(origin)); err != nil {
 		t.Fatal(err)
 	}
-	mergeSetCookies(origin, []*http.Cookie{
+	requestSession, _ := readSessionRecord(origin)
+	mergeSetCookies(origin, requestSession, []*http.Cookie{
 		{Name: "sid", Value: "new", Path: "/", Domain: "shimo.net", Secure: true, HttpOnly: true},
 		{Name: "deviceId", Value: "d2", Path: "/", Domain: "shimo.net"},
 	})
@@ -92,7 +93,8 @@ func TestMergeSetCookiesIgnoresForeignDomainAndDeletion(t *testing.T) {
 	if err := mirrorSession(origin, "sid=old; fp=1", "login", nil, sessionRevision(origin)); err != nil {
 		t.Fatal(err)
 	}
-	mergeSetCookies(origin, []*http.Cookie{
+	requestSession, _ := readSessionRecord(origin)
+	mergeSetCookies(origin, requestSession, []*http.Cookie{
 		{Name: "sid", Value: "evil", Domain: "example.com", Path: "/"},
 		{Name: "fp", Value: "", MaxAge: -1, Domain: "shimo.net", Path: "/"},
 	})

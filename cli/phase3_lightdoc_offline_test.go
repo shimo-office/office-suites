@@ -575,8 +575,16 @@ func TestLightDocOfflineImagePayload(t *testing.T) {
 func TestLightDocOfflineCommandsRejectBeforeNetwork(t *testing.T) {
 	// 图片动作会先读本地文件再校验目标，所以这里必须给一个真实存在的图片，
 	// 否则测到的是「文件不存在」而不是「目标不合法」。
-	img := filepath.Join(t.TempDir(), "a.png")
+	dir := filepath.Join(t.TempDir(), `image\fixture`)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	img := filepath.Join(dir, "a.png")
 	if err := os.WriteFile(img, []byte("png"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	imagePayload, err := json.Marshal(map[string]any{"paragraph": 1, "text": "x", "file": img})
+	if err != nil {
 		t.Fatal(err)
 	}
 	base := map[string][]string{
@@ -584,7 +592,7 @@ func TestLightDocOfflineCommandsRejectBeforeNetwork(t *testing.T) {
 		"doc-paragraph": {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-paragraph", "--payload", `{"paragraph":1,"text":"x","attrs":{"align":"center"}}`},
 		"doc-replace":   {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-replace", "--payload", `{"find":"a","replace":"b"}`},
 		"doc-table":     {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-table", "--payload", `{"paragraph":1,"text":"x","rows":1,"cols":1}`},
-		"doc-image":     {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-image", "--payload", `{"paragraph":1,"text":"x","file":"` + img + `"}`},
+		"doc-image":     {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-image", "--payload", string(imagePayload)},
 	}
 	run := map[string]func(*App) error{
 		"doc-format":    func(a *App) error { return a.cmdPhase3LightDocFormat() },
