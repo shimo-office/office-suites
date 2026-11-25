@@ -351,9 +351,12 @@ func cookiesFromProfile(p browserProfile, origin string) (string, error) {
 	}
 
 	noSandbox := browserSandboxDisabled()
-	cmd, port, err := startHarvestBrowser(p.Binary, tmp, noSandbox)
+	cmd, port, logPath, err := startHarvestBrowser(p.Binary, tmp, noSandbox)
+	if logPath != "" {
+		defer func() { _ = os.Remove(logPath) }()
+	}
 	if err != nil {
-		return "", err
+		return "", explainBrowserFailure(err, logPath)
 	}
 	defer func() {
 		if cmd != nil && cmd.Process != nil {
@@ -364,12 +367,12 @@ func cookiesFromProfile(p browserProfile, origin string) (string, error) {
 
 	cookies, err := readBrowserCookies(port)
 	if err != nil {
-		return "", err
+		return "", explainBrowserFailure(err, logPath)
 	}
 	return cookieJarForOrigin(cookies, origin), nil
 }
 
-func startHarvestBrowser(binary, profileDir string, noSandbox bool) (*exec.Cmd, int, error) {
+func startHarvestBrowser(binary, profileDir string, noSandbox bool) (*exec.Cmd, int, string, error) {
 	portFile := filepath.Join(profileDir, "DevToolsActivePort")
 	_ = os.Remove(portFile)
 	args := []string{
@@ -392,17 +395,19 @@ func startHarvestBrowser(binary, profileDir string, noSandbox bool) (*exec.Cmd, 
 		args = append([]string{"--no-sandbox"}, args...)
 	}
 	cmd := exec.Command(binary, args...)
-	cmd.Stdout, cmd.Stderr = nil, nil
+	// 浏览器把沙箱初始化、渲染进程崩溃等原因写在 stderr 上；留档才能在失败时给出结论。
+	logPath, _ := captureBrowserOutput(cmd)
 	if err := cmd.Start(); err != nil {
-		return nil, 0, err
+		_ = os.Remove(logPath)
+		return nil, 0, "", err
 	}
 	port, err := waitDevToolsPort(portFile, 8*time.Second)
 	if err != nil {
 		_ = cmd.Process.Kill()
 		_, _ = cmd.Process.Wait()
-		return nil, 0, err
+		return nil, 0, logPath, err
 	}
-	return cmd, port, nil
+	return cmd, port, logPath, nil
 }
 
 func readBrowserCookies(port int) ([]browserCookie, error) {
