@@ -34,8 +34,26 @@ jobs:
         run: python -m unittest discover -s scripts -p "test_*.py" -v
       - name: Documentation checks
         run: python scripts/check_docs.py
+      # -timeout keeps a slow Windows runner from turning a real failure into
+      # a ten-minute panic that hides which test broke. The log is kept so the
+      # failing case can be named in the summary below.
       - name: Test with statement coverage
-        run: go test -count=1 "-coverprofile=coverage.out" ./cli
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -count=1 -timeout 20m "-coverprofile=coverage.out" ./cli 2>&1 | tee gotest.log
+      # go test prints "--- FAIL" lines that never reach the annotations, so a
+      # red job would otherwise say only "exit code 1".
+      - name: Name failing tests
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "### 失败的测试"
+            echo '```'
+            grep -E '^(--- FAIL|panic:|FAIL[[:space:]])' gotest.log | head -40 || echo "no FAIL lines"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Enforce 80 percent statement coverage
         run: python scripts/check_coverage.py coverage.out
       - name: Check reachable Go vulnerabilities
