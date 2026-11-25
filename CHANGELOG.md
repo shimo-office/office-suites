@@ -458,3 +458,30 @@
 ### 兼容性
 
 - 命令、参数、退出码、成功路径输出均未改动；`SHIMO_NET_NO_SANDBOX=1` 仍是显式开关，不默认降级浏览器沙箱。
+
+## 0.9.32 — 2026-11-25
+
+轻文档 `/docs/` 的编辑动作补齐。此前只支持新建、导入、读取、改名、删除；字符格式、段落格式、查找替换、表格、图片只能人工在页面上点。轻文档没有对外编辑器 SDK（`window._sdk` 为 `undefined`），这五个动作走真实页面的菜单与粘贴通道，命令名与文稿的 `document-*` 分开为 `doc-*`。
+
+### 新增动作
+
+- `phase3 <轻文档> --action doc-format`：加粗、斜体、下划线、删除线、字号、字体、字色、高亮。按段落序号 + 文本 + 字符区间定位，改前改后各取一次 `hk-font-*` 标记值，刷新页面后复验；中文字体名走别名表（宋体 → `simsun`）。
+- `phase3 <轻文档> --action doc-paragraph`：标题级别（0–6 / title / subtitle）、对齐、列表、缩进、行距。行距在 DOM 上是换算值（选 1.5 倍落成 `line-height: 2.5`），因此只核对「发生变化 + 刷新后保持一致」，不拿数值直接比。
+- `phase3 <轻文档> --action doc-replace`：页面查找替换面板，真实点击按钮、原生 setter 填输入框。结果以替换前后导出全文的纯文本命中计数为证（`beforeOccurrences` / `afterOccurrences`），导出带强调标记会切断关键字，计数前去标记。
+- `phase3 <轻文档> --action doc-table`：按 `rows`/`cells` 生成表格 HTML，走页面粘贴通道插入。以单元格 `data-cell-guid` 集合做差判定新增表格，核对行数与单元格文本，刷新后复验。
+- `phase3 <轻文档> --action doc-image`：本地图片转 base64 后走粘贴通道插入，支持 png/jpg/jpeg/gif/webp，上限 4 MB。以行内图片节点计数判定，刷新后复验，并要求导出物含 `data:image/`。
+
+### 页面通道
+
+- 就绪判定、协作名单门禁、段落定位、标记断言、语义控件定位、真实点击与按键、刷新复验集中在 `cli/phase3_lightdoc.go`。
+- 鼠标点击必须带 `buttons`，否则页面不认；浮层选项先单独取坐标再点，一步内取坐标会点到相邻项。
+- 刷新用 `Page.navigate` 而非 `Page.reload`：后者替换 target，后续 CDP 调用直接 `i/o timeout`。
+
+### 证据
+
+每个动作在请求目录留 `request.json`、`before.png`、`submission.json`、`marks.json`、`marks-reloaded.json`、`reload.png`、`result.json`；失败额外留 `failure.json`。`verified` 只在刷新后复验通过时为 `true`。
+
+### 边界
+
+- 单元格合并、拆分、列宽，图片裁剪与环绕方式，整篇重排与页面宽度仍是人工页面操作。
+- 场景 20（评论与提及）、21（预览与打印）未命令化，仍是页面操作。

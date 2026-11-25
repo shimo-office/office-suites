@@ -27,6 +27,21 @@ func (a *App) cmdPhase3() (runErr error) {
 	if explicitNoBrowser(a) && phase3ActionNeedsBrowser(action) {
 		return errors.New("当前设置禁止启动浏览器；该 phase3 动作需要页面或协作门禁，本次未查询或修改目标")
 	}
+	if action == "doc-format" {
+		return a.cmdPhase3LightDocFormat()
+	}
+	if action == "doc-paragraph" {
+		return a.cmdPhase3LightDocParagraph()
+	}
+	if action == "doc-replace" {
+		return a.cmdPhase3LightDocReplace()
+	}
+	if action == "doc-table" {
+		return a.cmdPhase3LightDocTable()
+	}
+	if action == "doc-image" {
+		return a.cmdPhase3LightDocImage()
+	}
 	if action == "document-format" {
 		return a.cmdPhase3Document()
 	}

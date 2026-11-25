@@ -300,49 +300,49 @@
     {
       "id": 18,
       "name": "文字与段落",
-      "help": "页面操作：字符/段落/查找替换；find/replace-all 未暴露 SDK，CLI 拒绝",
+      "help": "页面操作已命令化：doc-format / doc-paragraph / doc-replace",
       "capabilities": [
         {
           "id": "18.1",
           "name": "字符格式",
           "mode": "页面操作",
-          "entry": "轻文档页面格式菜单",
-          "limits": "选区与目标文本须核对；文稿固定动作另见扩展验收。"
+          "entry": "phase3 <轻文档> --action doc-format",
+          "limits": "字符格式落在 hk-font-* 标记上；证据为改前/改后 DOM 标记 + 刷新页面后复验，md 导出不含字号/颜色/高亮。"
         },
         {
           "id": "18.2",
           "name": "段落格式",
           "mode": "页面操作",
-          "entry": "轻文档页面段落菜单",
-          "limits": "页面生效后需读回/截图。"
+          "entry": "phase3 <轻文档> --action doc-paragraph",
+          "limits": "标题级别、对齐、列表、缩进、行距均刷新后复验；行距在 DOM 上是换算值，只核对变化与刷新后一致。"
         },
         {
           "id": "18.3",
           "name": "查找替换",
           "mode": "页面操作",
-          "entry": "页面查找替换菜单",
-          "limits": "editor find/replace-all 返回页面操作提示，不伪装 SDK 成功。"
+          "entry": "phase3 <轻文档> --action doc-replace",
+          "limits": "走页面查找替换面板；结果以替换前后导出全文的纯文本命中计数为证，不伪装 SDK 成功。"
         }
       ]
     },
     {
       "id": 19,
       "name": "文内表格与图片",
-      "help": "页面操作：轻文档插入表格、图片及布局",
+      "help": "页面操作已命令化：doc-table / doc-image（插入与替换，单元格内容与图片可核）",
       "capabilities": [
         {
           "id": "19.1",
           "name": "文内表格",
           "mode": "页面操作",
-          "entry": "轻文档插入菜单",
-          "limits": "原地编辑与本地生成副本分开；文稿动作单独验收。"
+          "entry": "phase3 <轻文档> --action doc-table",
+          "limits": "插入走页面粘贴通道；以单元格 guid 集合判定新增表格，核对行数与单元格文本，刷新后复验。单元格合并、拆分、列宽仍为人工页面操作。"
         },
         {
           "id": "19.2",
           "name": "图片处理",
           "mode": "页面操作",
-          "entry": "轻文档图片工具栏",
-          "limits": "核对目标图形与保存结果。"
+          "entry": "phase3 <轻文档> --action doc-image",
+          "limits": "本地图片经 base64 走页面粘贴；以 hk-inline-image-count 计数判定，刷新后复验且导出物须含 data:image/。上限 4 MB，仅 png/jpg/gif/webp；裁剪、环绕方式仍为人工页面操作。"
         }
       ]
     },
@@ -398,7 +398,7 @@
           "name": "全文标题与样式",
           "mode": "页面操作",
           "entry": "轻文档标题/样式菜单",
-          "limits": "不能把局部格式变更当作整篇重排。"
+          "limits": "整篇重排仍须页面完成；单段标题级别用 18.2 的 doc-paragraph --heading。不能把局部格式变更当作整篇重排。"
         },
         {
           "id": "22.2",
