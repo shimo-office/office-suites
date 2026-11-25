@@ -36,6 +36,8 @@ func openLightDoc(target, userID string) (*phase3EditorBrowser, error) {
 		b.Close()
 		return nil, err
 	}
+	// 记住开页时确认过的账号：轻文档页面读不到当前用户，中途复核只能用这个值比对。
+	b.lightDocUserID = strings.TrimSpace(userID)
 	return b, nil
 }
 
@@ -46,6 +48,16 @@ func (b *phase3EditorBrowser) CheckLightDocPresence(userID string) error {
 	return nil
 }
 
+// 开页时查过的名单在长操作里会过时：别人中途上线、协作连接断开、账号被切走，
+// 都会让之前那一次检查失去意义。每写一段之前重新复核一次，失败就停，只读不改内容。
+func (b *phase3EditorBrowser) recheckLightDocSolo() error {
+	self := strings.TrimSpace(b.lightDocUserID)
+	if self == "" {
+		return errors.New("缺少当前账号标识，拒绝在未确认协作者的情况下继续写入")
+	}
+	return b.CheckLightDocPresence(self)
+}
+
 // 段落定位：全文 p.hk-paragraph-node 按出现顺序编号（1 起），正文必须与请求完全一致。
 func lightDocSelectJS(paragraph int, text string, start, end int) string {
 	spec, _ := json.Marshal(map[string]any{"paragraph": paragraph, "text": text, "start": start, "end": end})
@@ -54,7 +66,8 @@ const ps=Array.from(ce.querySelectorAll('p.hk-paragraph-node'));const p=ps[spec.
 const text=(p.innerText||'').replace(/\r?\n$/,'');if(text!==spec.text)return {ok:false,error:'目标段落正文不匹配请求：第'+spec.paragraph+'段实际为「'+text.slice(0,40)+'」，共'+ps.length+'段'};
 const nodes=[];const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,acc=0;while(n=w.nextNode()){const len=Array.from(n.textContent).length;if(len===0)continue;nodes.push({node:n,start:acc,len:len});acc+=len}
 if(acc!==Array.from(text).length)return {ok:false,error:'段落含非文本内容，拒绝猜测字符位置'};
-const at=off=>{for(const it of nodes){if(off<=it.start+it.len)return [it.node,off-it.start]}throw new Error('字符位置越界')};
+// 请求偏移按码点计算，DOM Range 的节点内偏移必须换算成 UTF-16 代码单元。
+const at=off=>{for(const it of nodes){if(off<=it.start+it.len)return [it.node,Array.from(it.node.textContent).slice(0,off-it.start).join('').length]}throw new Error('字符位置越界')};
 ce.focus();const r=document.createRange();r.setStart(...at(spec.start));r.setEnd(...at(spec.end));const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);document.dispatchEvent(new Event('selectionchange'));
 return {ok:true,selected:sel.toString(),paragraphText:text,lineID:p.getAttribute('data-hk-line-id')}})()`
 }

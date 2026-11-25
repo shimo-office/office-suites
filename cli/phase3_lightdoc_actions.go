@@ -691,7 +691,7 @@ func isLightDocURL(target string) bool {
 	return strings.Contains(target, "/docs/")
 }
 
-// 写入前必须完成两件事：协作名单只确认了自己（openLightDoc 已做）、范围与请求完全一致。
+// 写入前必须完成两件事：协作名单只确认了自己（openLightDoc 开页时确认一次，逐段写入前再复核）、范围与请求完全一致。
 func (b *phase3EditorBrowser) checkAndSelect(spec lightDocFormatSpec) (map[string]any, error) {
 	if _, err := b.Eval(lightDocSelectJS(spec.Paragraph, spec.Text, spec.Start, spec.End)); err != nil {
 		return nil, fmt.Errorf("定位目标文字失败：%w", err)
@@ -722,6 +722,10 @@ func (b *phase3EditorBrowser) applyLightDocAttrsToBody(spec lightDocFormatSpec) 
 		if err != nil {
 			return applied, err
 		}
+		// 全选已经改变了选区但还没写入，此时复核名单，失败就一行不改地退出。
+		if err = b.recheckLightDocSolo(); err != nil {
+			return applied, fmt.Errorf("全文字体/字号/颜色下发前协作名单复核未通过：%w", err)
+		}
 		one := lightDocFormatSpec{Scope: "range", Attrs: setters}
 		got, err := b.applyLightDocAttrs(one)
 		for k, v := range got {
@@ -748,6 +752,12 @@ func (b *phase3EditorBrowser) applyLightDocAttrsToBody(spec lightDocFormatSpec) 
 		}
 		if _, err := b.checkAndSelect(one); err != nil {
 			failed[fmt.Sprint(para.Index)] = err.Error()
+			break
+		}
+		// 选区就位、真正落笔之前再复核一次名单：这一段是独立写入，
+		// 前一秒的检查不能代表现在，别人进来就停在上一段为止。
+		if err := b.recheckLightDocSolo(); err != nil {
+			failed[fmt.Sprint(para.Index)] = "写入前协作名单复核未通过：" + err.Error()
 			break
 		}
 		if _, err := b.applyLightDocAttrs(one); err != nil {

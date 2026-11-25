@@ -72,7 +72,8 @@ func TestSetCookieRenewalMergesIntoSharedSession(t *testing.T) {
 	if err := mirrorSession(origin, "sid=old; fp=1", "login", nil, sessionRevision(origin)); err != nil {
 		t.Fatal(err)
 	}
-	mergeSetCookies(origin, []*http.Cookie{
+	requestSession, _ := readSessionRecord(origin)
+	mergeSetCookies(origin, requestSession, []*http.Cookie{
 		{Name: "sid", Value: "new", Path: "/", Domain: "shimo.net", Secure: true, HttpOnly: true},
 		{Name: "deviceId", Value: "d2", Path: "/", Domain: "shimo.net"},
 	})
@@ -92,7 +93,8 @@ func TestMergeSetCookiesIgnoresForeignDomainAndDeletion(t *testing.T) {
 	if err := mirrorSession(origin, "sid=old; fp=1", "login", nil, sessionRevision(origin)); err != nil {
 		t.Fatal(err)
 	}
-	mergeSetCookies(origin, []*http.Cookie{
+	requestSession, _ := readSessionRecord(origin)
+	mergeSetCookies(origin, requestSession, []*http.Cookie{
 		{Name: "sid", Value: "evil", Domain: "example.com", Path: "/"},
 		{Name: "fp", Value: "", MaxAge: -1, Domain: "shimo.net", Path: "/"},
 	})
@@ -317,18 +319,39 @@ func TestLogoutReportsSharedWriteFailure(t *testing.T) {
 	if err := mirrorSession(origin, "sid=a; fp=1", "login", nil, sessionRevision(origin)); err != nil {
 		t.Fatalf("首次写入失败：%v", err)
 	}
-	dir := sessionDir()
-	if err := os.Chmod(dir, 0o500); err != nil {
-		t.Fatalf("设置只读目录失败：%v", err)
+	// 只读目录在 Windows 上拦不住写入（os.Chmod 只切只读属性，不实现 POSIX 权限位），
+	// 因此用一个同名目录占住记录文件的位置：rename 到已存在目录在两个平台都会失败。
+	// 原记录先挪到旁边，测完再放回去，断言才能检查「写入失败时会话仍是 signedIn」。
+	record, err := sessionStorePath(origin)
+	if err != nil {
+		t.Fatalf("解析会话路径失败：%v", err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	backup := record + ".bak"
+	if err = os.Rename(record, backup); err != nil {
+		t.Fatalf("把记录移开失败：%v", err)
+	}
+	if err = os.Mkdir(record, 0o700); err != nil {
+		t.Fatalf("占位目录创建失败：%v", err)
+	}
+	restored := false
+	restore := func() {
+		if restored {
+			return
+		}
+		restored = true
+		_ = os.RemoveAll(record)
+		_ = os.Rename(backup, record)
+	}
+	t.Cleanup(restore)
 
 	a := newApp([]string{"logout"})
 	a.Origin = origin
-	err := a.cmdLogout()
+	err = a.cmdLogout()
 	if err == nil || !strings.Contains(err.Error(), "共享退出未写入") {
 		t.Fatalf("共享写入失败必须上报，得到 %v", err)
 	}
+	// 占位期间记录路径不可读，先恢复再把内容读回来核对。
+	restore()
 	if rec, _ := readSessionRecord(origin); rec == nil || rec.AuthState != sessionSignedIn {
 		t.Fatal("测试前提：写入失败时会话应仍为 signedIn")
 	}
