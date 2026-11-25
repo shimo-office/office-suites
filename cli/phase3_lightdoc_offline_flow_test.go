@@ -200,14 +200,21 @@ func TestLightDocFlowTableRequiresNewTable(t *testing.T) {
 }
 
 func TestLightDocFlowImageRequiresPersistedReference(t *testing.T) {
-	dir := t.TempDir()
+	// POSIX 上也保留反斜杠，确保 Windows 路径的 JSON 转义问题能在本机复现。
+	dir := filepath.Join(t.TempDir(), `image\fixture`)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	img := filepath.Join(dir, "a.png")
 	if err := os.WriteFile(img, []byte("png"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	payload := `{"paragraph":1,"text":"第一段","file":"` + img + `"}`
+	payload, err := json.Marshal(map[string]any{"paragraph": 1, "text": "第一段", "file": img})
+	if err != nil {
+		t.Fatal(err)
+	}
 	counts := 0
-	flow := newLightDocFlow(t, "doc-image", payload, "https://shimo.net/docs/abcdefgh",
+	flow := newLightDocFlow(t, "doc-image", string(payload), "https://shimo.net/docs/abcdefgh",
 		func(export int) string {
 			if export == 1 {
 				return "第一段\n"

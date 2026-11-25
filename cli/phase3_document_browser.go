@@ -28,6 +28,9 @@ type phase3EditorBrowser struct {
 	startupEvidence  string
 	presenceObserver string
 	navURL           string
+	// 轻文档页面不挂 window.logged，协作名单里的当前用户只能靠 CLI 传入并记住，
+	// 长操作中途的每次写入复核都要用到它。
+	lightDocUserID string
 }
 
 func openPhase3Editor(target string) (*phase3EditorBrowser, error) {

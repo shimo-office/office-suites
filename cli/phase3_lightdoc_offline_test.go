@@ -52,6 +52,8 @@ func newLightDocStub(t *testing.T, reply func(expr string) any) (*phase3EditorBr
 		nextID:  1,
 		navURL:  "https://shimo.net/docs/demo",
 		profile: t.TempDir(),
+		// 开页门禁确认过的账号；逐段写入前的复核要用它和在线名单比对。
+		lightDocUserID: "94148834",
 	}
 	go func() {
 		defer server.Close()
@@ -93,6 +95,9 @@ func newLightDocStub(t *testing.T, reply func(expr string) any) (*phase3EditorBr
 // 一个覆盖全部定位请求的默认应答：坐标、标记值、段落清单都按请求里出现的特征区分。
 func lightDocDefaultReply(expr string) any {
 	switch {
+	case strings.Contains(expr, "__shimoPhase3Presence"):
+		// 默认：只有本人在线，写入前复核通过。
+		return map[string]any{"ok": true, "others": 0, "self": "94148834"}
 	case strings.Contains(expr, "headingSkipped"):
 		return map[string]any{"ok": true, "total": 3, "counts": map[string]any{"true": 3}, "values": []any{"true"}, "samples": []any{}, "headingSkipped": 1, "headingSamples": []any{"标题"}}
 	case strings.Contains(expr, "const vals=[];const hits=[]"):
@@ -421,6 +426,87 @@ func TestLightDocOfflineWholeDocSplitsSettersAndToggles(t *testing.T) {
 	}
 }
 
+// 开页时查过的协作名单在长操作里会过时。别人中途上线、协作连接断开、账号缺失，
+// 都必须在下一段落笔之前停下，并把已改段数留在证据里，而不是把剩下的段落一起写完。
+func TestLightDocOfflineRechecksCollaboratorsBeforeEachParagraph(t *testing.T) {
+	t.Run("中途有人上线", func(t *testing.T) {
+		seen := 0
+		b, _ := newLightDocStub(t, func(expr string) any {
+			if strings.Contains(expr, "__shimoPhase3Presence") {
+				seen++
+				if seen > 1 {
+					return map[string]any{"ok": false, "error": "协作名单检查未通过：检测到其他用户正在协作"}
+				}
+				return map[string]any{"ok": true, "others": 0, "self": "94148834"}
+			}
+			return lightDocDefaultReply(expr)
+		})
+		applied, err := b.applyLightDocAttrsToBody(lightDocFormatSpec{Scope: lightDocScopeAll, Attrs: map[string]any{"bold": true}})
+		if err == nil || !strings.Contains(err.Error(), "已停止") {
+			t.Fatalf("第二段写入前应停下：%v", err)
+		}
+		if !strings.Contains(err.Error(), "协作名单复核未通过") {
+			t.Fatalf("错误应说明是名单复核失败：%v", err)
+		}
+		if got := int(num(applied, "appliedParagraphs")); got != 1 {
+			t.Fatalf("只应完成第一段，实际 %d 段：%v", got, applied)
+		}
+		failed, _ := applied["failedParagraphs"].(map[string]string)
+		if _, ok := failed["3"]; !ok {
+			t.Fatalf("应记录停在第 3 段：%v", applied["failedParagraphs"])
+		}
+	})
+
+	t.Run("协作连接断开", func(t *testing.T) {
+		seen := 0
+		b, _ := newLightDocStub(t, func(expr string) any {
+			if strings.Contains(expr, "__shimoPhase3Presence") {
+				seen++
+				if seen > 1 {
+					return map[string]any{"ok": false, "error": "协作名单检查未通过：尚未收到服务端在线名单"}
+				}
+				return map[string]any{"ok": true, "others": 0, "self": "94148834"}
+			}
+			return lightDocDefaultReply(expr)
+		})
+		applied, err := b.applyLightDocAttrsToBody(lightDocFormatSpec{Scope: lightDocScopeAll, Attrs: map[string]any{"italic": true}})
+		if err == nil || !strings.Contains(err.Error(), "尚未收到服务端在线名单") {
+			t.Fatalf("断连后应停下并说明原因：%v", err)
+		}
+		if got := int(num(applied, "appliedParagraphs")); got != 1 {
+			t.Fatalf("只应完成第一段，实际 %d 段：%v", got, applied)
+		}
+	})
+
+	t.Run("没有确认过账号", func(t *testing.T) {
+		b, _ := newLightDocStub(t, lightDocDefaultReply)
+		b.lightDocUserID = ""
+		applied, err := b.applyLightDocAttrsToBody(lightDocFormatSpec{Scope: lightDocScopeAll, Attrs: map[string]any{"bold": true}})
+		if err == nil || !strings.Contains(err.Error(), "缺少当前账号标识") {
+			t.Fatalf("账号未确认时应拒绝写入：%v", err)
+		}
+		if got := int(num(applied, "appliedParagraphs")); got != 0 {
+			t.Fatalf("拒绝写入时不应改动任何段落，实际 %d 段", got)
+		}
+	})
+
+	t.Run("设值类全选后仍复核", func(t *testing.T) {
+		b, _ := newLightDocStub(t, func(expr string) any {
+			if strings.Contains(expr, "__shimoPhase3Presence") {
+				return map[string]any{"ok": false, "error": "协作名单检查未通过：检测到其他用户正在协作"}
+			}
+			return lightDocDefaultReply(expr)
+		})
+		applied, err := b.applyLightDocAttrsToBody(lightDocFormatSpec{Scope: lightDocScopeAll, Attrs: map[string]any{"color": "#BE1A1D"}})
+		if err == nil || !strings.Contains(err.Error(), "下发前协作名单复核未通过") {
+			t.Fatalf("全选后应复核并拒绝下发：%v", err)
+		}
+		if _, ok := applied["setterSelection"]; ok {
+			t.Fatalf("拒绝下发时不应记录已下发选区：%v", applied)
+		}
+	})
+}
+
 func TestLightDocOfflineReplaceFlow(t *testing.T) {
 	b, stub := newLightDocStub(t, lightDocDefaultReply)
 	if err := b.runLightDocReplace(lightDocReplaceSpec{Find: "旧", Replace: "新", Scope: "first"}); err != nil {
@@ -575,8 +661,16 @@ func TestLightDocOfflineImagePayload(t *testing.T) {
 func TestLightDocOfflineCommandsRejectBeforeNetwork(t *testing.T) {
 	// 图片动作会先读本地文件再校验目标，所以这里必须给一个真实存在的图片，
 	// 否则测到的是「文件不存在」而不是「目标不合法」。
-	img := filepath.Join(t.TempDir(), "a.png")
+	dir := filepath.Join(t.TempDir(), `image\fixture`)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	img := filepath.Join(dir, "a.png")
 	if err := os.WriteFile(img, []byte("png"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	imagePayload, err := json.Marshal(map[string]any{"paragraph": 1, "text": "x", "file": img})
+	if err != nil {
 		t.Fatal(err)
 	}
 	base := map[string][]string{
@@ -584,7 +678,7 @@ func TestLightDocOfflineCommandsRejectBeforeNetwork(t *testing.T) {
 		"doc-paragraph": {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-paragraph", "--payload", `{"paragraph":1,"text":"x","attrs":{"align":"center"}}`},
 		"doc-replace":   {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-replace", "--payload", `{"find":"a","replace":"b"}`},
 		"doc-table":     {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-table", "--payload", `{"paragraph":1,"text":"x","rows":1,"cols":1}`},
-		"doc-image":     {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-image", "--payload", `{"paragraph":1,"text":"x","file":"` + img + `"}`},
+		"doc-image":     {"phase3", "https://shimo.net/docs/abcdefgh", "--action", "doc-image", "--payload", string(imagePayload)},
 	}
 	run := map[string]func(*App) error{
 		"doc-format":    func(a *App) error { return a.cmdPhase3LightDocFormat() },

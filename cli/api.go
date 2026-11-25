@@ -102,6 +102,8 @@ func (a *App) requestURLContext(ctx context.Context, u, method string, body any,
 	if err != nil {
 		return nil, err
 	}
+	// 保存请求发出前的版本；在途请求的续期不能覆盖其他客户端的新登录。
+	renewalSession, _ := readSessionRecord(a.Origin)
 	if cookie == "" {
 		// 没有调用方显式传入时按本请求的实际地址解析凭据：共享会话里的 cookie
 		// 要按 Secure 与 Path 过滤，不能把整份记录直接塞进来。
@@ -124,6 +126,12 @@ func (a *App) requestURLContext(ctx context.Context, u, method string, body any,
 			return nil, errors.New("拒绝向不同网址发送认证信息")
 		}
 	}
+	// 显式 Cookie/Header 可能属于其他账号，不能借这次响应更新共享账号。
+	if renewalSession == nil || renewalSession.AuthState != sessionSignedIn ||
+		req.Header.Get("Cookie") == "" || req.Header.Get("Authorization") != "" ||
+		req.Header.Get("Cookie") != sessionCookieHeaderFor(renewalSession, req.URL) {
+		renewalSession = nil
+	}
 	// A copied client preserves transport/timeouts but makes redirect handling
 	// invariant, even for caller-provided clients. No cookie follows a redirect.
 	client := *httpClient
@@ -144,7 +152,7 @@ func (a *App) requestURLContext(ctx context.Context, u, method string, body any,
 	// 续期同步：服务端下发的 Set-Cookie 合并进共享会话，供其他 CLI 与宿主使用。
 	// 只有已存在共享记录时才写，普通单机使用不产生额外状态。
 	if len(resp.Header.Values("Set-Cookie")) > 0 {
-		mergeSetCookies(a.Origin, resp.Cookies())
+		mergeSetCookies(a.Origin, renewalSession, resp.Cookies())
 	}
 	return &Response{Status: resp.StatusCode, Header: resp.Header, Data: data, Raw: payload}, nil
 }

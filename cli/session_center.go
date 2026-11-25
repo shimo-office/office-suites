@@ -399,36 +399,23 @@ func markSessionSignedOut(origin, source string) error {
 	return err
 }
 
-// mergeSetCookies 把响应里的 Set-Cookie 合并进共享会话。只在记录已存在时生效，
-// 避免普通命令无端创建共享状态。
-//
-// 提交以读到的 revision 为前提：期间有别的进程写过，就重新读取再合并一次，
-// 冲突两次就放弃（这次续期只对本进程有效，下次请求会重新合并）。
-// 记录已退出时直接放弃，续期不能把退出状态复活。
-func mergeSetCookies(origin string, cookies []*http.Cookie) {
-	if len(cookies) == 0 {
+// mergeSetCookies 只续期本次请求对应的共享记录。请求发出后发生切号、退出或
+// 其他更新时，revision 冲突就丢弃本次续期，不能重读新账号再合并旧响应。
+func mergeSetCookies(origin string, rec *sessionRecord, cookies []*http.Cookie) {
+	if len(cookies) == 0 || rec == nil || rec.AuthState != sessionSignedIn {
 		return
 	}
-	for attempt := 0; attempt < 2; attempt++ {
-		rec, ok := readSessionRecord(origin)
-		if !ok || rec.AuthState != sessionSignedIn {
-			return
-		}
-		merged := mergeCookieList(rec.Cookies, cookies, hostOf(origin))
-		if cookieValue(merged, "sid") == "" {
-			return
-		}
-		_, err := commitSession(origin, sessionRecord{
-			Origin:    origin,
-			AuthState: sessionSignedIn,
-			Account:   rec.Account,
-			Cookies:   merged,
-			Source:    "renew",
-		}, rec.Revision, false)
-		if err == nil || !errors.Is(err, errSessionRevision) {
-			return
-		}
+	merged := mergeCookieList(rec.Cookies, cookies, hostOf(origin))
+	if cookieValue(merged, "sid") == "" {
+		return
 	}
+	_, _ = commitSession(origin, sessionRecord{
+		Origin:    origin,
+		AuthState: sessionSignedIn,
+		Account:   rec.Account,
+		Cookies:   merged,
+		Source:    "renew",
+	}, rec.Revision, false)
 }
 
 func mergeCookieList(existing []sessionCookie, cookies []*http.Cookie, host string) []sessionCookie {

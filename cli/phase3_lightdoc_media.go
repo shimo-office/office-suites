@@ -29,7 +29,9 @@ if(!nodes.length)return {ok:false,error:'目标段落没有可定位的文字'};
 const off=spec.position==='before'?0:acc;
 let target=nodes[nodes.length-1],inner=target.len;
 for(const it of nodes){if(off<=it.start+it.len){target=it;inner=off-it.start;break}}
-ce.focus();const r=document.createRange();r.setStart(target.node,Math.max(0,Math.min(inner,target.len)));r.collapse(true);
+// DOM Range 使用 UTF-16 偏移，不能把码点数直接当作节点内位置。
+const offset=Array.from(target.node.textContent).slice(0,Math.max(0,Math.min(inner,target.len))).join('').length;
+ce.focus();const r=document.createRange();r.setStart(target.node,offset);r.collapse(true);
 const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);document.dispatchEvent(new Event('selectionchange'));
 return {ok:true,offset:off,paragraphText:text}})()`
 }
