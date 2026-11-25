@@ -410,3 +410,21 @@
 - 不读共享会话的旧版本不受影响；新版本在没有共享记录时同样按旧逻辑工作。
 - 共享会话只保存请求所需 cookie，不保存浏览器 Local/Session Storage。
 
+## 0.9.29 — 2026-11-25
+
+修复共享会话在退出可靠性、并发优先级与 Cookie 属性上的三个问题。0.9.28 的接入文档在这三点上表述过强，以本版行为为准。
+
+### 退出可靠性
+
+- `logout` 不再忽略共享退出标记的写入结果：写入失败时返回错误，明确「本机凭据已清除，但共享退出未写入」，避免本机已退出而其他 Agent 继续使用旧会话。
+- `login` 与 `session harvest` 镜像共享会话失败时输出提示，不再静默降级。
+
+### 并发与退出优先级
+
+- 共享记录为 `signedOut` 时，不带 `--expected-revision` 的 `session import` 被拒绝，防止旧会话把已完成的退出改回 `signedIn`。
+- 带当前 revision 的导入视为一次明确的新登录，允许覆盖；`Set-Cookie` 续期合并仍不允许复活已退出的记录。
+
+### Cookie 属性
+
+- `session import` 支持 `{"cookies":[{...}]}` 输入，保留 Domain / Path / Secure / HttpOnly / SameSite / Expires；原有 `{"cookie":"..."}` 与纯 cookie 头仍然兼容。
+

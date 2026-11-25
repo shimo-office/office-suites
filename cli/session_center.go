@@ -35,7 +35,7 @@ var (
 	errSharedSignedOut   = errors.New("共享会话已退出登录（可能是其他客户端退出）；请重新运行 shimo-net login")
 	errSessionRevision   = errors.New("共享会话版本已变化；请重新读取后再提交")
 	errSessionNoCookie   = errors.New("共享会话没有可用 cookie")
-	errSessionBadPayload = errors.New("无法解析会话数据：需要 cookie 头文本，或 {\"cookie\":\"...\"}")
+	errSessionBadPayload = errors.New("无法解析会话数据：需要 cookie 头文本，或 {\"cookie\":\"...\"}，或 {\"cookies\":[...]}")
 )
 
 // sessionCookie 保留 Domain/Path/Secure/HttpOnly/SameSite/Expires，便于宿主回填浏览器。
@@ -143,14 +143,19 @@ func withSessionLock(origin string, fn func() error) error {
 	}
 }
 
-// commitSession 写入新版本。expectedRevision < 0 表示强制写入（登录、导入）。
-func commitSession(origin string, next sessionRecord, expectedRevision int64) (int64, error) {
+// commitSession 写入新版本。expectedRevision < 0 表示不带版本前提写入。
+// allowAfterLogout 为 false 时，拒绝把 signedOut 记录改回 signedIn：退出后只有
+// 明确读过当前 revision 的调用方（新的登录）才能覆盖，避免旧会话把退出"复活"。
+func commitSession(origin string, next sessionRecord, expectedRevision int64, allowAfterLogout bool) (int64, error) {
 	var rev int64
 	err := withSessionLock(origin, func() error {
 		current, _ := readSessionRecord(origin)
 		var currentRev int64
 		if current != nil {
 			currentRev = current.Revision
+			if !allowAfterLogout && current.AuthState == sessionSignedOut && next.AuthState != sessionSignedOut {
+				return fmt.Errorf("共享会话已退出（revision %d），拒绝用旧会话覆盖；确认是新登录请重新读取后带 --expected-revision %d 提交", currentRev, currentRev)
+			}
 		}
 		if expectedRevision >= 0 && currentRev != expectedRevision {
 			return errSessionRevision
@@ -282,8 +287,17 @@ func mirrorSession(origin, cookieHeader, source string, account map[string]any) 
 		},
 		Cookies: cookies,
 		Source:  source,
-	}, -1)
+	}, -1, true)
 	return err
+}
+
+// warnSharedMirror 在共享写入失败时提示：本地凭据已经有效，但其他 Agent 拿不到新会话。
+// 不把登录判为失败——本机确实登录成功了，只是共享那一步降级了。
+func warnSharedMirror(err error) {
+	if err == nil {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "提示：共享会话未更新（%v）；其他 Agent 与宿主仍在使用旧会话\n", err)
 }
 
 func markSessionSignedOut(origin, source string) error {
@@ -293,7 +307,7 @@ func markSessionSignedOut(origin, source string) error {
 		Source:    source,
 		// 退出后保留账号标识便于核对，但不再保留 cookie。
 		Account: sessionAccount{},
-	}, -1)
+	}, -1, true)
 	return err
 }
 
@@ -364,7 +378,7 @@ func mergeSetCookies(origin string, cookies []*http.Cookie) {
 		Account:   rec.Account,
 		Cookies:   merged,
 		Source:    "renew",
-	}, rec.Revision)
+	}, rec.Revision, false)
 }
 
 func sameSiteText(v http.SameSite) string {
@@ -412,31 +426,60 @@ func sessionStorePathOrEmpty(origin string) string {
 	return p
 }
 
-// readSessionPayload 接受纯 cookie 头，或 {"cookie":"...","account":{...}}。
-func readSessionPayload(r *bufio.Reader) (string, map[string]any, error) {
+// readSessionPayload 接受纯 cookie 头，或带属性的 JSON：
+// {"cookie":"..."} 只给名称和值；{"cookies":[{...}]} 保留 Domain/Path/Secure 等属性。
+func readSessionPayload(r *bufio.Reader) ([]sessionCookie, map[string]any, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	text := strings.TrimSpace(string(b))
 	if text == "" {
-		return "", nil, errSessionBadPayload
+		return nil, nil, errSessionBadPayload
 	}
-	if strings.HasPrefix(text, "{") {
-		var payload struct {
-			Cookie  string         `json:"cookie"`
-			Account map[string]any `json:"account"`
+	if !strings.HasPrefix(text, "{") {
+		cookies := parseCookieHeader(text)
+		if len(cookies) == 0 {
+			return nil, nil, errSessionNoCookie
 		}
-		if err := json.Unmarshal([]byte(text), &payload); err != nil || strings.TrimSpace(payload.Cookie) == "" {
-			return "", nil, errSessionBadPayload
-		}
-		return payload.Cookie, payload.Account, nil
+		return cookies, nil, nil
 	}
-	return text, nil, nil
+	var payload struct {
+		Cookie  string          `json:"cookie"`
+		Cookies []sessionCookie `json:"cookies"`
+		Account map[string]any  `json:"account"`
+	}
+	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+		return nil, nil, errSessionBadPayload
+	}
+	if len(payload.Cookies) > 0 {
+		cookies := make([]sessionCookie, 0, len(payload.Cookies))
+		for _, c := range payload.Cookies {
+			if strings.TrimSpace(c.Name) == "" || c.Value == "" {
+				continue
+			}
+			if c.Path == "" {
+				c.Path = "/"
+			}
+			cookies = append(cookies, c)
+		}
+		if len(cookies) == 0 {
+			return nil, nil, errSessionNoCookie
+		}
+		return cookies, payload.Account, nil
+	}
+	if strings.TrimSpace(payload.Cookie) == "" {
+		return nil, nil, errSessionBadPayload
+	}
+	cookies := parseCookieHeader(payload.Cookie)
+	if len(cookies) == 0 {
+		return nil, nil, errSessionNoCookie
+	}
+	return cookies, payload.Account, nil
 }
 
 func (a *App) cmdSessionImport() error {
-	cookie, account, err := readSessionPayload(bufio.NewReader(os.Stdin))
+	cookies, account, err := readSessionPayload(bufio.NewReader(os.Stdin))
 	if err != nil {
 		return err
 	}
@@ -447,7 +490,11 @@ func (a *App) cmdSessionImport() error {
 		return errors.New("SHIMO_NET_COOKIE 正在覆盖本机账号；请先取消该环境变量再导入会话")
 	}
 	if !a.has("--no-verify") {
-		me, err := (&App{Origin: a.Origin}).usersMeWithCookie(cookie)
+		header := sessionCookieHeader(&sessionRecord{Origin: a.Origin, Cookies: cookies})
+		if header == "" {
+			return errSessionNoCookie
+		}
+		me, err := (&App{Origin: a.Origin}).usersMeWithCookie(header)
 		if err != nil {
 			return fmt.Errorf("导入的会话不可用：%w", err)
 		}
@@ -458,10 +505,6 @@ func (a *App) cmdSessionImport() error {
 	source := "import"
 	if v := a.opt("--source"); v != "" {
 		source = v
-	}
-	cookies := parseCookieHeader(cookie)
-	if len(cookies) == 0 {
-		return errSessionNoCookie
 	}
 	hasSID := false
 	for _, c := range cookies {
@@ -481,13 +524,15 @@ func (a *App) cmdSessionImport() error {
 		}
 		expected = n
 	}
+	// 带 revision 说明调用方刚读过当前状态，视为一次明确的重新登录；
+	// 不带 revision 时不允许覆盖已退出的记录。
 	rev, err := commitSession(a.Origin, sessionRecord{
 		Origin:    a.Origin,
 		AuthState: sessionSignedIn,
 		Account:   sessionAccount{ID: str(account, "id"), Name: str(account, "name"), Email: str(account, "email")},
 		Cookies:   cookies,
 		Source:    source,
-	}, expected)
+	}, expected, expected >= 0)
 	if err != nil {
 		return err
 	}

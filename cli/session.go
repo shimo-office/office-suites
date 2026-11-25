@@ -76,7 +76,7 @@ func authCookieForOrigin(origin string) (string, error) {
 		if err := writeCred(origin, c); err != nil {
 			return "", err
 		}
-		_ = mirrorSession(origin, c, "harvest", nil)
+		warnSharedMirror(mirrorSession(origin, c, "harvest", nil))
 		return c, nil
 	}
 	return "", errors.New("未登录：没有已存凭据或可复用的浏览器会话；请运行 shimo-net login")
@@ -554,7 +554,7 @@ func (a *App) cmdSession() error {
 			if err := writeCred(a.Origin, cookie); err != nil {
 				return err
 			}
-			_ = mirrorSession(a.Origin, cookie, "harvest", me)
+			warnSharedMirror(mirrorSession(a.Origin, cookie, "harvest", me))
 		}
 		out := map[string]any{"ok": true, "source": "browser", "saved": !a.has("--no-save"),
 			"storage": "none", "cookieCount": len(strings.Split(cookie, "; ")), "account": map[string]any{
