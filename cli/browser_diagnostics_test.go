@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -116,7 +118,10 @@ func TestBrowserLogTailKeepsTailOnly(t *testing.T) {
 }
 
 func TestCaptureBrowserOutputWritesLog(t *testing.T) {
-	cmd := exec.Command("sh", "-c", "echo 沙箱初始化失败 >&2")
+	// 用当前测试二进制当子进程：Windows 上没有 sh，靠 shell 写 stderr 会让这个
+	// 用例在 Windows runner 上直接失败，而不是报告真正的诊断行为。
+	cmd := exec.Command(os.Args[0], "-test.run=TestBrowserLogHelperProcess")
+	cmd.Env = append(os.Environ(), "SHIMO_BROWSER_LOG_HELPER=1")
 	path, cleanup := captureBrowserOutput(cmd)
 	if path == "" {
 		t.Skip("当前环境无法创建临时日志文件")
@@ -128,11 +133,23 @@ func TestCaptureBrowserOutputWritesLog(t *testing.T) {
 	if !strings.Contains(log, "沙箱初始化失败") {
 		t.Fatalf("浏览器 stderr 必须落到日志：%q", log)
 	}
-	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("日志权限必须是 0600：%v %v", info, err)
+	// Windows 不提供 POSIX 权限位，0o600 在那里没有可断言的表示。
+	if runtime.GOOS != "windows" {
+		if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o600 {
+			t.Fatalf("日志权限必须是 0600：%v %v", info, err)
+		}
 	}
 	cleanup()
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatal("cleanup 应删除日志")
 	}
+}
+
+// 只在被上面的用例当作子进程拉起时执行，避免依赖平台 shell。
+func TestBrowserLogHelperProcess(t *testing.T) {
+	if os.Getenv("SHIMO_BROWSER_LOG_HELPER") != "1" {
+		t.Skip("仅供子进程使用")
+	}
+	fmt.Fprint(os.Stderr, "沙箱初始化失败\n")
+	os.Exit(0)
 }
