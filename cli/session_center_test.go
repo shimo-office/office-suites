@@ -73,7 +73,7 @@ func TestSetCookieRenewalMergesIntoSharedSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	requestSession, _ := readSessionRecord(origin)
-	mergeSetCookies(origin, requestSession, []*http.Cookie{
+	mergeSetCookies(origin, parseURLOrNil(origin), requestSession, []*http.Cookie{
 		{Name: "sid", Value: "new", Path: "/", Domain: "shimo.net", Secure: true, HttpOnly: true},
 		{Name: "deviceId", Value: "d2", Path: "/", Domain: "shimo.net"},
 	})
@@ -94,7 +94,7 @@ func TestMergeSetCookiesIgnoresForeignDomainAndDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	requestSession, _ := readSessionRecord(origin)
-	mergeSetCookies(origin, requestSession, []*http.Cookie{
+	mergeSetCookies(origin, parseURLOrNil(origin), requestSession, []*http.Cookie{
 		{Name: "sid", Value: "evil", Domain: "example.com", Path: "/"},
 		{Name: "fp", Value: "", MaxAge: -1, Domain: "shimo.net", Path: "/"},
 	})
@@ -131,9 +131,9 @@ func TestSessionOriginIsolation(t *testing.T) {
 	if err := mirrorSession("https://docs.example.com", "sid=b", "login", nil, sessionRevision("https://docs.example.com")); err != nil {
 		t.Fatal(err)
 	}
-	a, _ := sharedSessionCookie("https://shimo.net")
-	b, _ := sharedSessionCookie("https://docs.example.com")
-	c, _ := sharedSessionCookie("https://other.example.com")
+	a, _, _ := sharedSessionCookie("https://shimo.net")
+	b, _, _ := sharedSessionCookie("https://docs.example.com")
+	c, _, _ := sharedSessionCookie("https://other.example.com")
 	if !strings.Contains(a, "sid=a") || !strings.Contains(b, "sid=b") || c != "" {
 		t.Fatalf("环境未隔离：%q %q %q", a, b, c)
 	}
@@ -255,7 +255,7 @@ func BenchmarkReadSessionRecord(b *testing.B) {
 	origin := benchSessionState(b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, ok := readSessionRecord(origin); !ok {
+		if rec, err := readSessionRecord(origin); err != nil || rec == nil {
 			b.Fatal("应读到会话记录")
 		}
 	}
