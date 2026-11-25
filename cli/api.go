@@ -49,8 +49,30 @@ var httpClient = &http.Client{
 	},
 }
 
+// apiURL 拼出 /api/v1 命名空间下的完整地址。
+func (a *App) apiURL(path string) string {
+	return strings.TrimRight(a.Origin, "/") + "/api/v1" + path
+}
+
+// originURL 拼出同源、但不在 /api/v1 下的地址。
+func (a *App) originURL(path string) string {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return strings.TrimRight(a.Origin, "/") + path
+}
+
+// parseURLOrNil 解析失败时返回 nil，交给 cookie 选择退回 origin 根路径。
+func parseURLOrNil(raw string) *url.URL {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil
+	}
+	return u
+}
+
 func (a *App) request(path, method string, body any, raw []byte, headers map[string]string, cookie string) (*Response, error) {
-	return a.requestURL(strings.TrimRight(a.Origin, "/")+"/api/v1"+path, method, body, raw, headers, cookie)
+	return a.requestURL(a.apiURL(path), method, body, raw, headers, cookie)
 }
 
 // requestPath calls a same-origin endpoint that is outside the /api/v1
@@ -58,10 +80,7 @@ func (a *App) request(path, method string, body any, raw []byte, headers map[str
 // under /lizard-api, so keeping this separate prevents accidental path
 // rewriting for normal file APIs.
 func (a *App) requestPath(path, method string, body any, raw []byte, headers map[string]string, cookie string) (*Response, error) {
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-	return a.requestURL(strings.TrimRight(a.Origin, "/")+path, method, body, raw, headers, cookie)
+	return a.requestURL(a.originURL(path), method, body, raw, headers, cookie)
 }
 
 func (a *App) requestURL(u, method string, body any, raw []byte, headers map[string]string, cookie string) (*Response, error) {
@@ -84,7 +103,9 @@ func (a *App) requestURLContext(ctx context.Context, u, method string, body any,
 		return nil, err
 	}
 	if cookie == "" {
-		cookie, _ = readCookieForOrigin(a.Origin)
+		// 没有调用方显式传入时按本请求的实际地址解析凭据：共享会话里的 cookie
+		// 要按 Secure 与 Path 过滤，不能把整份记录直接塞进来。
+		cookie, _ = readCookieForURL(a.Origin, req.URL)
 	}
 	req.Header.Set("referer", strings.TrimRight(a.Origin, "/")+"/")
 	req.Header.Set("x-requested-with", "XMLHttpRequest")
@@ -129,7 +150,7 @@ func (a *App) requestURLContext(ctx context.Context, u, method string, body any,
 }
 
 func (a *App) authRequest(path, method string, body any, raw []byte, headers map[string]string) (*Response, error) {
-	cookie, err := a.requestCookie()
+	cookie, err := a.requestCookieFor(parseURLOrNil(a.apiURL(path)))
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +169,7 @@ func (a *App) authRequest(path, method string, body any, raw []byte, headers map
 }
 
 func (a *App) authRequestPath(path, method string, body any, raw []byte, headers map[string]string) (*Response, error) {
-	cookie, err := a.requestCookie()
+	cookie, err := a.requestCookieFor(parseURLOrNil(a.originURL(path)))
 	if err != nil {
 		return nil, err
 	}

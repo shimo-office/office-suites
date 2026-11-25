@@ -95,6 +95,13 @@ func readCredFile() *Cred {
 }
 
 func credentialForOrigin(origin string) (string, string, error) {
+	return credentialForOriginURL(origin, nil)
+}
+
+// credentialForOriginURL 解析该请求要用的 cookie。u 为具体请求地址时，共享会话
+// 按 Secure / Path / Domain / Expires 过滤；env、文件、钥匙串只有一个整串值，
+// 没有属性可判，按原样返回。
+func credentialForOriginURL(origin string, u *url.URL) (string, string, error) {
 	if _, err := canonicalCredentialOrigin(origin); err != nil {
 		return "", "", err
 	}
@@ -104,10 +111,16 @@ func credentialForOrigin(origin string) (string, string, error) {
 	}
 	// 共享会话：同一系统用户下所有 CLI 读写同一份记录。只有记录存在时才生效，
 	// 未启用共享的机器行为不变。
-	if header, state := sharedSessionCookie(origin); header != "" {
+	header, state := sharedSessionCookieFor(origin, u)
+	switch {
+	case header != "":
 		return header, "session", nil
-	} else if state == sessionSignedOut {
+	case state == sessionSignedOut:
 		return "", "", errSharedSignedOut
+	case state == sessionSignedIn:
+		// 记录存在但本次请求没有可用 cookie。这里必须失败：继续往下走会用到
+		// 钥匙串里可能属于另一个账号的旧凭据。
+		return "", "session", errSessionNotApplicable
 	}
 	c := readCredFile()
 	if c == nil {
@@ -141,7 +154,12 @@ func credentialForOrigin(origin string) (string, string, error) {
 }
 
 func readCookieForOrigin(origin string) (string, error) {
-	cookie, _, err := credentialForOrigin(origin)
+	return readCookieForURL(origin, nil)
+}
+
+// readCookieForURL 按具体请求地址解析 cookie；u 为 nil 时按 origin 根路径。
+func readCookieForURL(origin string, u *url.URL) (string, error) {
+	cookie, _, err := credentialForOriginURL(origin, u)
 	return cookie, err
 }
 
@@ -253,6 +271,9 @@ func (a *App) cmdLogin() error {
 	if err := saveConfig(a.Origin); err != nil {
 		return err
 	}
+	// 登录可能持续十几分钟。记下开始时的 revision，登录成功写共享会话时以它为前提：
+	// 期间别人退出或切号过，这次镜像会失败并提示，而不是把别人的状态盖掉。
+	baseRev := sessionRevision(a.Origin)
 	// If the user is already signed in inside Chrome, reuse that session
 	// instead of opening a second login window.  `login --new` deliberately
 	// skips the bridge so the user can switch accounts.
@@ -262,7 +283,7 @@ func (a *App) cmdLogin() error {
 				if err := writeCred(a.Origin, cookie); err != nil {
 					return err
 				}
-				warnSharedMirror(mirrorSession(a.Origin, cookie, "login", me))
+				warnSharedMirror(mirrorSession(a.Origin, cookie, "login", me, baseRev))
 				fmt.Printf("已复用本机浏览器登录态：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
 				fmt.Println("如需切换账号，请先运行 shimo-net logout，再运行 shimo-net login --new")
 				return nil
@@ -341,7 +362,7 @@ func (a *App) cmdLogin() error {
 					if err := writeCred(a.Origin, cookie); err != nil {
 						return err
 					}
-					warnSharedMirror(mirrorSession(a.Origin, cookie, "login", me))
+					warnSharedMirror(mirrorSession(a.Origin, cookie, "login", me, baseRev))
 					fmt.Printf("登录成功：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
 					return nil
 				}

@@ -25,6 +25,7 @@ shimo-net <command> [位置参数] [--option value] [--json]
 - `--payload` 是 JSON；macOS/Linux 示例使用 shell 单引号，PowerShell 按自身 JSON 引号规则传入。
 - `SHIMO_NET_ORIGIN` 临时覆盖目标 origin。凭据配置见 [安全策略](../SECURITY.md)，不要在参数、对话或日志中输出 cookie。
 - 共享会话默认位于 `<状态目录>/sessions/<sha256(origin)>.json`（`0600`），同一系统用户下的所有 CLI 共用；`SHIMO_NET_SESSION_DIR` 可整体改位置，`SHIMO_NET_STATE_DIR` 改变时共享范围随之改变。
+- 共享会话里的 cookie 按实际请求地址投递：Domain、Path 前缀、Secure（只发 https）和 Expires 都会判断；都没有可用 cookie 时命令直接失败，不回退钥匙串。
 
 ## 配置与诊断
 
@@ -38,7 +39,7 @@ shimo-net <command> [位置参数] [--option value] [--json]
 | `logout` | 删除 CLI 本地凭据，不会退出日常浏览器会话。 |
 | `session status` | 查看当前会话来源及状态；`--json` 含共享会话的 revision、账号与 cookie 名称（不含值）。 |
 | `session harvest [--no-save]` | 验证并复用浏览器会话；`--no-save` 只验证不保存。 |
-| `session import [--no-verify] [--source NAME] [--expected-revision N]` | 从 stdin 读 cookie 头（或 `{"cookie":"..."}`）写入共享会话；默认先向 `/users/me` 校验；`--expected-revision` 用于并发控制。 |
+| `session import [--no-verify] [--source NAME] [--expected-revision N]` | 从 stdin 读 cookie 头、`{"cookie":"..."}` 或 `{"cookies":[...]}` 写入共享会话；默认先向 `/users/me` 校验。已有记录时，不带 `--expected-revision` 只允许同一 `sid` 的属性刷新，切号与退出后恢复必须带当前版本。 |
 | `session watch [--interval 1s] [--once]` | 订阅共享会话变化；每次 revision 变化输出一条快照（无 cookie 值）。每轮只 stat 文件（约 3.4 µs），时间戳与大小未变不读取内容，每 30 轮兜底全量读一次。 |
 | `session logout` | 只标记共享会话已退出；`logout` 会同时清理本地凭据。 |
 | `whoami` | 查询实际当前账号。 |

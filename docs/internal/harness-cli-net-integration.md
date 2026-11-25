@@ -89,7 +89,12 @@ SHIMO_NET_STATE_DIR 改整体位置，SHIMO_NET_SESSION_DIR 只改 sessions 位�
 |退出|`session logout`（只标记）或 `logout`（同时清本机凭据）|其他 CLI 立刻报"共享会话已退出登录"，不回退旧凭据|
 |续期|CLI 收到 `Set-Cookie` 自动合并（`source: renew`）；石墨办公拿到新 cookie 时主动 `import`|双方各自下一次调用使用新值|
 
-一条优先级规则：**退出优先于并发写入。** 记录为 `signedOut` 时，不带 `--expected-revision` 的 `session import` 会被拒绝；只有刚读过当前 revision 的调用方（即确认这是一次新的登录）才能覆盖。这样旧会话不会把已完成的退出改回 `signedIn`。
+一条优先级规则：**退出优先于并发写入，切号必须带版本前提。** 所有写入路径都遵守它，不只 `session import`：
+
+* 记录为 `signedOut` 时，不带 `--expected-revision` 的写入一律被拒绝；只有刚读过当前 revision 的调用方（即确认这是一次新的登录）才能覆盖。
+* 已有 `signedIn` 记录时，不带 revision 的 `session import` 只允许同一 `sid` 的属性刷新（宿主重复上报）；`sid` 不同视为切号，必须带当前 revision。
+* CLI 的 `login` 和 `session harvest` 在开始前记下 revision，成功后才以它为前提写入。登录期间别人退出或切号，这次镜像会冲突并提示，不会把对方的状态盖掉。
+* 首次写入也带版本前提（revision 0），两个进程同时初始化时后一个撞版本，而不是互相覆盖。
 
 三点约定：
 
@@ -101,11 +106,30 @@ SHIMO_NET_STATE_DIR 改整体位置，SHIMO_NET_SESSION_DIR 只改 sessions 位�
 
 写入串行：文件锁（`O_EXCL`，15 秒视为残留）+ 临时文件原子替换。带 `--expected-revision N` 时，当前 revision 不匹配返回退出码 1，让调用方重新读取后再提交。
 
+`Set-Cookie` 续期是自动写入：冲突时会重读并再合并一次，两次都冲突就放弃本次合并，不影响这个请求本身，下个请求会再尝试。续期永远不复活已退出的记录。
+
+### 3.4 Cookie 的发送范围
+
+共享会话存的是带属性的 cookie。CLI 发请求时按**实际请求地址**筛选，规则和浏览器一致：
+
+|属性|规则|
+|:----|:----|
+|Domain|与请求主机相同或为其子域；空视为请求主机|
+|Path|请求路径命中该前缀。`/admin` 命中 `/admin` 和 `/admin/x`，不命中 `/administrator`|
+|Secure|只发给 https。私有部署用 http 时，这类 cookie 不会被发出去|
+|Expires|已过期不发|
+
+`sid` 不适用于当前请求时，命令直接失败（`共享会话没有适用于该请求的 cookie…`），不会退回去用钥匙串里可能属于另一个账号的旧凭据。
+
+从钥匙串、`credentials.json` 或 `SHIMO_NET_COOKIE` 拿到的是一整串，没有属性可判，只能原样发送——这是共享会话比它们更值得用的一个原因。
+
+对宿主的要求：**导入时填真实属性，不要一律写成 `path: "/"`。** 把 `Path=/app` 报成 `/`，或者把 Secure 的报成不 Secure，都会让 CLI 把凭据发到浏览器本来不会发的地方。
+
 ## 4. 石墨办公接入 CLI
 
 |时机|调用|说明|
 |:----|:----|:----|
-|登录、切号、续期|`shimo-net session import --json`，会话写 stdin|默认校验 `/users/me`；带 `--expected-revision N` 才允许覆盖已退出的记录，也用于并发控制；`--no-verify` 只用于离线排障|
+|登录、切号、续期|`shimo-net session import --json`，会话写 stdin|默认校验 `/users/me`；同一 `sid` 的刷新可不带版本，切号与退出后恢复必须带 `--expected-revision N`；`--no-verify` 只用于离线排障|
 |启动、窗口恢复|读会话文件，或 `shimo-net session status --json`|文件给全量 cookie；`status` 只给元数据|
 |用户退出|`shimo-net session logout --json`|只标记共享退出；`shimo-net logout` 会连带清本机钥匙串|
 |常驻监听|`shimo-net session watch --interval 1s`|revision 变化时输出一行 JSON，进程不退出|
@@ -136,7 +160,8 @@ sid=...; fp=...; deviceId=...
 共享文件里的 cookie 只保证"能发请求"，不保证属性和浏览器一致。宿主更新 Electron Session 时：
 
 * 以自己 `CloudSession` 里的 Cookie 对象为准，Domain / Path / Secure / HttpOnly / SameSite / Expires 全部沿用原对象，不要从共享文件反推。
-* 共享文件只用来核对两件事：当前是否 `signedIn`，以及 `sid` 的值是否已更新。
+* 比对要覆盖全部 cookie，不能只看 `sid`：按 `name + domain + path` 对齐，值不同的就用共享记录的值更新本地，属性保留本地的。服务端可能同时轮换 `fp`、`deviceId`，只同步 `sid` 会让两边分叉。
+* 本地有、共享记录里没有的，先别删——可能只是那次导入没带上；确认服务端已清除再删。
 * 如果宿主手里只有 cookie 头（例如从其他渠道拿到），用第 4 节的 `{"cookies":[...]}` 形式导入并补齐属性；拿不到的属性（Host-only、优先级）无法还原，需要在接入侧明确接受这个近似。
 
 调用时建议注入的环境变量，避免 CLI 自己去找浏览器或旧凭据：
@@ -150,7 +175,7 @@ SHIMO_NET_STATE_DIR=<与共享会话一致的目录>
 
 ## 5. CLI 能做什么
 
-`shimo-net` 是 shimo.net 的命令行客户端，覆盖文件管理、内容读取、在线编辑和页面操作。当前版本 0.9.29：**32 条命令、28 个场景、51 项能力**。
+`shimo-net` 是 shimo.net 的命令行客户端，覆盖文件管理、内容读取、在线编辑和页面操作。当前版本 0.9.30：**32 条命令、28 个场景、51 项能力**。
 
 ### 5.1 命令分类
 
@@ -211,6 +236,8 @@ shimo-net phase3 <文稿链接> --action document-layout-inspect --json
 |导入的会话校验失败|退出码 1，`导入的会话不可用：...`，原记录不变|
 |退出后不带 revision 导入|退出码 1，`共享会话已退出（revision N），拒绝用旧会话覆盖；确认是新登录请重新读取后带 --expected-revision N 提交`|
 |`logout` 时共享写入失败|退出码 1，`本机凭据已清除，但共享退出未写入（其他 Agent 可能仍在使用旧会话）：...`|
+|切号未带 revision|退出码 1，`共享会话已有其他账号的会话（revision N，账号）...`|
+|cookie 属性不适用|退出码 1，`共享会话没有适用于该请求的 cookie（Secure 与 Path 属性不匹配）...`|
 |缺 `sid`|退出码 1，`会话缺少 sid，拒绝写入`|
 |参数不支持|退出码 2，用法错误|
 
@@ -236,20 +263,41 @@ shimo-net phase3 <文稿链接> --action document-layout-inspect --json
 
 ## 8. 信任边界与生效前提
 
+私有部署用 http 时，Secure cookie 不会被发送（3.4），但 `sid` 本身仍是明文传输。这种环境建议上 https，或至少限制在回环地址加反向代理。
+
 会话文件 `0600` 防的是同机其他系统用户，不防同一用户下的其他进程。同一用户安装的任何 Agent 都能读到文件里的 cookie，这是共享方案的预期范围，不是漏洞。要按 Agent 隔离就只能换系统用户或容器，那时也不再叫"统一登录态"。
 
 共享成立的前提，缺一条就会退化成"看起来同步了"：
 
 1. 所有 Agent 与石墨办公用同一个状态目录：同一个系统用户，不覆盖 `SHIMO_NET_STATE_DIR` / `SHIMO_NET_SESSION_DIR`。
 2. 不要常驻注入 `SHIMO_NET_COOKIE`。它优先于共享会话，退出标记对它无效，只能用于临时排障。
-3. CLI 版本需支持共享会话（0.9.28 及以上）；更早的版本只读自己的钥匙串，不参与同步。
+3. CLI 版本需 0.9.30 及以上：0.9.28 起有共享会话，0.9.30 才补齐 cookie 范围的属性过滤和全路径的版本前提。更早的版本只读自己的钥匙串，不参与同步。
 4. 石墨办公关闭不影响共享：会话文件独立存在，CLI 照常可用。
 5. 退出必须由一端显式调用 `logout` 或 `session logout`；不调用就不会产生 `signedOut` 记录。
 
 ## 9. 迁移与兼容
 
 * 不写共享会话的旧版 CLI 完全不受影响：没有记录时按原逻辑读钥匙串/文件。
-* 首次接入时如果钥匙串账号和宿主账号不同，以宿主上报为准（`session import` 覆盖）；要保留旧账号先导出或重新登录。
+* 首次接入时如果钥匙串账号和宿主账号不同，以宿主上报为准：先 `session status --json` 读 revision，再带 `--expected-revision` 导入覆盖；要保留旧账号先导出或重新登录。
 * 共享会话只存请求所需 cookie，不存 Local Storage、Session Storage，这些仍然只有宿主有。
 * 不同 origin 各自一份文件，切换环境不会互相清空。
 * 建议宿主启动时用 `shimo-net version --json` 和 `shimo-net schema --json` 校验版本；`session` 子命令不存在的旧版本不参与共享。
+
+## 10. 验证范围
+
+已跑过（隔离状态目录，没动真实登录态）：
+
+|项|结果|
+|:----|:----|
+|石墨办公当前 cookie 交给 CLI 调 `whoami`|通过，账号与 CLI 原会话一致|
+|两个独立 CLI 进程读同一会话|读到同一账号|
+|CLI A 标记退出后，CLI B 发请求|被拒绝，退出码 1|
+|登录期间并发退出|登录镜像冲突，退出状态保留|
+|Secure / Path / Domain 过滤|按请求地址生效，单元测试覆盖|
+
+没验证：
+
+* 石墨办公的 `CloudSession` 适配器还没实现。所以"CLI 登录或续期后宿主能否及时更新 Electron 会话""在途任务会不会失效"都没跑过，属于待开发、待验收。
+* 服务端实际会轮换哪些 cookie 没有确认。接入时按 4.1 全量比对，不要假设只有 `sid`。
+
+这套方案的定位是同一台机器、同一系统用户下的低复杂度共享，不是更强的隔离。要降低单个 Agent 泄露 cookie 的影响，得让本机服务持有会话、只暴露受限操作接口，而不是让所有 Agent 直接读文件——那是把 §3 换成 socket 中心再加权限分级，目前没做。
