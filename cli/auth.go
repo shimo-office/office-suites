@@ -307,7 +307,10 @@ func (a *App) cmdLogin() error {
 	fmt.Printf("产品网址：%s\n", terminalText(a.Origin))
 	fmt.Printf("正在打开 %s 浏览器，请在窗口里用你自己的账号登录 %s…\n", browserLabelForBinary(chrome), terminalText(a.Origin))
 	cmd := exec.Command(chrome, args...)
-	cmd.Stdout, cmd.Stderr = nil, nil
+	logPath, _ := captureBrowserOutput(cmd)
+	if logPath != "" {
+		defer func() { _ = os.Remove(logPath) }()
+	}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("启动浏览器失败：%w", err)
 	}
@@ -332,7 +335,7 @@ func (a *App) cmdLogin() error {
 		time.Sleep(150 * time.Millisecond)
 	}
 	if port == 0 {
-		return errors.New("浏览器没有启动调试端口")
+		return explainBrowserFailure(errors.New("浏览器没有启动调试端口"), logPath)
 	}
 	target, err := waitPageTarget(port, a.Origin)
 	if err != nil {
@@ -340,32 +343,42 @@ func (a *App) cmdLogin() error {
 	}
 	ws, err := dialWS(target)
 	if err != nil {
-		return err
+		return explainBrowserFailure(err, logPath)
 	}
 	defer ws.Close()
 	if _, err := ws.Call(1, "Network.enable", nil, 10*time.Second); err != nil {
-		return err
+		return explainBrowserFailure(err, logPath)
 	}
 	loginDeadline := time.Now().Add(10 * time.Minute)
+	// 调试连接在握手后断开，说明浏览器已经不可用（沙箱起不来、渲染进程崩溃）。
+	// 之前这种状态要用户白等满 10 分钟，这里连续失败就带着原因退出。
+	cdpFailures := 0
 	id := 2
 	for time.Now().Before(loginDeadline) {
 		res, err := ws.Call(id, "Network.getAllCookies", nil, 8*time.Second)
 		id++
-		if err == nil {
-			cookies, cookieErr := loginCookiesForOrigin(res, a.Origin)
-			if cookieErr != nil {
-				return cookieErr
+		if err != nil {
+			cdpFailures++
+			if cdpFailures >= 6 {
+				return explainBrowserFailure(err, logPath)
 			}
-			if len(cookies) > 0 {
-				cookie := strings.Join(cookies, "; ")
-				if me, err := a.usersMeWithCookie(cookie); err == nil {
-					if err := writeCred(a.Origin, cookie); err != nil {
-						return err
-					}
-					warnSharedMirror(mirrorSession(a.Origin, cookie, "login", me, baseRev))
-					fmt.Printf("登录成功：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
-					return nil
+			time.Sleep(1500 * time.Millisecond)
+			continue
+		}
+		cdpFailures = 0
+		cookies, cookieErr := loginCookiesForOrigin(res, a.Origin)
+		if cookieErr != nil {
+			return cookieErr
+		}
+		if len(cookies) > 0 {
+			cookie := strings.Join(cookies, "; ")
+			if me, err := a.usersMeWithCookie(cookie); err == nil {
+				if err := writeCred(a.Origin, cookie); err != nil {
+					return err
 				}
+				warnSharedMirror(mirrorSession(a.Origin, cookie, "login", me, baseRev))
+				fmt.Printf("登录成功：%s <%s>\n", terminalText(str(me, "name")), terminalText(str(me, "email")))
+				return nil
 			}
 		}
 		time.Sleep(1500 * time.Millisecond)

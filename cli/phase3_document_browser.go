@@ -21,6 +21,7 @@ type phase3EditorBrowser struct {
 	ws               *WSConn
 	cmd              *exec.Cmd
 	profile          string
+	logPath          string
 	debugURL         string
 	nextID           int
 	readyAttempts    int
@@ -67,6 +68,7 @@ func openPhase3EditorWithSetup(target, readiness string, setup func(*phase3Edito
 	}
 	b := &phase3EditorBrowser{profile: profile, nextID: 200}
 	b.cmd = phase3ChromeCommand(chrome, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "--disable-backgrounding-occluded-windows", "--user-data-dir="+profile, "--remote-debugging-port=0", "about:blank")...)
+	b.logPath, _ = captureBrowserOutput(b.cmd)
 	if err = b.cmd.Start(); err != nil {
 		_ = os.RemoveAll(profile)
 		return nil, err
@@ -74,7 +76,7 @@ func openPhase3EditorWithSetup(target, readiness string, setup func(*phase3Edito
 	fail := func(e error) (*phase3EditorBrowser, error) { b.Close(); return nil, e }
 	port, err := waitDevToolsPort(filepath.Join(profile, "DevToolsActivePort"), 45*time.Second)
 	if err != nil {
-		return fail(err)
+		return fail(explainBrowserFailure(err, b.logPath))
 	}
 	wsURL, err := waitPageTarget(port, "about:blank")
 	if err != nil {
@@ -83,14 +85,14 @@ func openPhase3EditorWithSetup(target, readiness string, setup func(*phase3Edito
 	b.debugURL = wsURL
 	b.ws, err = dialWS(wsURL)
 	if err != nil {
-		return fail(err)
+		return fail(explainBrowserFailure(err, b.logPath))
 	}
 	cookie, err := authCookie()
 	if err != nil {
 		return fail(err)
 	}
 	if err = setCookies(b.ws, target, cookie); err != nil {
-		return fail(errors.New("无法设置隔离编辑器登录态"))
+		return fail(fmt.Errorf("无法设置隔离编辑器登录态：%w", explainBrowserFailure(err, b.logPath)))
 	}
 	observer, _ := json.Marshal(guidFromURL(target))
 	b.presenceObserver = phase3PresenceObserver(string(observer))
@@ -122,6 +124,10 @@ func (b *phase3EditorBrowser) Close() {
 		_ = b.cmd.Wait()
 	}
 	_ = os.RemoveAll(b.profile)
+	if b.logPath != "" {
+		_ = os.Remove(b.logPath)
+		b.logPath = ""
+	}
 }
 func (b *phase3EditorBrowser) Eval(expression string) (any, error) {
 	return b.evalTimed(expression, 30*time.Second)

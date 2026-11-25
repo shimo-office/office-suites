@@ -1,6 +1,6 @@
 # shimo-net CLI 完整方法附录
 
-附件 A，配套：[跨 Agent 共享登录态与接入方案](harness-cli-net-integration.md)。本附录由当前源码构建的 `0.9.30 schema --json` 核对，供 Harness 开发侧映射工具。能力目录含 API、页面动作和禁用项，不代表全部能力都能无浏览器执行。
+附件 A，配套：[跨 Agent 共享登录态与接入方案](harness-cli-net-integration.md)。本附录由当前源码构建的 `0.9.31 schema --json` 核对，供 Harness 开发侧映射工具。能力目录含 API、页面动作和禁用项，不代表全部能力都能无浏览器执行。
 
 ## 命令目录
 
