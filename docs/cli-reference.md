@@ -24,6 +24,7 @@ shimo-net <command> [位置参数] [--option value] [--json]
 - `--relogin` 只允许只读命令在打开全新登录窗口、由用户完成登录后重试；所有写命令和固定编辑入口 `phase3` 禁止自动重放。写入已受理、后验失败时，先读回和检查证据，不重提追加、删除、发布或答卷。
 - `--payload` 是 JSON；macOS/Linux 示例使用 shell 单引号，PowerShell 按自身 JSON 引号规则传入。
 - `SHIMO_NET_ORIGIN` 临时覆盖目标 origin。凭据配置见 [安全策略](../SECURITY.md)，不要在参数、对话或日志中输出 cookie。
+- 共享会话默认位于 `<状态目录>/sessions/<sha256(origin)>.json`（`0600`），同一系统用户下的所有 CLI 共用；`SHIMO_NET_SESSION_DIR` 可整体改位置，`SHIMO_NET_STATE_DIR` 改变时共享范围随之改变。
 
 ## 配置与诊断
 
@@ -35,8 +36,11 @@ shimo-net <command> [位置参数] [--option value] [--json]
 | `config clear` | 清理 origin 配置，不是退出浏览器账号。 |
 | `login [--origin URL] [--new]` | 仅无已存凭据记录时，普通登录才尝试复用会话；`--new` 使用全新临时配置用于切账号。 |
 | `logout` | 删除 CLI 本地凭据，不会退出日常浏览器会话。 |
-| `session status` | 查看当前会话来源及状态。 |
+| `session status` | 查看当前会话来源及状态；`--json` 含共享会话的 revision、账号与 cookie 名称（不含值）。 |
 | `session harvest [--no-save]` | 验证并复用浏览器会话；`--no-save` 只验证不保存。 |
+| `session import [--no-verify] [--source NAME] [--expected-revision N]` | 从 stdin 读 cookie 头（或 `{"cookie":"..."}`）写入共享会话；默认先向 `/users/me` 校验；`--expected-revision` 用于并发控制。 |
+| `session watch [--interval 1s] [--once]` | 订阅共享会话变化；每次 revision 变化输出一条快照（无 cookie 值）。每轮只 stat 文件（约 3.4 µs），时间戳与大小未变不读取内容，每 30 轮兜底全量读一次。 |
+| `session logout` | 只标记共享会话已退出；`logout` 会同时清理本地凭据。 |
 | `whoami` | 查询实际当前账号。 |
 | `doctor` | 检查平台运行环境、浏览器、origin 和账号；失败返回非 0。 |
 | `schema` | 输出命令、类型、动作分类、场景与能力计数。 |

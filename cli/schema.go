@@ -34,7 +34,7 @@ func schema() map[string]any {
 		{"name": "version", "usage": "shimo-net version [--json]", "desc": "输出 CLI 版本"},
 		{"name": "phase3", "usage": "shimo-net phase3 <链接|guid|@别名> --action <动作> [--payload JSON] [--read-range 工作表!A1:D4] [--out 目录] [--verify]", "desc": "三期列明范围已验收，37.2 关联字段保留；逐项证据另列，artifact 仅检查本地包结构"},
 		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "limit 限制扫描文件数，仅对扫描到的订阅文件排序；可打开浏览器"},
-		{"name": "session", "usage": "shimo-net session <status|harvest> [--no-save]", "desc": "查看登录态来源；显式从本机 Chromium 系浏览器复用登录态"},
+		{"name": "session", "usage": "shimo-net session <status|harvest|import|watch|logout> [--no-save] [--no-verify] [--interval 1s] [--once] [--source NAME] [--expected-revision N]", "desc": "查看登录态来源与共享会话；harvest 从本机浏览器复用；import 由宿主写入会话；watch 订阅变化；logout 标记共享退出"},
 		{"name": "whoami", "usage": "shimo-net whoami [--json]", "desc": "当前账号"},
 		{"name": "doctor", "usage": "shimo-net doctor [--json]", "desc": "自检（运行时/Chrome/凭据/origin）"},
 	}
@@ -95,7 +95,7 @@ func helpText() string {
   shimo-net login [--origin URL] [--new]            登录；--new 全新临时配置，凭据按 origin 隔离
   shimo-net logout                                 退出并删除本机凭据
   shimo-net whoami | doctor                        账号 / 自检
-  shimo-net session status|harvest                 查看登录态来源 / 从本机浏览器复用登录态
+  shimo-net session status|harvest|import|watch|logout  登录态来源 / 复用浏览器 / 宿主写入 / 订阅变化 / 标记退出
   shimo-net search <关键词> [--limit 20]            1 搜索
   shimo-net spaces [--limit 300]                   2 我的空间清单
   shimo-net ls <链接|@别名> [--since 7d]             2/12 列目录
@@ -139,6 +139,8 @@ func helpText() string {
 
 权限（仅用于读取当前值）: private | enterprise_readonly | enterprise_commentable | enterprise_editable
       readonly | commentable | editable
+
+共享会话: 同一系统用户的 CLI 共用 sessions/<origin>.json（0600，含 revision）；session import/watch/logout 供宿主接入
 
 全局: --json；SHIMO_NET_ORIGIN 指定私有部署域名；--relogin 仅允许只读命令在显式新登录后重试；所有写命令及 phase3 禁止自动重放
 `

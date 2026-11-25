@@ -76,6 +76,7 @@ func authCookieForOrigin(origin string) (string, error) {
 		if err := writeCred(origin, c); err != nil {
 			return "", err
 		}
+		_ = mirrorSession(origin, c, "harvest", nil)
 		return c, nil
 	}
 	return "", errors.New("未登录：没有已存凭据或可复用的浏览器会话；请运行 shimo-net login")
@@ -496,9 +497,15 @@ func cookieJarForHost(cookies []browserCookie, host string) string {
 
 func (a *App) cmdSession() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net session <status|harvest> [--no-save]")
+		return errors.New("用法：shimo-net session <status|harvest|import|watch|logout> [--no-save]")
 	}
 	switch a.Pos[0] {
+	case "import":
+		return a.cmdSessionImport()
+	case "watch":
+		return a.cmdSessionWatch()
+	case "logout":
+		return a.cmdSessionLogout()
 	case "status":
 		_, source, _ := credentialForOrigin(a.Origin)
 		out := map[string]any{
@@ -509,11 +516,22 @@ func (a *App) cmdSession() error {
 			"harvest":  !harvestDisabled() && !explicitNoBrowser(a),
 			"profiles": len(browserProfiles()),
 		}
+		shared := sessionStatusMap(a.Origin)
+		for k, v := range shared {
+			if k != "origin" {
+				out[k] = v
+			}
+		}
 		if a.JSON {
 			return a.printJSON(out)
 		}
 		fmt.Printf("产品网址：%s\n", terminalText(a.Origin))
-		fmt.Printf("显式会话：环境变量=%v Keychain=%v 文件=%v\n", out["env"], out["keychain"], out["file"])
+		fmt.Printf("显式会话：环境变量=%v Keychain=%v 文件=%v 共享会话=%v\n", out["env"], out["keychain"], out["file"], out["shared"])
+		if boolv(out, "shared") {
+			if acct, ok := out["account"].(map[string]any); ok {
+				fmt.Printf("共享账号：%s <%s>（revision %v，%v 个 cookie，%v）\n", terminalText(str(acct, "name")), terminalText(str(acct, "email")), out["revision"], out["cookieCount"], out["authState"])
+			}
+		}
 		fmt.Printf("浏览器复用：%v（发现 %v 个浏览器配置）\n", out["harvest"], out["profiles"])
 		return nil
 	case "harvest":
@@ -536,6 +554,7 @@ func (a *App) cmdSession() error {
 			if err := writeCred(a.Origin, cookie); err != nil {
 				return err
 			}
+			_ = mirrorSession(a.Origin, cookie, "harvest", me)
 		}
 		out := map[string]any{"ok": true, "source": "browser", "saved": !a.has("--no-save"),
 			"storage": "none", "cookieCount": len(strings.Split(cookie, "; ")), "account": map[string]any{

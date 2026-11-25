@@ -10,6 +10,7 @@
 | 回归证据 | [历史测试结果](test-results.md) · [Agent 连通历史](agent-validation-history.md) |
 | 编辑扩展 | [实施计划](../phase3-plan.md) · [验收记录](../phase3-acceptance.md) · [报告生成与检查](../phase3-report/README.md) |
 | 发布 | [发布来源与边界](release-provenance.md) · [2026-11-19 验收](../release-acceptance-2026-11-19.md) |
+| 宿主接入 | [石墨办公与 CLI 登录态统一](harness-cli-net-integration.md) · [完整方法附录](harness-cli-net-methods.md) |
 | 问题复核 | [Issue #1](../issue-1-review.md) · [Issue #3](../issue-3-review.md) · [改进清单核查](../improvement-checklist-review.md) |
 
 通用安装、账号与命令行为分别由[安装指南](../install.md)、[命令参考](../cli-reference.md)和[安全策略](../../SECURITY.md)维护，不在历史报告中改写当前操作规则。
