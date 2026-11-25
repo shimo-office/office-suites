@@ -35,17 +35,29 @@ shimo-net phase3 https://shimo.net/docs/<guid> --action doc-format \
 
 | 动作 | payload | 范围 |
 |---|---|---|
-| `doc-format` | `{"paragraph":3,"text":"整段原文","start":4,"end":10,"attrs":{...}}` | `attrs` 可含 `bold` `italic` `underline` `strike`（布尔）、`fontSize`（6–200）、`fontFamily`、`color`、`highlight`（`#RRGGBB`，高亮可用 `none` 清除）、`verticalAlign`。 |
+| `doc-format` | `{"paragraph":3,"text":"整段原文","start":4,"end":10,"attrs":{...}}` 或 `{"scope":"all","attrs":{...}}` | `attrs` 可含 `bold` `italic` `underline` `strike`（布尔）、`fontSize`（6–200）、`fontFamily`、`color`、`highlight`（`#RRGGBB`，不接受 `NONE`）。`scope=all` 表示全文，见下。 |
 | `doc-paragraph` | `{"paragraph":3,"text":"整段原文","attrs":{...}}` | `heading`（0–6、`title`、`subtitle`）、`align`（`left/center/right/justify`）、`list`（`ordered/unordered/todo/none`）、`indent`（±1–8，按次增减）、`lineHeight`（`1.0/1.15/1.5/2.0/2.5/3.0`）。 |
 | `doc-replace` | `{"find":"旧文本","replace":"新文本","scope":"all"}` | `scope` 取 `all` 或 `first`；`replace` 必须显式给出，允许空串。 |
 
 `paragraph` 是从 1 起的段落序号，按正文里所有 `p` 的出现顺序编号，表格单元格内的段落也计入；`text` 必须是该段完整正文，用于写入前核对。字符范围按 Unicode 码点计，`start` 与 `end` 必须同时给出。
 
-证据规则：字符格式以 `data-hk-font-*` 标记为准（md 导出不含字号、颜色、高亮），段落属性以 `class`/`style` 为准，两者都在写入后与刷新页面后各核对一次；`doc-replace` 以替换前后导出全文的纯文本命中计数为准。行距在 DOM 上落成换算值（1.5 倍显示为 2.5），因此只核对「是否发生变化」与「刷新后是否保持」，不与请求倍数直接相等。
+全文改写用 `scope":"all"`，不带段落参数：
 
-色板是固定集合，找不到请求色时会返回当前可用色值。选中文字后在工具栏点下拉不会丢失选区，编辑器会保留最后一次选区。
+```bash
+shimo-net phase3 https://shimo.net/docs/<guid> --action doc-format \
+  --payload '{"scope":"all","attrs":{"fontFamily":"宋体","fontSize":16,"color":"#333333"}}' \
+  --out ./evidence --json
+```
 
-未命令化的轻文档能力：文内表格与图片编辑、评论、预览与打印、全文标题样式与页面宽度，仍需在页面人工操作；这些场景当前不由 `doc-*` 覆盖。
+`scope=all` 分两类下发：字体、字号、颜色、高亮是设值类，整篇全选一次下发；粗体、斜体、下划线、删除线是勾选类，逐段选中后逐段切换。分开的原因在页面行为上——整篇全选时标题也落在选区里，而标题的粗体来自级别样式，工具栏看到的是混合态，一次点击会把「取消加粗」执行成「继续加粗」。
+
+标题段落不参与行内标记（H1–H6 的文字样式由级别决定，页面不接受行内字号/字体），断言按「可承载行内标记的正文段落」计数，标题连同文本一起写进 `marks.json` 的 `headingSkipped`/`headingSamples`，不隐藏。
+
+证据规则：字符格式以 `data-hk-font-*` 标记为准（md 导出不含字号、颜色、高亮），段落属性以 `class`/`style` 为准，两者都在写入后与刷新页面后各核对一次；`doc-replace` 以替换前后导出全文的纯文本命中计数为准。行距在 DOM 上落成换算值（1.5 倍显示为 2.5），因此只核对「是否发生变化」与「刷新后是否保持」，不与请求倍数直接相等。`scope=all` 记录 `covered/total` 覆盖数，要求 100%，做不到就报失败而不是部分成功。
+
+`verticalAlign`（上下标）在轻文档上没有工具栏入口，参数层直接拒绝，需要时用文稿的 `document-format`。色板是固定集合，找不到请求色时会返回当前可用色值；色板没有「无」格，因此 `color`/`highlight` 不接受 `NONE`（清除靠页面上人工操作，接口上明说而不是假装成功）。选中文字后在工具栏点下拉不会丢失选区，编辑器会保留最后一次选区。
+
+未命令化的轻文档能力：合并/拆分单元格与列宽、图片裁剪与环绕方式、页面宽度、评论与提及、预览与打印，仍需在页面人工操作；这些场景当前不由 `doc-*` 覆盖。
 
 ## 幻灯片
 

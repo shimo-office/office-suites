@@ -391,14 +391,14 @@
     {
       "id": 22,
       "name": "文档·重排全文",
-      "help": "页面操作：标题层级、全文样式、页面宽度；page-width 未暴露 SDK",
+      "help": "页面操作：全文样式已命令化（doc-format scope=all）；整篇重排与页面宽度仍需页面完成",
       "capabilities": [
         {
           "id": "22.1",
           "name": "全文标题与样式",
           "mode": "页面操作",
-          "entry": "轻文档标题/样式菜单",
-          "limits": "整篇重排仍须页面完成；单段标题级别用 18.2 的 doc-paragraph --heading。不能把局部格式变更当作整篇重排。"
+          "entry": "phase3 <轻文档> --action doc-format --payload '{\"scope\":\"all\",\"attrs\":{...}}'",
+          "limits": "设值类（字体/字号/颜色/高亮）整篇全选一次下发，勾选类（粗/斜/下划线/删除线）逐段下发；标题段落不参与行内标记，断言按正文段落核对并要求 100% 覆盖。整篇标题层级重排仍需页面完成，单段标题用 18.2 的 doc-paragraph --heading。"
         },
         {
           "id": "22.2",

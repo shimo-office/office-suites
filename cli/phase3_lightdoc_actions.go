@@ -19,8 +19,13 @@ type lightDocFormatSpec struct {
 	Text      string
 	Start     int
 	End       int
+	Scope     string
 	Attrs     map[string]any
 }
+
+// 轻文档的格式动作有两种范围：段内字符区间（默认）与全文。
+// 全文不接段落参数，避免"整篇"和"某段"共用一套字段导致误改。
+const lightDocScopeAll = "all"
 
 var lightDocFormatAttrs = map[string]string{
 	"bold": "data-hk-font-bold", "italic": "data-hk-font-italic",
@@ -32,25 +37,34 @@ var lightDocFormatAttrs = map[string]string{
 
 func prepareLightDocFormat(payload map[string]any) (lightDocFormatSpec, error) {
 	spec := lightDocFormatSpec{Start: -1, End: -1}
-	spec.Paragraph = int(num(payload, "paragraph"))
-	spec.Text = str(payload, "text")
-	if spec.Paragraph < 1 {
-		return spec, errors.New("payload.paragraph 必须是 1 起的段落序号")
+	spec.Scope = strings.ToLower(strings.TrimSpace(str(payload, "scope")))
+	if spec.Scope == "" {
+		spec.Scope = "range"
 	}
-	if strings.TrimSpace(spec.Text) == "" {
-		return spec, errors.New("payload.text 必填：必须是目标段落的完整正文，用于写入前核对")
+	if spec.Scope != "range" && spec.Scope != lightDocScopeAll {
+		return spec, errors.New(`payload.scope 只接受 "range"（默认，按段落与字符区间）或 "all"（全文）`)
 	}
-	spec.Start = int(num(payload, "start"))
-	if _, ok := payload["start"]; !ok {
-		return spec, errors.New("payload.start 必填（未指定时按 0 处理会误改整段）")
-	}
-	if _, ok := payload["end"]; !ok {
-		return spec, errors.New("payload.end 必填（未指定时按整段处理会误改范围）")
-	}
-	spec.End = int(num(payload, "end"))
-	total := len([]rune(spec.Text))
-	if spec.Start < 0 || spec.End <= spec.Start || spec.End > total {
-		return spec, fmt.Errorf("字符范围 [%d,%d) 超出段落长度 %d", spec.Start, spec.End, total)
+	if spec.Scope == "range" {
+		spec.Paragraph = int(num(payload, "paragraph"))
+		spec.Text = str(payload, "text")
+		if spec.Paragraph < 1 {
+			return spec, errors.New("payload.paragraph 必须是 1 起的段落序号；全文改写请传 scope=all")
+		}
+		if strings.TrimSpace(spec.Text) == "" {
+			return spec, errors.New("payload.text 必填：必须是目标段落的完整正文，用于写入前核对")
+		}
+		spec.Start = int(num(payload, "start"))
+		if _, ok := payload["start"]; !ok {
+			return spec, errors.New("payload.start 必填（未指定时按 0 处理会误改整段）")
+		}
+		if _, ok := payload["end"]; !ok {
+			return spec, errors.New("payload.end 必填（未指定时按整段处理会误改范围）")
+		}
+		spec.End = int(num(payload, "end"))
+		total := len([]rune(spec.Text))
+		if spec.Start < 0 || spec.End <= spec.Start || spec.End > total {
+			return spec, fmt.Errorf("字符范围 [%d,%d) 超出段落长度 %d", spec.Start, spec.End, total)
+		}
 	}
 	attrs, ok := payload["attrs"].(map[string]any)
 	if !ok || len(attrs) == 0 {
@@ -73,7 +87,12 @@ func prepareLightDocFormat(payload map[string]any) (lightDocFormatSpec, error) {
 			}
 			value = size
 		case "color", "highlight":
-			hex, err := normalizeHexColor(fmt.Sprint(value), key == "highlight")
+			raw := strings.ToUpper(strings.TrimSpace(fmt.Sprint(value)))
+			if raw == "NONE" || raw == "CLEAR" {
+				// 轻文档的取色板只有具体色值，没有"无/清除"格；声称清除但实际改不了会误导。
+				return spec, fmt.Errorf("%s 不支持 NONE：页面色板没有清选项，清除%s需人工在页面上操作", key, map[string]string{"color": "字色", "highlight": "高亮"}[key])
+			}
+			hex, err := normalizeHexColor(fmt.Sprint(value))
 			if err != nil {
 				return spec, err
 			}
@@ -89,19 +108,17 @@ func prepareLightDocFormat(payload map[string]any) (lightDocFormatSpec, error) {
 			if mode != "superscript" && mode != "subscript" && mode != "baseline" {
 				return spec, errors.New("verticalAlign 只接受 superscript / subscript / baseline")
 			}
-			value = mode
+			// 轻文档工具栏没有上下标入口，收下参数再失败会让人以为是自己写错了。
+			return spec, errors.New("verticalAlign 在轻文档上不可用：工具栏没有上下标入口；上下标请用文稿的 document-format")
 		}
 		spec.Attrs[key] = value
 	}
 	return spec, nil
 }
 
-func normalizeHexColor(raw string, allowNone bool) (string, error) {
+func normalizeHexColor(raw string) (string, error) {
 	s := strings.ToUpper(strings.TrimSpace(raw))
-	if s == "" || s == "NONE" || s == "CLEAR" {
-		if allowNone {
-			return "NONE", nil
-		}
+	if s == "" {
 		return "", errors.New("颜色不能为空")
 	}
 	s = strings.TrimPrefix(s, "#")
@@ -224,7 +241,7 @@ func (b *phase3EditorBrowser) pressEscape() {
 // 字符格式的应用顺序：先设性属性（字体、字号、颜色、高亮），再勾选式属性（B/I/U/S）。
 func (b *phase3EditorBrowser) applyLightDocAttrs(spec lightDocFormatSpec) (map[string]any, error) {
 	applied := map[string]any{}
-	setters := []string{"fontFamily", "fontSize", "color", "highlight", "verticalAlign"}
+	setters := []string{"fontFamily", "fontSize", "color", "highlight"}
 	toggles := []string{"bold", "italic", "underline", "strike"}
 	for _, key := range setters {
 		value, ok := spec.Attrs[key]
@@ -268,11 +285,6 @@ func (b *phase3EditorBrowser) applyLightDocAttrs(spec lightDocFormatSpec) (map[s
 				b.pressEscape()
 				return applied, fmt.Errorf("选择高亮色 %v 失败：%w", value, err)
 			}
-		case "verticalAlign":
-			if err := b.clickControl("", "PARAGRAPH_STYLE", "", "", 0); err == nil {
-				b.pressEscape()
-			}
-			return applied, errors.New("verticalAlign 需要工具栏的上下标入口，该入口不在当前工具栏版本中；请改用文稿（document-format）")
 		}
 		applied[key] = value
 		time.Sleep(500 * time.Millisecond)
@@ -338,6 +350,9 @@ func lightDocExpectAttr(key string, value any) string {
 }
 
 func (b *phase3EditorBrowser) assertLightDocAttrs(spec lightDocFormatSpec) (map[string]any, error) {
+	if spec.Scope == lightDocScopeAll {
+		return b.assertLightDocDocAttrs(spec)
+	}
 	evidence := map[string]any{}
 	keys := make([]string, 0, len(spec.Attrs))
 	for key := range spec.Attrs {
@@ -401,6 +416,73 @@ func (b *phase3EditorBrowser) assertLightDocAttrs(spec lightDocFormatSpec) (map[
 		}
 	}
 	return evidence, nil
+}
+
+// 全文范围逐个文本节点核对：目标值必须覆盖整篇，任何一个节点漏掉都算没生效。
+// 覆盖率和反例文本一并留证，避免"看起来全变了"。
+func (b *phase3EditorBrowser) assertLightDocDocAttrs(spec lightDocFormatSpec) (map[string]any, error) {
+	evidence := map[string]any{}
+	keys := make([]string, 0, len(spec.Attrs))
+	for key := range spec.Attrs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		attr := lightDocFormatAttrs[key]
+		v, err := b.Eval(lightDocDocMarkJS(attr))
+		if err != nil {
+			return evidence, fmt.Errorf("%s 读取失败：%w", key, err)
+		}
+		m, ok := v.(map[string]any)
+		if !ok || m["ok"] == false {
+			return evidence, fmt.Errorf("%s 读取失败：%v", key, m["error"])
+		}
+		total := int(num(m, "total"))
+		if total == 0 {
+			return evidence, errors.New("全文没有可承载行内标记的文本节点（可能整篇都是标题）")
+		}
+		counts, _ := m["counts"].(map[string]any)
+		want := lightDocExpectAttr(key, spec.Attrs[key])
+		hit := int(num(counts, want))
+		if key == "color" || key == "highlight" || key == "fontFamily" {
+			// 色值与族名大小写、# 前缀不统一，按规范化后匹配。
+			hit = 0
+			for raw, c := range counts {
+				if lightDocSameValue(key, raw, want) {
+					hit += int(num(map[string]any{"v": c}, "v"))
+				}
+			}
+		}
+		if key == "bold" || key == "italic" || key == "underline" || key == "strike" {
+			if spec.Attrs[key].(bool) {
+				hit = int(num(counts, "true"))
+			} else {
+				hit = total - int(num(counts, "true"))
+			}
+		}
+		evidence[key] = map[string]any{"attr": attr, "covered": hit, "total": total, "counts": counts, "samples": m["samples"], "headingSkipped": m["headingSkipped"], "headingSamples": m["headingSamples"]}
+		if hit != total {
+			return evidence, fmt.Errorf("%s 未覆盖全文（%d/%d 个文本节点，实际分布 %v）", key, hit, total, m["counts"])
+		}
+	}
+	return evidence, nil
+}
+
+func lightDocSameValue(key, got, want string) bool {
+	norm := func(s string) string {
+		s = strings.TrimSpace(strings.TrimPrefix(strings.ToUpper(s), "#"))
+		return strings.ReplaceAll(s, " ", "")
+	}
+	if key == "fontFamily" {
+		got, want = strings.ToLower(got), strings.ToLower(want)
+		for _, alias := range lightDocFontAliases(want) {
+			if strings.EqualFold(norm(got), norm(alias)) {
+				return true
+			}
+		}
+		return strings.EqualFold(norm(got), norm(want))
+	}
+	return norm(got) == norm(want)
 }
 
 // JSON 数字会变成 float64，直接打印会得到 9.41...e+07，协作名单比对因此失败。
@@ -523,14 +605,23 @@ func (a *App) cmdPhase3LightDocFormat() error {
 		return run.fail(err)
 	}
 	run.browser = b
-	if err = b.checkAndSelect(spec); err != nil {
-		return run.fail(err)
+	var selection map[string]any
+	if spec.Scope != lightDocScopeAll {
+		selection, err = b.checkAndSelect(spec)
+		if err != nil {
+			return run.fail(err)
+		}
 	}
 	if err = b.Capture(filepath.Join(dir, "before.png")); err != nil {
 		return run.fail(err)
 	}
 	run.attempt = true
-	applied, err := b.applyLightDocAttrs(spec)
+	var applied map[string]any
+	if spec.Scope == lightDocScopeAll {
+		applied, err = b.applyLightDocAttrsToBody(spec)
+	} else {
+		applied, err = b.applyLightDocAttrs(spec)
+	}
 	if err != nil {
 		_ = phase3WriteEvidence(filepath.Join(dir, "submission.json"), applied)
 		return run.fail(err)
@@ -551,8 +642,17 @@ func (a *App) cmdPhase3LightDocFormat() error {
 	if err != nil {
 		return run.fail(fmt.Errorf("导出写后内容失败：%w", err))
 	}
-	textBefore, _, _ := b.lightDocParagraphText(spec.Paragraph)
-	if err = phase3WriteEvidence(filepath.Join(dir, "content.json"), map[string]any{"before": beforePath, "after": afterPath, "paragraphText": textBefore, "paragraphTextPreserved": textBefore == spec.Text, "markdownChanged": beforeMD != afterMD}); err != nil {
+	content := map[string]any{"before": beforePath, "after": afterPath, "markdownChanged": beforeMD != afterMD}
+	if spec.Scope == lightDocScopeAll {
+		content["scope"] = lightDocScopeAll
+		content["applied"] = applied
+	} else {
+		content["selection"] = selection
+		textBefore, _, _ := b.lightDocParagraphText(spec.Paragraph)
+		content["paragraphText"] = textBefore
+		content["paragraphTextPreserved"] = textBefore == spec.Text
+	}
+	if err = phase3WriteEvidence(filepath.Join(dir, "content.json"), content); err != nil {
 		return run.fail(err)
 	}
 	if err = b.reloadLightDoc(userID); err != nil {
@@ -566,12 +666,20 @@ func (a *App) cmdPhase3LightDocFormat() error {
 	if err = b.Capture(filepath.Join(dir, "reload.png")); err != nil {
 		return run.fail(err)
 	}
+	scopeNote := "请求的字符格式标记与段落正文"
+	if spec.Scope == lightDocScopeAll {
+		scopeNote = "全文：每个文本节点都带目标标记（覆盖率 100%）"
+	}
 	result := map[string]any{
 		"ok": true, "verified": true, "action": "doc-format", "target": target, "spec": spec,
 		"applied": applied, "marks": marks, "marksAfterReload": reloaded, "afterReload": true,
 		"evidenceDir":       dir,
-		"paragraphTextKept": textBefore == spec.Text,
-		"verificationScope": "请求的字符格式标记与段落正文；轻文档 md 导出不含字号/颜色/高亮，故以 DOM 标记为准",
+		"scope":             spec.Scope,
+		"verificationScope": scopeNote + "；轻文档 md 导出不含字号/颜色/高亮，故以 DOM 标记为准",
+	}
+	if spec.Scope != lightDocScopeAll {
+		textBefore, _, _ := b.lightDocParagraphText(spec.Paragraph)
+		result["paragraphTextKept"] = textBefore == spec.Text
 	}
 	if err = phase3WriteEvidence(filepath.Join(dir, "result.json"), result); err != nil {
 		return err
@@ -583,11 +691,95 @@ func isLightDocURL(target string) bool {
 	return strings.Contains(target, "/docs/")
 }
 
-// 写入前必须完成两件事：协作名单只确认了自己、选区与请求完全一致。
-func (b *phase3EditorBrowser) checkAndSelect(spec lightDocFormatSpec) error {
+// 写入前必须完成两件事：协作名单只确认了自己（openLightDoc 已做）、范围与请求完全一致。
+func (b *phase3EditorBrowser) checkAndSelect(spec lightDocFormatSpec) (map[string]any, error) {
 	if _, err := b.Eval(lightDocSelectJS(spec.Paragraph, spec.Text, spec.Start, spec.End)); err != nil {
-		return fmt.Errorf("定位目标文字失败：%w", err)
+		return nil, fmt.Errorf("定位目标文字失败：%w", err)
 	}
 	time.Sleep(300 * time.Millisecond)
-	return nil
+	return map[string]any{"paragraph": spec.Paragraph, "range": []int{spec.Start, spec.End}}, nil
+}
+
+// 全文范围分两步下发，原因是这两类属性在页面上的行为不一样：
+//   - 设值类（字体/字号/颜色/高亮）：值是绝对的，整篇全选一次下发即可，标题会被页面自动跳过；
+//   - 勾选类（粗/斜/下划线/删除线）：整篇全选时标题的粗体来自级别样式，工具栏看到混合态，
+//     取消加粗会被当成继续加粗，所以必须逐段选中、逐段切换。
+//
+// 两类混在一次调用里会反复重建工具栏，控件位置随之漂移，命中率明显下降。
+func (b *phase3EditorBrowser) applyLightDocAttrsToBody(spec lightDocFormatSpec) (map[string]any, error) {
+	applied := map[string]any{}
+	setters := map[string]any{}
+	toggles := map[string]any{}
+	for key, value := range spec.Attrs {
+		if key == "bold" || key == "italic" || key == "underline" || key == "strike" {
+			toggles[key] = value
+			continue
+		}
+		setters[key] = value
+	}
+	if len(setters) > 0 {
+		selection, err := b.lightDocSelectAll()
+		if err != nil {
+			return applied, err
+		}
+		one := lightDocFormatSpec{Scope: "range", Attrs: setters}
+		got, err := b.applyLightDocAttrs(one)
+		for k, v := range got {
+			applied[k] = v
+		}
+		if err != nil {
+			return applied, fmt.Errorf("全文字体/字号/颜色下发失败：%w", err)
+		}
+		applied["setterSelection"] = selection
+	}
+	if len(toggles) == 0 {
+		return applied, nil
+	}
+	paras, err := b.lightDocBodyParagraphs()
+	if err != nil {
+		return applied, err
+	}
+	failed := map[string]string{}
+	done := 0
+	for _, para := range paras {
+		one := lightDocFormatSpec{
+			Paragraph: para.Index, Text: para.Text,
+			Start: 0, End: len([]rune(para.Text)), Scope: "range", Attrs: toggles,
+		}
+		if _, err := b.checkAndSelect(one); err != nil {
+			failed[fmt.Sprint(para.Index)] = err.Error()
+			break
+		}
+		if _, err := b.applyLightDocAttrs(one); err != nil {
+			failed[fmt.Sprint(para.Index)] = err.Error()
+			break
+		}
+		done++
+	}
+	applied["paragraphs"] = len(paras)
+	applied["appliedParagraphs"] = done
+	if len(failed) > 0 {
+		applied["failedParagraphs"] = failed
+		// 中途停下时前几段已经改了，证据里写清楚停在哪一段，避免被当成整体成功或整体失败。
+		return applied, fmt.Errorf("第 %s 段未成功，已停止（已完成 %d/%d 段）：%s", keysOf(failed), done, len(paras), firstValue(failed))
+	}
+	return applied, nil
+}
+
+func keysOf(m map[string]string) string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return strings.Join(out, ",")
+}
+
+func firstValue(m map[string]string) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return m[keys[0]]
 }
