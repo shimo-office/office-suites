@@ -152,7 +152,7 @@ func (a *App) requestURLContext(ctx context.Context, u, method string, body any,
 	// 续期同步：服务端下发的 Set-Cookie 合并进共享会话，供其他 CLI 与宿主使用。
 	// 只有已存在共享记录时才写，普通单机使用不产生额外状态。
 	if len(resp.Header.Values("Set-Cookie")) > 0 {
-		mergeSetCookies(a.Origin, renewalSession, resp.Cookies())
+		mergeSetCookies(a.Origin, req.URL, renewalSession, resp.Cookies())
 	}
 	return &Response{Status: resp.StatusCode, Header: resp.Header, Data: data, Raw: payload}, nil
 }

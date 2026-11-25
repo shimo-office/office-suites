@@ -88,20 +88,25 @@ func sessionStorePath(origin string) (string, error) {
 	return filepath.Join(sessionDir(), hex.EncodeToString(sum[:])+".json"), nil
 }
 
-func readSessionRecord(origin string) (*sessionRecord, bool) {
+// A missing record permits legacy credentials; an unreadable or invalid record
+// must never be treated as missing, including during revision-checked writes.
+func readSessionRecord(origin string) (*sessionRecord, error) {
 	p, err := sessionStorePath(origin)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	b, err := os.ReadFile(p)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
 	if err != nil {
-		return nil, false
+		return nil, errors.New("共享会话记录不可读；请检查会话文件，不自动回退旧账号")
 	}
 	var rec sessionRecord
-	if json.Unmarshal(b, &rec) != nil || rec.AuthState == "" {
-		return nil, false
+	if json.Unmarshal(b, &rec) != nil || (rec.AuthState != sessionSignedIn && rec.AuthState != sessionSignedOut) {
+		return nil, errors.New("共享会话记录损坏；请检查会话文件，不自动回退旧账号")
 	}
-	return &rec, true
+	return &rec, nil
 }
 
 // sessionFileStamp 返回会话文件的 mtime（纳秒）与大小，用于廉价探测变化。
@@ -170,7 +175,10 @@ func withSessionLock(origin string, fn func() error) error {
 func commitSession(origin string, next sessionRecord, expectedRevision int64, allowAfterLogout bool) (int64, error) {
 	var rev int64
 	err := withSessionLock(origin, func() error {
-		current, _ := readSessionRecord(origin)
+		current, err := readSessionRecord(origin)
+		if err != nil {
+			return err
+		}
 		var currentRev int64
 		if current != nil {
 			currentRev = current.Revision
@@ -255,7 +263,7 @@ func sessionCookieHeaderFor(rec *sessionRecord, u *url.URL) string {
 	if u != nil {
 		scheme = u.Scheme
 		host = u.Hostname()
-		path = u.Path
+		path = u.EscapedPath()
 	}
 	now := time.Now().Unix()
 	values := map[string]string{}
@@ -321,21 +329,23 @@ func domainMatchesHost(domain, host string) bool {
 	return host == domain || strings.HasSuffix(host, "."+domain)
 }
 
-// sharedSessionCookieFor 返回共享会话中适用于该请求的 cookie 头。第二个返回值
-// 区分“没有记录”（""）、“记录为已退出”（signedOut）和“有记录但没有适用的 cookie”
-// （signedIn + 空头，调用方应报错而不是回退旧凭据）。
-func sharedSessionCookieFor(origin string, u *url.URL) (string, string) {
-	rec, ok := readSessionRecord(origin)
-	if !ok {
-		return "", ""
+// sharedSessionCookieFor returns the request-scoped cookie, authentication state,
+// and any storage error. Only a missing record permits legacy fallback.
+func sharedSessionCookieFor(origin string, u *url.URL) (string, string, error) {
+	rec, err := readSessionRecord(origin)
+	if err != nil {
+		return "", "", err
+	}
+	if rec == nil {
+		return "", "", nil
 	}
 	if rec.AuthState == sessionSignedOut {
-		return "", sessionSignedOut
+		return "", sessionSignedOut, nil
 	}
-	return sessionCookieHeaderFor(rec, u), sessionSignedIn
+	return sessionCookieHeaderFor(rec, u), sessionSignedIn, nil
 }
 
-func sharedSessionCookie(origin string) (string, string) {
+func sharedSessionCookie(origin string) (string, string, error) {
 	return sharedSessionCookieFor(origin, nil)
 }
 
@@ -363,8 +373,8 @@ func mirrorSession(origin, cookieHeader, source string, account map[string]any, 
 
 // sessionRevision 返回当前 revision；没有记录时为 0，用于登录前的写入前提。
 func sessionRevision(origin string) int64 {
-	rec, ok := readSessionRecord(origin)
-	if !ok {
+	rec, _ := readSessionRecord(origin)
+	if rec == nil {
 		return 0
 	}
 	return rec.Revision
@@ -401,11 +411,11 @@ func markSessionSignedOut(origin, source string) error {
 
 // mergeSetCookies 只续期本次请求对应的共享记录。请求发出后发生切号、退出或
 // 其他更新时，revision 冲突就丢弃本次续期，不能重读新账号再合并旧响应。
-func mergeSetCookies(origin string, rec *sessionRecord, cookies []*http.Cookie) {
+func mergeSetCookies(origin string, requestURL *url.URL, rec *sessionRecord, cookies []*http.Cookie) {
 	if len(cookies) == 0 || rec == nil || rec.AuthState != sessionSignedIn {
 		return
 	}
-	merged := mergeCookieList(rec.Cookies, cookies, hostOf(origin))
+	merged := mergeCookieList(rec.Cookies, cookies, hostOf(origin), defaultCookiePath(requestURL))
 	if cookieValue(merged, "sid") == "" {
 		return
 	}
@@ -418,7 +428,21 @@ func mergeSetCookies(origin string, rec *sessionRecord, cookies []*http.Cookie) 
 	}, rec.Revision, false)
 }
 
-func mergeCookieList(existing []sessionCookie, cookies []*http.Cookie, host string) []sessionCookie {
+// RFC 6265 section 5.1.4: the default is the request directory, without
+// its final slash; an empty path or a single path segment defaults to root.
+func defaultCookiePath(u *url.URL) string {
+	if u == nil {
+		return "/"
+	}
+	path := u.EscapedPath()
+	i := strings.LastIndex(path, "/")
+	if !strings.HasPrefix(path, "/") || i <= 0 {
+		return "/"
+	}
+	return path[:i]
+}
+
+func mergeCookieList(existing []sessionCookie, cookies []*http.Cookie, host, defaultPath string) []sessionCookie {
 	merged := append([]sessionCookie(nil), existing...)
 	for _, c := range cookies {
 		if c == nil || c.Name == "" {
@@ -432,8 +456,8 @@ func mergeCookieList(existing []sessionCookie, cookies []*http.Cookie, host stri
 			continue
 		}
 		path := c.Path
-		if path == "" {
-			path = "/"
+		if !strings.HasPrefix(path, "/") {
+			path = defaultPath
 		}
 		idx := -1
 		for i, e := range merged {
@@ -484,8 +508,13 @@ func sameSiteText(v http.SameSite) string {
 // sessionStatusMap 供 CLI 输出与宿主订阅使用：只有元数据，没有 cookie 值。
 func sessionStatusMap(origin string) map[string]any {
 	out := map[string]any{"origin": origin, "shared": false}
-	rec, ok := readSessionRecord(origin)
-	if !ok {
+	rec, err := readSessionRecord(origin)
+	if err != nil {
+		out["error"] = err.Error()
+		out["authState"] = "unavailable"
+		return out
+	}
+	if rec == nil {
 		return out
 	}
 	names := make([]string, 0, len(rec.Cookies))
@@ -621,7 +650,11 @@ func (a *App) cmdSessionImport() error {
 	//   不同 sid —— 切号，必须由调用方带 --expected-revision 明确表示；
 	//   已退出   —— 必须重新读取 revision 后提交，退出优先。
 	if !explicit {
-		if cur, ok := readSessionRecord(a.Origin); ok {
+		cur, err := readSessionRecord(a.Origin)
+		if err != nil {
+			return err
+		}
+		if cur != nil {
 			if cur.AuthState == sessionSignedOut {
 				return signedOutOverwriteError(cur.Revision)
 			}
@@ -694,9 +727,12 @@ func (a *App) cmdSessionWatch() error {
 			continue
 		}
 		lastMtime, lastSize, lastOK = mtime, size, ok
-		rec, found := readSessionRecord(a.Origin)
+		rec, err := readSessionRecord(a.Origin)
+		if err != nil {
+			return err
+		}
 		var rev int64
-		if found {
+		if rec != nil {
 			rev = rec.Revision
 		}
 		if rev == last {

@@ -53,8 +53,8 @@ func TestResponseRenewalIsBoundToRequestSession(t *testing.T) {
 			if _, err := app.request("/users/me", http.MethodGet, nil, nil, tc.headers, tc.cookie); err != nil {
 				t.Fatal(err)
 			}
-			record, ok := readSessionRecord(origin)
-			if !ok || record.Revision != tc.wantRevision || record.AuthState != tc.wantState || record.Account.ID != tc.wantAccount || cookieValue(record.Cookies, "sid") != tc.wantSID {
+			record, err := readSessionRecord(origin)
+			if err != nil || record == nil || record.Revision != tc.wantRevision || record.AuthState != tc.wantState || record.Account.ID != tc.wantAccount || cookieValue(record.Cookies, "sid") != tc.wantSID {
 				t.Fatalf("response changed the wrong session: got %#v", record)
 			}
 		})
