@@ -23,6 +23,30 @@ shimo-net phase3 <文件链接> --action <动作> --payload '<JSON>' --out ./evi
 
 `document-replace` 的参数为 `{"find":"旧版测试","replacement":"新版测试","expectedCount":3}`，按精确字面文本及预期次数替换。`document-goto` 使用 `{"page":2}` 验证从 1 开始的物理页面位置，不持久化光标。两者均保留导出与页面证据，不能仅凭工具栏或返回值认定完成。
 
+## 轻文档
+
+轻文档（`/docs/`，`new --type doc` 或 `import` 生成的在线文档）没有对外编辑器 SDK，`window._sdk` 不存在，只有 `hk-*` 内核。下列动作走页面操作：按语义锚点定位控件（图标类名、按钮文本、段落正文），派发真实鼠标与键盘事件，再以 DOM 标记和刷新页面复验为准。
+
+```bash
+shimo-net phase3 https://shimo.net/docs/<guid> --action doc-format \
+  --payload '{"paragraph":3,"text":"整段原文","start":4,"end":10,"attrs":{"bold":true,"fontSize":18}}' \
+  --out ./evidence --json
+```
+
+| 动作 | payload | 范围 |
+|---|---|---|
+| `doc-format` | `{"paragraph":3,"text":"整段原文","start":4,"end":10,"attrs":{...}}` | `attrs` 可含 `bold` `italic` `underline` `strike`（布尔）、`fontSize`（6–200）、`fontFamily`、`color`、`highlight`（`#RRGGBB`，高亮可用 `none` 清除）、`verticalAlign`。 |
+| `doc-paragraph` | `{"paragraph":3,"text":"整段原文","attrs":{...}}` | `heading`（0–6、`title`、`subtitle`）、`align`（`left/center/right/justify`）、`list`（`ordered/unordered/todo/none`）、`indent`（±1–8，按次增减）、`lineHeight`（`1.0/1.15/1.5/2.0/2.5/3.0`）。 |
+| `doc-replace` | `{"find":"旧文本","replace":"新文本","scope":"all"}` | `scope` 取 `all` 或 `first`；`replace` 必须显式给出，允许空串。 |
+
+`paragraph` 是从 1 起的段落序号，按正文里所有 `p` 的出现顺序编号，表格单元格内的段落也计入；`text` 必须是该段完整正文，用于写入前核对。字符范围按 Unicode 码点计，`start` 与 `end` 必须同时给出。
+
+证据规则：字符格式以 `data-hk-font-*` 标记为准（md 导出不含字号、颜色、高亮），段落属性以 `class`/`style` 为准，两者都在写入后与刷新页面后各核对一次；`doc-replace` 以替换前后导出全文的纯文本命中计数为准。行距在 DOM 上落成换算值（1.5 倍显示为 2.5），因此只核对「是否发生变化」与「刷新后是否保持」，不与请求倍数直接相等。
+
+色板是固定集合，找不到请求色时会返回当前可用色值。选中文字后在工具栏点下拉不会丢失选区，编辑器会保留最后一次选区。
+
+未命令化的轻文档能力：文内表格与图片编辑、评论、预览与打印、全文标题样式与页面宽度，仍需在页面人工操作；这些场景当前不由 `doc-*` 覆盖。
+
 ## 幻灯片
 
 页面、文本、占位符、形状、表格、动画、放映设置和 PDF 导出的参数见 [幻灯片命令](phase3-slide-commands.md)。先运行 `slide-design-inspect` 获取真实页面和对象标识。

@@ -27,6 +27,7 @@ type phase3EditorBrowser struct {
 	readyAttempts    int
 	startupEvidence  string
 	presenceObserver string
+	navURL           string
 }
 
 func openPhase3Editor(target string) (*phase3EditorBrowser, error) {
@@ -66,7 +67,7 @@ func openPhase3EditorWithSetup(target, readiness string, setup func(*phase3Edito
 	if err != nil {
 		return nil, err
 	}
-	b := &phase3EditorBrowser{profile: profile, nextID: 200}
+	b := &phase3EditorBrowser{profile: profile, nextID: 200, navURL: target}
 	b.cmd = phase3ChromeCommand(chrome, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "--disable-backgrounding-occluded-windows", "--user-data-dir="+profile, "--remote-debugging-port=0", "about:blank")...)
 	b.logPath, _ = captureBrowserOutput(b.cmd)
 	if err = b.cmd.Start(); err != nil {
