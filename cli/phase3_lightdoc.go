@@ -78,7 +78,11 @@ return {ok:true,values:[...new Set(vals.map(x=>String(x).trim()))],covered:hits.
 }
 
 func (b *phase3EditorBrowser) lightDocMarkValues(attr string, spec lightDocFormatSpec) ([]string, error) {
-	v, err := b.Eval(lightDocMarkJS(attr, spec.Paragraph, spec.Text, spec.Start, spec.End))
+	js := lightDocMarkJS(attr, spec.Paragraph, spec.Text, spec.Start, spec.End)
+	if spec.Scope == lightDocScopeAll {
+		js = lightDocDocMarkJS(attr)
+	}
+	v, err := b.Eval(js)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +96,78 @@ func (b *phase3EditorBrowser) lightDocMarkValues(attr string, spec lightDocForma
 		out = append(out, strings.TrimSpace(fmt.Sprint(item)))
 	}
 	sort.Strings(out)
+	return out, nil
+}
+
+// 全文范围（scope=all）的断言：不再依赖某一选区，直接遍历整篇的文本节点，
+// 取每个节点祖先链上的标记值，给出「带目标值的节点数 / 文本节点数」。
+// 局部选区断言在整篇改写后没有意义，覆盖率才是能证明的东西。
+//
+// 标题段落不参与行内标记：H1–H6 文本的样式由标题级别决定，页面不接受行内字号/字体，
+// 标记属性根本不会出现。把它算进分母会让「合法结果」被判失败，因此单独计数并说明。
+func lightDocDocMarkJS(attr string) string {
+	raw, _ := json.Marshal(attr)
+	return `(()=>{const attr=` + string(raw) + `;const ce=document.querySelector('` + lightDocEditorSelector + `');if(!ce)return {ok:false,error:'正文编辑器未就绪'};
+const w=document.createTreeWalker(ce,NodeFilter.SHOW_TEXT);const counts={};const samples=[];const skipped=[];let n,total=0;
+while(n=w.nextNode()){const t=(n.textContent||'').replace(/\s+/g,'');if(!t)continue;
+const host=n.parentElement&&n.parentElement.closest('[class*="hk-heading-node"]');
+if(host){if(skipped.length<6)skipped.push((n.textContent||'').slice(0,12));continue}
+total++;
+let el=n.parentElement,v='';while(el&&el!==ce){if(el.hasAttribute(attr)){v=String(el.getAttribute(attr)).trim();break}el=el.parentElement}
+counts[v]=(counts[v]||0)+1;if(samples.length<6)samples.push({text:(n.textContent||'').slice(0,12),value:v})}
+return {ok:true,total:total,values:Object.keys(counts).sort(),counts:counts,samples:samples,headingSkipped:skipped.length,headingSamples:skipped}})()`
+}
+
+// 设值类属性（字体、字号、颜色、高亮）用整篇全选一次下发：值是绝对的，
+// 标题段落会被页面自动跳过，不会像勾选类那样受"混合态"影响。
+func (b *phase3EditorBrowser) lightDocSelectAll() (map[string]any, error) {
+	v, err := b.Eval(`(()=>{const ce=document.querySelector('` + lightDocEditorSelector + `');if(!ce)return {ok:false,error:'正文编辑器未就绪'};
+ce.focus();const r=document.createRange();r.selectNodeContents(ce);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);document.dispatchEvent(new Event('selectionchange'));
+return {ok:true,selected:(sel.toString()||'').replace(/\s+/g,'').length,doc:(ce.innerText||'').replace(/\s+/g,'').length}})()`)
+	if err != nil {
+		return nil, err
+	}
+	m, _ := v.(map[string]any)
+	if m["ok"] == false {
+		return nil, errors.New(fmt.Sprint(m["error"]))
+	}
+	selected, docLen := int(num(m, "selected")), int(num(m, "doc"))
+	if selected == 0 || selected < docLen*9/10 {
+		return nil, fmt.Errorf("全选范围不足：选区 %d 字，正文 %d 字", selected, docLen)
+	}
+	return map[string]any{"selectedChars": selected, "documentChars": docLen}, nil
+}
+
+// 工具栏看到的是混合态，取消加粗会被当成继续加粗。改成逐段选中、逐段下发，状态才确定。
+// 标题段落不参与（行内标记对它们无效），在返回值与证据里单独列出。
+type lightDocParaRef struct {
+	Index int    `json:"index"`
+	Text  string `json:"text"`
+}
+
+func (b *phase3EditorBrowser) lightDocBodyParagraphs() ([]lightDocParaRef, error) {
+	v, err := b.Eval(`(()=>{const ce=document.querySelector('` + lightDocEditorSelector + `');if(!ce)return {ok:false,error:'正文编辑器未就绪'};
+const ps=Array.from(ce.querySelectorAll('p.hk-paragraph-node'));const body=[],headings=[];
+ps.forEach((p,i)=>{const t=(p.innerText||'').replace(/\r?\n$/,'');
+if(p.closest('[class*="hk-heading-node"]')){if(t.trim())headings.push({index:i+1,text:t});return}
+if(!t.trim())return;body.push({index:i+1,text:t})});
+return {ok:true,body:body,headings:headings,total:ps.length}})()`)
+	if err != nil {
+		return nil, err
+	}
+	m, ok := v.(map[string]any)
+	if !ok || m["ok"] == false {
+		return nil, fmt.Errorf("读取正文段落失败：%v", m["error"])
+	}
+	raw, _ := m["body"].([]any)
+	out := make([]lightDocParaRef, 0, len(raw))
+	for _, item := range raw {
+		obj, _ := item.(map[string]any)
+		out = append(out, lightDocParaRef{Index: int(num(obj, "index")), Text: fmt.Sprint(obj["text"])})
+	}
+	if len(out) == 0 {
+		return nil, errors.New("全文没有可承载行内标记的正文段落（可能整篇都是标题）")
+	}
 	return out, nil
 }
 

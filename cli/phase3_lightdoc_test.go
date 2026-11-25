@@ -60,7 +60,7 @@ func TestLightDocFormatSpecValidation(t *testing.T) {
 func TestLightDocFormatNormalizesAttrs(t *testing.T) {
 	spec, err := prepareLightDocFormat(map[string]any{
 		"paragraph": 1, "text": "abc", "start": 0, "end": 3,
-		"attrs": map[string]any{"color": "#f00", "highlight": "none", "fontSize": float64(18)},
+		"attrs": map[string]any{"color": "#f00", "fontSize": float64(18)},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -68,11 +68,75 @@ func TestLightDocFormatNormalizesAttrs(t *testing.T) {
 	if spec.Attrs["color"] != "#FF0000" {
 		t.Fatalf("三位色未展开：%v", spec.Attrs["color"])
 	}
-	if spec.Attrs["highlight"] != string("NONE") {
-		t.Fatalf("高亮清除未识别：%v", spec.Attrs["highlight"])
+	if spec.Scope != "range" {
+		t.Fatalf("缺省范围应为 range，实际 %q", spec.Scope)
 	}
 	if spec.Attrs["fontSize"] != 18 {
 		t.Fatalf("字号未转成整数：%v(%T)", spec.Attrs["fontSize"], spec.Attrs["fontSize"])
+	}
+}
+
+// 轻文档色板没有"无/清除"格，接口上声明 NONE 会变成假成功，因此在参数层就拒绝。
+func TestLightDocColorsRejectClear(t *testing.T) {
+	for _, key := range []string{"color", "highlight"} {
+		for _, value := range []string{"NONE", "none", "clear"} {
+			_, err := prepareLightDocFormat(map[string]any{
+				"paragraph": 1, "text": "abc", "start": 0, "end": 3,
+				"attrs": map[string]any{key: value},
+			})
+			if err == nil {
+				t.Fatalf("%s=%s 应被拒绝", key, value)
+			}
+			if !strings.Contains(err.Error(), "没有清选项") {
+				t.Fatalf("%s=%s 错误信息不可执行：%v", key, value, err)
+			}
+		}
+	}
+}
+
+func TestLightDocFormatScopeAll(t *testing.T) {
+	spec, err := prepareLightDocFormat(map[string]any{
+		"scope": "all", "attrs": map[string]any{"fontSize": 20, "bold": true},
+	})
+	if err != nil {
+		t.Fatalf("全文范围被拒：%v", err)
+	}
+	if spec.Scope != lightDocScopeAll {
+		t.Fatalf("范围未识别：%q", spec.Scope)
+	}
+	if spec.Attrs["fontSize"] != 20 {
+		t.Fatalf("字号未保留：%v", spec.Attrs["fontSize"])
+	}
+	// 全文范围不接段内字符区间，缺 paragraph 也要能用。
+	if _, err := prepareLightDocFormat(map[string]any{"scope": "all"}); err == nil {
+		t.Fatal("缺 attrs 应被拒绝")
+	}
+	// 上下标在轻文档上没有入口，参数层就要拒绝，不能收下再失败。
+	for _, scope := range []string{"all", "range"} {
+		m := map[string]any{"scope": scope, "attrs": map[string]any{"verticalAlign": "superscript"}}
+		if scope == "range" {
+			m["paragraph"], m["text"], m["start"], m["end"] = 1, "abc", 0, 1
+		}
+		_, err = prepareLightDocFormat(m)
+		if err == nil || !strings.Contains(err.Error(), "工具栏没有上下标入口") {
+			t.Fatalf("%s 范围应拒绝 verticalAlign，实际 %v", scope, err)
+		}
+	}
+	_, err = prepareLightDocFormat(map[string]any{
+		"scope": "bogus", "attrs": map[string]any{"bold": true},
+	})
+	if err == nil || !strings.Contains(err.Error(), "scope") {
+		t.Fatalf("未知范围应被拒绝，实际 %v", err)
+	}
+}
+
+// 全文断言按可承载行内标记的段落计数，标题必须被排除，否则合法结果会被判失败。
+func TestLightDocDocMarkJSExcludesHeadings(t *testing.T) {
+	js := lightDocDocMarkJS("data-hk-font-size")
+	for _, want := range []string{"hk-heading-node", "headingSkipped", "total"} {
+		if !strings.Contains(js, want) {
+			t.Fatalf("全文标记断言缺少 %q", want)
+		}
 	}
 }
 
