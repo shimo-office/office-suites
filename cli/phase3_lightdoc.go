@@ -36,6 +36,8 @@ func openLightDoc(target, userID string) (*phase3EditorBrowser, error) {
 		b.Close()
 		return nil, err
 	}
+	// 记住开页时确认过的账号：轻文档页面读不到当前用户，中途复核只能用这个值比对。
+	b.lightDocUserID = strings.TrimSpace(userID)
 	return b, nil
 }
 
@@ -44,6 +46,16 @@ func (b *phase3EditorBrowser) CheckLightDocPresence(userID string) error {
 		return fmt.Errorf("协作名单只读门禁失败：%w", err)
 	}
 	return nil
+}
+
+// 开页时查过的名单在长操作里会过时：别人中途上线、协作连接断开、账号被切走，
+// 都会让之前那一次检查失去意义。每写一段之前重新复核一次，失败就停，只读不改内容。
+func (b *phase3EditorBrowser) recheckLightDocSolo() error {
+	self := strings.TrimSpace(b.lightDocUserID)
+	if self == "" {
+		return errors.New("缺少当前账号标识，拒绝在未确认协作者的情况下继续写入")
+	}
+	return b.CheckLightDocPresence(self)
 }
 
 // 段落定位：全文 p.hk-paragraph-node 按出现顺序编号（1 起），正文必须与请求完全一致。
