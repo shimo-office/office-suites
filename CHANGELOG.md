@@ -529,6 +529,16 @@
 
 验证：修复提交的 Windows/Linux 全量测试、80% 覆盖率门禁和 CodeQL 检查均通过；三项会话及浏览器日志的 P2 问题在独立 PR 跟进。
 
+## 0.9.36 — 2026-11-26
+
+- `share` 恢复为可执行：支持 7 档分享权限（private / readonly / commentable / editable / enterprise_*），写入后重新读取 shareMode 验收；`import --share` 同步生效。
+- `get --format` 按文件类型导出：文档 md/docx/pdf/jpg（`--embed-images false` 关闭内嵌图片）、文稿 docx/wps/pdf、表格 xlsx、幻灯片 pptx/pdf；不支持的组合在请求前拒绝。
+- `pull` 把服务端「暂不支持该导出类型」（3613）单独计数，不再让整个批次以失败退出。
+- 新增 `preview`：输出固定 `/files/<guid>` 预览地址。
+- `editor` 的 history-show / comments-show 改调套件根级 SDK 并等待面板渲染；新增 `save-version`（createRevision）与 `print`（sdk.print）动作。
+- 新增轻文档 `doc-page-width`（标准/加宽/自适应），以纸张容器 `page-width-*` 类验收。
+- 修正误报：`doc-image` 导出引用异步滞后不再判失败；`document-paragraph` 非目标段字符属性快照差异降级；`document-graphic` 仅在正文变化时失败，版式重排记为告警；幻灯片主题允许对象层级重排。
+
 ## 0.9.35 — 2026-11-25
 
 完成独立 PR #7 的三项 P2 修复，保留现有文件管理、轻文档与各类编辑动作。

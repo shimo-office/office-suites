@@ -208,7 +208,7 @@ func TestReleasePhase2BrowserBoundaryClassification(t *testing.T) {
 				t.Fatal(err, browserCalls)
 			}
 			if strings.HasSuffix(mode, "text") {
-				if strings.Contains(mode, "panel") && !strings.Contains(stdout, "未保存、未提交、未打印") {
+				if strings.Contains(mode, "panel") && !strings.Contains(stdout, "前端 SDK 动作已执行") {
 					t.Fatal(stdout)
 				}
 				if strings.Contains(mode, "api") && !strings.Contains(stdout, "只读 API 已读取") {
@@ -221,7 +221,7 @@ func TestReleasePhase2BrowserBoundaryClassification(t *testing.T) {
 			}
 			var result map[string]any
 			_ = json.Unmarshal([]byte(stdout), &result)
-			if strings.HasPrefix(mode, "panel") && (result["actionVerified"] != false || result["scope"] != "panel-visibility-only") {
+			if strings.HasPrefix(mode, "panel") && (result["actionVerified"] != false || result["scope"] != "page-sdk") {
 				t.Fatal(result)
 			}
 			if strings.HasPrefix(mode, "api") && (result["verifyWith"] != "page-fetch" || result["screenshot"] != nil) {

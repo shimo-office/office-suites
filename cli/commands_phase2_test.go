@@ -34,7 +34,7 @@ func TestPhase2Args(t *testing.T) {
 
 func TestPhase2ExpressionUsesWhitelistedHistoryAction(t *testing.T) {
 	expr := phase2Expression(phase2Actions["history-show"], "[]", "demo")
-	for _, want := range []string{"globalThis.sdk", "actions", "showViewHistory", "await fn.apply"} {
+	for _, want := range []string{"globalThis.sdk", "showViewHistory", "history.show"} {
 		if !contains(expr, want) {
 			t.Errorf("expression missing %q: %s", want, expr)
 		}

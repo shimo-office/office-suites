@@ -110,7 +110,8 @@ func (a *App) cmdPhase3DocumentGraphic() (runErr error) {
 	if err != nil {
 		return err
 	}
-	if err = verifyDocumentGraphic(beforeArtifact.Path, afterArtifact.Path, spec); err != nil {
+	warnings, err := verifyDocumentGraphicWithWarnings(beforeArtifact.Path, afterArtifact.Path, spec, false)
+	if err != nil {
 		return err
 	}
 	afterNative, err := b.EvalReadOnly(documentGraphicRuntimeJS(spec, baseline, false, objectID))
@@ -158,7 +159,7 @@ func (a *App) cmdPhase3DocumentGraphic() (runErr error) {
 	if err = phase3WriteEvidence(filepath.Join(dir, "target-node-assertions.json"), map[string]any{"verified": true, "objectId": objectID, "spec": spec, "afterReload": true, "unrequestedXMLAndAssetsPreserved": true}); err != nil {
 		return err
 	}
-	result := map[string]any{"ok": true, "action": "document-graphic", "url": target, "objectId": objectID, "actionVerified": true, "verified": true, "mutationAttempted": true, "beforeArtifact": beforeArtifact, "artifact": afterArtifact, "reloadArtifact": reloaded, "evidenceDir": dir, "verification": "requested graphic properties verified by native identity and two DOCX exports including genuine reload"}
+	result := map[string]any{"ok": true, "action": "document-graphic", "url": target, "objectId": objectID, "actionVerified": true, "verified": true, "mutationAttempted": true, "beforeArtifact": beforeArtifact, "artifact": afterArtifact, "reloadArtifact": reloaded, "evidenceDir": dir, "verification": "requested graphic properties verified by native identity and two DOCX exports including genuine reload", "warnings": warnings}
 	if err = phase3WriteEvidence(filepath.Join(dir, "result.json"), result); err != nil {
 		return err
 	}

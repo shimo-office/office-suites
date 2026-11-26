@@ -42,6 +42,9 @@ func (a *App) cmdPhase3() (runErr error) {
 	if action == "doc-image" {
 		return a.cmdPhase3LightDocImage()
 	}
+	if action == "doc-page-width" {
+		return a.cmdPhase3LightDocPageWidth()
+	}
 	if action == "document-format" {
 		return a.cmdPhase3Document()
 	}
