@@ -128,11 +128,16 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 
 | 动作 | 实际行为 |
 |---|---|
-| `history-show` / `history-hide` | 打开/关闭历史面板，不代表读取了全部历史内容。 |
-| `save-version` | CLI 拒绝临时面板工作流；须在持久页面保存版本并核对结果。 |
-| `comments-show` / `comments-hide` | 打开/关闭评论面板。 |
-| `comment-add` | CLI 拒绝；须在持久页面输入、提交并核对评论。 |
-| `print` | CLI 拒绝；须在持久页面完成打印或生成实际 PDF。 |
+| `history-show` / `history-hide` | 调套件根级 SDK（`window.__SM__.editor.history`）打开/关闭历史侧栏；必须等编辑器渲染完成后再调用，面板可见才算成功。 |
+| `save-version` | 调 `sdk.version.createRevision` 创建版本；成功返回即已提交。 |
+| `comments-show` / `comments-hide` | 调 `sdk.comments.show/hide` 打开/关闭评论面板；面板可见才算成功。 |
+| `comment-add` | CLI 拒绝；评论输入区由画布绘制，无法稳定定位输入焦点，须在持久页面输入、提交并核对评论。 |
+| `print` | 调 `sdk.print` 唤起套件打印设置页（表格验证通过）。 |
+| `cell-history` | 表格页右键目标单元格 → 「查看单元格历史」；面板可见才算成功，当前定位 A1 附近的数据单元格。 |
+
+页面动作依赖套件编辑器真正渲染完成：CLI 会等到 `editor.initialized`、`sdk._rendered` 或首帧 canvas 就绪后再调用，避免 `history.show()` 在 UI 层尚未挂载时被静默吞掉。
+
+`history-show` / `comments-show` / `print` / `cell-history` 默认把浏览器窗口留在桌面，方便直接查看面板；批量验收需要自动关闭时加 `--close`，其他动作要保留窗口可加 `--keep-open`。返回 JSON 中 `browserKept: true` 表示窗口已保留，`browserProfile` 为其临时配置目录。
 
 仅历史/评论的 show/hide 展示动作通过页面 SDK 执行；`--verify` 是这些动作的执行及截图开关，输出 `scope:panel-visibility-only`、`actionVerified:false`。临时浏览器完成截图后关闭，不能用于后续提交。编辑器未加载、方法不可用或截图空白时返回失败。没有可用 SDK 时由宿主按页面菜单操作，不以本地模拟结果代替。
 

@@ -87,7 +87,7 @@ func TestReleasePhase2CookieAndReadinessProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitPageReady(ws, time.Second)
-	if !waitEditorReady(ws, time.Second) || cookieCalls != 1 || pageQueries != 1 || editorQueries != 1 {
+	if !waitEditorReady(ws, time.Second, "sdk.history.show") || cookieCalls != 1 || pageQueries != 1 || editorQueries != 1 {
 		t.Fatal(cookieCalls, pageQueries, editorQueries)
 	}
 	timeout := releasePhase2Peer(t, func(string, map[string]any) (map[string]any, error) {
@@ -95,7 +95,7 @@ func TestReleasePhase2CookieAndReadinessProtocol(t *testing.T) {
 	})
 	defer timeout.Close()
 	waitPageReady(timeout, time.Millisecond)
-	if waitEditorReady(timeout, time.Millisecond) {
+	if waitEditorReady(timeout, time.Millisecond, "sdk.history.show") {
 		t.Fatal("unready editor accepted")
 	}
 }

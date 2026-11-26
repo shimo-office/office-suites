@@ -12,7 +12,7 @@ func usageError(format string, args ...any) error {
 
 func isBooleanOption(name string) bool {
 	switch name {
-	case "--default", "--no-verify", "--no-browser", "--verify", "--new", "--login", "--no-save", "--once":
+	case "--default", "--no-verify", "--no-browser", "--verify", "--new", "--login", "--no-save", "--once", "--keep-open", "--close":
 		return true
 	}
 	return false
@@ -30,8 +30,8 @@ func (a *App) validateOptions() error {
 		"read": "--max-chars", "get": "--format --out", "pull": "--out --since --limit",
 		"fav": "--note", "open": "--default",
 		"subscriptions": "--limit --depth --open --default",
-		"editor":        "--action --payload --screenshot --verify --no-verify --no-browser",
-		"phase2":        "--action --payload --screenshot --verify --no-verify --no-browser",
+		"editor":        "--action --payload --screenshot --verify --no-verify --no-browser --keep-open --close",
+		"phase2":        "--action --payload --screenshot --verify --no-verify --no-browser --keep-open --close",
 		"phase3":        "--action --payload --read-range --out --kind --table --confirm-text --no-browser --verify",
 	}
 	allowed := " " + options[a.Cmd] + " --no-browser "

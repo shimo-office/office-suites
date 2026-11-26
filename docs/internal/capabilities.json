@@ -272,13 +272,13 @@
     {
       "id": 17,
       "name": "留痕与版本",
-      "help": "页面操作：history-show/hide 需 --verify 仅展示；保存版本须持久页面完成",
+      "help": "页面操作：history-show/hide 直接打开套件历史侧栏；save-version 调 version.createRevision；单元格历史走右键菜单",
       "capabilities": [
         {
           "id": "17.1",
           "name": "保存版本入口",
           "mode": "页面操作",
-          "entry": "持久页面的保存版本菜单",
+          "entry": "editor --action save-version --verify",
           "limits": "CLI 拒绝 save-version 临时面板工作流；保存后须核对版本。"
         },
         {
@@ -292,7 +292,7 @@
           "id": "17.3",
           "name": "单元格历史",
           "mode": "页面操作",
-          "entry": "open 后在表格历史菜单操作",
+          "entry": "editor --action cell-history --verify",
           "limits": "先明确行列；不能用文件历史冒充单元格历史。"
         }
       ]
@@ -370,7 +370,7 @@
     {
       "id": 21,
       "name": "预览与打印",
-      "help": "页面操作：预览/打印须持久页面完成；CLI 拒绝临时 print 面板",
+      "help": "预览用 /files/<guid>；打印调套件 sdk.print 唤起打印设置页",
       "capabilities": [
         {
           "id": "21.1",
@@ -383,7 +383,7 @@
           "id": "21.2",
           "name": "打印",
           "mode": "页面操作",
-          "entry": "持久页面打印入口",
+          "entry": "editor --action print --verify",
           "limits": "面板不代表打印完成；实际文件须核验，系统打印需确认。"
         }
       ]

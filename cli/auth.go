@@ -242,7 +242,10 @@ func browserSandboxDisabled() bool {
 func chromeLaunchArgs(extra ...string) []string {
 	args := []string{}
 	if browserSandboxDisabled() {
-		args = append(args, "--no-sandbox", "--disable-gpu")
+		// 只有当前环境无法使用 Chrome 标准沙箱时才降级。--test-type 用于抑制
+		// Chrome 顶部那条 "--no-sandbox 不受支持" 的黄色警告条，避免验收截图
+		// 被这条与产品无关的提示干扰。
+		args = append(args, "--no-sandbox", "--test-type", "--disable-gpu")
 	}
 	return append(args, extra...)
 }

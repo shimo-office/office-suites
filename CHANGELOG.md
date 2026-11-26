@@ -548,3 +548,13 @@
 - `editor` 的 history-show / comments-show 改调套件根级 SDK 并等待面板渲染；新增 `save-version`（createRevision）与 `print`（sdk.print）动作。
 - 新增轻文档 `doc-page-width`（标准/加宽/自适应），以纸张容器 `page-width-*` 类验收。
 - 修正误报：`doc-image` 导出引用异步滞后不再判失败；`document-paragraph` 非目标段字符属性快照差异降级；`document-graphic` 仅在正文变化时失败，版式重排记为告警；幻灯片主题允许对象层级重排。
+
+## 0.9.37 — 2026-11-26
+
+- 修正套件前端 SDK 根：产品页实际门面是 `window.__SM__.editor`，此前只探测 `_sdk` / `smsdk.__DRIVE_SDK__` / `globalThis.sdk`，导致 history / comments / print 落到旧的 `actions.showViewHistory` 假成功。`history-show` / `comments-show` / `save-version` / `print` 现直接调用根级 facade，文档与表格均实测通过。
+- 动作前等待编辑器真正渲染：`editor.initialized`、`sdk._rendered` 或首帧 canvas 就绪后再调用，并在就绪后留一帧稳定时间；面板类动作再用轮询确认面板出现，解决"接口调用成功但侧栏不渲染"。
+- 新增 `cell-history`：在表格画布上发真实右键事件，深度遍历 shadow DOM 找到「查看单元格历史」并点击，面板可见才算成功。
+- 页面动作默认保留浏览器窗口，方便直接查看面板；批量验收用 `--close` 关闭。返回增加 `browserKept` / `browserProfile`。
+- 浏览器降级启动时加 `--test-type`，去掉 `--no-sandbox` 的黄色警告条，避免验收截图被无关提示干扰。
+- `comment-add` 仍为页面操作：评论输入区由画布绘制，无法稳定定位输入焦点，自动提交会误写单元格，因此不提供命令。
+

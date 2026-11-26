@@ -5,7 +5,7 @@ display_name_en: Shimo Office Suite Private Deployment CLI
 description: 石墨办公套件私有部署的命令行工具 shimo-net-cli（命令名 shimo-net），在终端或 AI 助手里操作石墨文件与表格，支持搜索、上传下载、新建改名、读文稿和写表格；未登录时先产出可执行的写入计划与命令清单。
 description_zh: 石墨办公套件私有部署 CLI（包名 shimo-net-cli，命令 shimo-net）覆盖搜索文件、读文稿、上传下载、整理目录和读写表格，公有云 shimo.net 与客户私有部署同一套命令；没有账号权限时先交出可复核的环境结论与写入计划。
 description_en: shimo-net-cli (command shimo-net) is the CLI for the Shimo office suite private deployment, covering search, upload and download, rename, reading documents and writing sheets on shimo.net or a customer deployment; without a signed-in account it still returns a verified environment report and a ready-to-run write plan.
-version: 0.9.36
+version: 0.9.37
 author: shimo-office
 allowed-tools: Bash, Read, Write, Edit
 examples_zh:
@@ -79,6 +79,8 @@ shimo-net whoami --json --no-browser 2>&1
 | 新建 / 改名 | `shimo-net new "名称" --type doc --to "<位置>"`、`shimo-net rename "<链接>" "新名字"` |
 | 移入回收站 / 恢复 | `shimo-net delete "<链接>"`、`shimo-net restore "<链接>"` |
 | 写表格 | `shimo-net editor "<表格链接>" --action sheet-update --payload '{"range":"工作表1!A1:C3","resource":{"values":[["…"]]}}' --json` |
+| 看历史/评论/打印 | `shimo-net editor "<链接>" --action history-show\|comments-show\|print --verify --json`；面板窗口默认保留，批量验收加 `--close` |
+| 单元格历史 | `shimo-net editor "<表格链接>" --action cell-history --verify --json`；走右键菜单，面板可见才返回成功 |
 
 参数、返回字段和退出码见[命令参考](../cli-reference.md)。
 

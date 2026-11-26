@@ -26,6 +26,7 @@ var phase2Actions = map[string]string{
 	"comments-hide": "sdk.comments.hide",
 	"save-version":  "sdk.version.createRevision",
 	"print":         "sdk.print",
+	"cell-history":  "sdk.cellHistory",
 	"sheet-append":  "http:PUT:/lizard-api/files/%s/sheets/values",
 	"sheet-insert":  "http:POSTROW:/lizard-api/files/%s/sheets",
 	"sheet-delete":  "http:DELETEROW:/lizard-api/files/%s/sheets",
@@ -64,6 +65,19 @@ var phase2ManualOnlyActions = map[string]string{
 // Production continues to use the isolated browser and screenshot checks.
 var phase2RunBrowser = runPhase2Browser
 
+// 展示型动作（打开侧栏、打印预览）的目的就是让用户看到结果。CLI 启动的
+// 浏览器窗口默认保留在桌面上，由用户自己关闭；批量验收可用 --close 关掉。
+var phase2KeepBrowserOpen bool
+var phase2KeptProfile string
+
+func phase2ViewAction(action string) bool {
+	switch action {
+	case "history-show", "comments-show", "print", "cell-history", "comment-add":
+		return true
+	}
+	return false
+}
+
 func (a *App) cmdPhase2() error {
 	if len(a.Pos) == 0 {
 		return errors.New("用法：shimo-net editor <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--verify|--no-verify]")
@@ -79,6 +93,14 @@ func (a *App) cmdPhase2() error {
 	if !ok {
 		return fmt.Errorf("未知扩展动作 %q；可用动作：%s", action, strings.Join(phase2ActionNames(), ", "))
 	}
+	phase2KeepBrowserOpen = phase2ViewAction(action)
+	if a.has("--close") {
+		phase2KeepBrowserOpen = false
+	}
+	if a.has("--keep-open") {
+		phase2KeepBrowserOpen = true
+	}
+	phase2KeptProfile = ""
 	if explicitNoBrowser(a) && !strings.HasPrefix(method, "http:") {
 		return errors.New("当前设置禁止启动浏览器；该动作依赖页面，请改用宿主浏览器。本次未执行")
 	}
@@ -150,11 +172,11 @@ func (a *App) cmdPhase2() error {
 			actionVerified = boolv(m, "ok")
 			panelVisible = boolv(m, "panelVisible")
 		}
-		if strings.HasPrefix(method, "sdk.history.") || strings.HasPrefix(method, "sdk.comments.") {
+		if strings.HasPrefix(method, "sdk.history.") || strings.HasPrefix(method, "sdk.comments.") || method == "sdk.cellHistory" {
 			// 面板类动作必须看到真实面板，只调用成功不算完成。
 			out["actionVerified"] = actionVerified && panelVisible
 			out["panelVisible"] = panelVisible
-			out["note"] = "调用前端 SDK 打开面板，等待渲染后检测面板可见性；截图需自行核对"
+			out["note"] = "通过页面右键菜单/前端 SDK 打开面板，等待渲染后检测面板可见性；截图需自行核对"
 		} else {
 			out["actionVerified"] = actionVerified
 			out["note"] = "直接调用套件前端 SDK；结果以接口返回为准"
@@ -171,6 +193,11 @@ func (a *App) cmdPhase2() error {
 	}
 	if shot != "" && cliBrowserVerification(a) && !strings.HasPrefix(method, "api:") {
 		out["screenshot"] = shot
+	}
+	if phase2KeptProfile != "" {
+		// 面板类结果留给人看：浏览器保持打开，CLI 只负责执行和截图。
+		out["browserKept"] = true
+		out["browserProfile"] = phase2KeptProfile
 	}
 	if a.JSON {
 		return a.printJSON(out)
@@ -189,6 +216,9 @@ func (a *App) cmdPhase2() error {
 	if value != nil {
 		b, _ := json.Marshal(value)
 		fmt.Printf("返回：%s\n", b)
+	}
+	if phase2KeptProfile != "" {
+		fmt.Printf("浏览器窗口已保留在桌面（面板可直接查看），关闭窗口即可结束；配置文件：%s\n", terminalText(phase2KeptProfile))
 	}
 	return nil
 }
@@ -414,7 +444,7 @@ func isRetryableEditorError(err error) bool {
 		return false
 	}
 	msg := strings.ToLower(err.Error())
-	for _, needle := range []string{"页面未暴露 editor sdk", "editor sdk", "sdk 方法不可用", "页面尚未渲染", "cannot read", "undefined is not", "没有版本接口", "没有可用的历史面板", "没有可用的评论面板", "没有打印接口"} {
+	for _, needle := range []string{"页面未暴露 editor sdk", "editor sdk", "sdk 方法不可用", "页面尚未渲染", "cannot read", "undefined is not", "没有版本接口", "没有可用的历史面板", "没有可用的评论面板", "没有打印接口", "尚未就绪"} {
 		if strings.Contains(msg, needle) {
 			return true
 		}
@@ -441,7 +471,13 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(profile)
+	if phase2KeepBrowserOpen {
+		// 窗口要留给用户看，profile 不能在退出时删掉，否则运行中的浏览器
+		// 会失去它的用户目录。
+		phase2KeptProfile = profile
+	} else {
+		defer os.RemoveAll(profile)
+	}
 	portFile := filepath.Join(profile, "DevToolsActivePort")
 	cmd := exec.Command(chrome, chromeLaunchArgs("--no-first-run", "--no-default-browser-check", "--user-data-dir="+profile, "--remote-debugging-port=0", target)...)
 	cmd.Stdout, cmd.Stderr = nil, nil
@@ -449,6 +485,9 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 		return nil, fmt.Errorf("启动浏览器失败：%w", err)
 	}
 	defer func() {
+		if phase2KeepBrowserOpen {
+			return
+		}
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 	}()
@@ -482,10 +521,26 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	// must not be accepted as visual proof.  Wait for a real document body
 	// before running the action or capturing the result.
 	waitPageReady(ws, 30*time.Second)
-	if (strings.HasPrefix(method, "actions.") || strings.HasPrefix(method, "sdk.")) && !waitEditorReady(ws, 15*time.Second) {
-		return nil, errors.New("页面已打开但编辑器未加载完成（等待 10 秒）；未执行页面动作")
+	if (strings.HasPrefix(method, "actions.") || strings.HasPrefix(method, "sdk.")) && !waitEditorReady(ws, 35*time.Second, method) {
+		return nil, errors.New("页面已打开但编辑器未加载完成（等待 35 秒）；未执行页面动作")
+	}
+	// 就绪判定命中后布局仍可能在做最后一帧调整；给一帧稳定时间再调用，避免
+	// showSidebar 在 UI 层尚未挂载时被吞掉。
+	if strings.HasPrefix(method, "sdk.") {
+		time.Sleep(1 * time.Second)
+	}
+	// 面板类动作会被页面的 focus/visibility 逻辑影响；无头或后台窗口里侧栏
+	// 可能因此不挂载。显式置前并开启焦点模拟，让页面按真实前台行为渲染。
+	if strings.HasPrefix(method, "sdk.history.") || strings.HasPrefix(method, "sdk.comments.") || method == "sdk.print" {
+		_, _ = ws.Call(1400, "Page.bringToFront", nil, 5*time.Second)
+		_, _ = ws.Call(1401, "Emulation.setFocusEmulationEnabled", map[string]any{"enabled": true}, 5*time.Second)
 	}
 	argsJSON, _ := json.Marshal(args)
+	// 单元格历史没有对外 SDK 方法，必须走真实右键菜单。合成 MouseEvent 不会
+	// 触发产品菜单（它监听的是原生输入），因此这条路径单独用 CDP 输入事件。
+	if method == "sdk.cellHistory" {
+		return runCellHistory(ws, screenshot)
+	}
 	expr := phase2Expression(method, string(argsJSON), guidFromURL(target))
 	// The editor mounts asynchronously after the document shell is ready. A
 	// missing SDK in the first second usually means "not initialized yet", not
@@ -562,6 +617,146 @@ func phase2BrowserResult(res map[string]any) (any, error) {
 	return value, nil
 }
 
+// cellHistoryRectJS 定位一个可右键的数据单元格。表格是 canvas 渲染，取画布
+// 内的固定偏移（跳过行号列与列头）即可落在 A1 附近的数据区。
+const cellHistoryRectJS = `(()=>{const c=document.querySelector('canvas');if(!c)return {ok:false,error:'当前页面没有表格画布，不像是表格页'};const b=c.getBoundingClientRect();return {ok:true,x:Math.round(b.left+110),y:Math.round(b.top+70)}})()`
+
+// 产品页的右键菜单在 shadow DOM 内，需要深度遍历。返回菜单项中心坐标，改用
+// 真实鼠标点击（合成 click 对产品菜单无效）。
+const cellHistoryMenuItemJS = `(()=>{const deep=[];const walk=r=>{for(const el of r.querySelectorAll('*')){deep.push(el);if(el.shadowRoot)walk(el.shadowRoot)}};walk(document);
+for(const el of deep){const t=(el.textContent||'').trim();if(t.includes('查看单元格历史')&&t.length<30){const b=el.getBoundingClientRect();if(b.width>0&&b.height>0)return {ok:true,x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2)}}}
+return {ok:false}})()`
+
+// 评论提交按钮的文案可能是"确定/确认"，且可能被图标或空格包裹，用正则匹配
+// 并取面积最小的可见节点。
+
+// 评论卡片以"按 Enter 发送"作为标识；输入框必须从卡片内部取，否则会命中
+// 单元格自己的编辑器（页面里更靠前），把评论写进单元格。
+
+// 评论输入框的提示在 shadow DOM 内，body.innerText 读不到，必须深度遍历。
+
+// 表格用隐藏的 2×2 contenteditable 代理键盘输入；真正的评论输入框有可见尺寸。
+// 只用尺寸判断，避免把单元格编辑态当成评论框。
+
+// 直接在页面里点击包含指定文案的最小可见节点。产品菜单项是 React 节点，
+// 合成 click 能被它的 onClick 接住，比按坐标点击更不容易落偏到单元格上。
+
+const cellHistoryPanelJS = `(()=>{const deep=[];const walk=r=>{for(const el of r.querySelectorAll('*')){deep.push(el);if(el.shadowRoot)walk(el.shadowRoot)}};walk(document);
+const panels=deep.filter(el=>{const b=el.getBoundingClientRect();return b.width>160&&b.height>50&&/单元格历史/.test(el.innerText||'')}).map(el=>({cls:String(el.className).slice(0,80),text:(el.innerText||'').trim().slice(0,200)}));
+return {ok:panels.length>0,panelVisible:panels.length>0,panels:panels.slice(0,3)}})()`
+
+// 菜单项/按钮定位：同名节点可能层层包裹，取面积最小的可见节点才是可点目标。
+
+const commentInputFocusJS = `(()=>{const deep=[];const walk=r=>{for(const el of r.querySelectorAll('*')){deep.push(el);if(el.shadowRoot)walk(el.shadowRoot)}};walk(document);
+for(const el of deep){const ok=el.isContentEditable||el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&String(el.type||'text').toLowerCase()==='text');if(!ok)continue;const b=el.getBoundingClientRect();if(b.width>80&&b.height>18&&b.top>0){el.focus();return {ok:true,tag:el.tagName}}}
+return {ok:false}})()`
+
+func phase2EvalJS(ws *WSConn, id int, expr string) (map[string]any, error) {
+	res, err := ws.Call(id, "Runtime.evaluate", map[string]any{"expression": expr, "awaitPromise": true, "returnByValue": true}, 15*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	result, ok := res["result"].(map[string]any)
+	if !ok {
+		return nil, errors.New("页面没有返回结果对象")
+	}
+	value, ok := result["value"].(map[string]any)
+	if !ok {
+		return nil, errors.New("页面返回格式异常，不能确认执行结果")
+	}
+	return value, nil
+}
+
+func phase2Coord(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	}
+	return 0
+}
+
+func runCellHistory(ws *WSConn, screenshot string) (any, error) {
+	point, err := phase2EvalJS(ws, 2000, cellHistoryRectJS)
+	if err != nil {
+		return nil, err
+	}
+	if point["ok"] != true {
+		return nil, errors.New(str(point, "error"))
+	}
+	x, y := phase2Coord(point["x"]), phase2Coord(point["y"])
+	raw := func(id int, kind, button string, buttons int) {
+		_, _ = ws.Call(id, "Input.dispatchMouseEvent", map[string]any{"type": kind, "x": x, "y": y, "button": button, "buttons": buttons, "clickCount": 1}, 5*time.Second)
+	}
+	_, _ = ws.Call(1999, "Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": x, "y": y}, 5*time.Second)
+	raw(2001, "mousePressed", "right", 2)
+	raw(2002, "mouseReleased", "right", 0)
+	var item map[string]any
+	id := 2010
+	for i := 0; i < 12; i++ {
+		time.Sleep(300 * time.Millisecond)
+		v, e := phase2EvalJS(ws, id, cellHistoryMenuItemJS)
+		id++
+		if e == nil && v["ok"] == true {
+			item = v
+			break
+		}
+	}
+	if item == nil {
+		return nil, errors.New("右键菜单没有出现“查看单元格历史”，该位置可能不是数据单元格")
+	}
+	ix, iy := phase2Coord(item["x"]), phase2Coord(item["y"])
+	for _, step := range []struct {
+		id   int
+		kind string
+		btn  int
+	}{{2100, "mouseMoved", 0}, {2101, "mousePressed", 1}, {2102, "mouseReleased", 0}} {
+		_, _ = ws.Call(step.id, "Input.dispatchMouseEvent", map[string]any{"type": step.kind, "x": ix, "y": iy, "button": "left", "buttons": step.btn, "clickCount": 1}, 5*time.Second)
+	}
+	var panel map[string]any
+	id = 2110
+	for i := 0; i < 14; i++ {
+		time.Sleep(300 * time.Millisecond)
+		v, e := phase2EvalJS(ws, id, cellHistoryPanelJS)
+		id++
+		if e == nil && v["ok"] == true && v["panelVisible"] == true {
+			panel = v
+			break
+		}
+	}
+	if panel == nil {
+		return nil, errors.New("已点击“查看单元格历史”，但没有检测到面板渲染")
+	}
+	if screenshot != "" {
+		if err := capturePhase2Screenshot(ws, screenshot); err != nil {
+			return nil, err
+		}
+	}
+	return panel, nil
+}
+
+func phase2PollJS(ws *WSConn, id int, expr string, tries int, delay time.Duration) map[string]any {
+	for i := 0; i < tries; i++ {
+		time.Sleep(delay)
+		v, err := phase2EvalJS(ws, id+i, expr)
+		if err == nil && v["ok"] == true {
+			return v
+		}
+	}
+	return nil
+}
+
+func phase2ClickPoint(ws *WSConn, baseID int, x, y float64) {
+	for _, s := range []struct {
+		id   int
+		kind string
+		btn  int
+	}{{baseID, "mouseMoved", 0}, {baseID + 1, "mousePressed", 1}, {baseID + 2, "mouseReleased", 0}} {
+		_, _ = ws.Call(s.id, "Input.dispatchMouseEvent", map[string]any{"type": s.kind, "x": x, "y": y, "button": "left", "buttons": s.btn, "clickCount": 1}, 5*time.Second)
+	}
+}
+
 func sameCookieHost(target string) bool {
 	configured, _ := resolveOrigin()
 	return sameCredentialOrigin(target, configured)
@@ -579,6 +774,9 @@ func phase2Expression(method, argsJSON, guid string) string {
 		}[method]
 		return phase2SDKCallExpression(kind, args)
 	}
+	if method == "sdk.cellHistory" {
+		return cellHistoryJS
+	}
 	if method == "browser.verify" {
 		return `(async()=>{const path=location.pathname||"";const text=(document.body?.innerText||"").trim();if(path==="/login"||text.includes("验证码登录")||text.includes("欢迎使用石墨办公"))return {ok:false,error:"页面未登录，无法完成视觉核验"};if(document.readyState!=="complete")return {ok:false,error:"页面尚未渲染完成，不能作为视觉核验证据"};if(!document.querySelector("canvas")&&text.length<20)return {ok:false,error:"页面尚未渲染完成，不能作为视觉核验证据"};return {ok:true,textLength:text.length,canvas:document.querySelectorAll("canvas").length};})()`
 	}
@@ -593,7 +791,7 @@ func phase2Expression(method, argsJSON, guid string) string {
 	}
 	parts := strings.Split(method, ".")
 	pathJSON, _ := json.Marshal(parts)
-	return fmt.Sprintf(`(async()=>{const sdk=window.smsdk?.__DRIVE_SDK__?.editor||globalThis.sdk;if(!sdk)return {ok:false,error:"页面未暴露 editor SDK"};const path=%s;let owner=sdk;for(let i=0;i<path.length-1;i++){owner=owner?.[path[i]]}const fn=owner?.[path[path.length-1]];if(typeof fn!=="function")return {ok:false,error:"SDK 方法不可用："+path.join(".")};const args=%s;const value=await fn.apply(owner,args);return {ok:true,value};})()`, string(pathJSON), argsJSON)
+	return fmt.Sprintf(`(async()=>{const sdk=window.__SM__?.editor||window.smsdk?.__DRIVE_SDK__?.editor||globalThis.sdk;if(!sdk)return {ok:false,error:"页面未暴露 editor SDK"};const path=%s;let owner=sdk;for(let i=0;i<path.length-1;i++){owner=owner?.[path[i]]}const fn=owner?.[path[path.length-1]];if(typeof fn!=="function")return {ok:false,error:"SDK 方法不可用："+path.join(".")};const args=%s;const value=await fn.apply(owner,args);return {ok:true,value};})()`, string(pathJSON), argsJSON)
 }
 
 func waitDevToolsPort(path string, timeout time.Duration) (int, error) {
@@ -663,12 +861,47 @@ func waitPageReady(ws *WSConn, timeout time.Duration) {
 	}
 }
 
-func waitEditorReady(ws *WSConn, timeout time.Duration) bool {
+// phase2ReadyExpression 针对具体动作判断"它要调的能力"是否已挂载。产品页的
+// __SM__ 会分阶段挂 editor / sdk，不同套件暴露的能力也不同（文稿有 print 但
+// 不一定有 history）。按动作精确等待，避免"有别的能力"就提前放行。
+//
+// 注意：history.show 这类 facade 在 editor 构造时就已存在，远早于界面渲染
+// 完成。若此时调用，showSidebar 会指向尚未挂载的 UI 层而静默失效。因此除了
+// 方法存在，还必须确认 editor.initialized、sdk._rendered 与正文已渲染。
+func phase2ReadyExpression(method string) string {
+	var probe string
+	switch {
+	case strings.HasPrefix(method, "sdk.history."):
+		probe = `!!(sm.editor?.history?.show||sm.sdk?.history?.show)`
+	case strings.HasPrefix(method, "sdk.comments."):
+		probe = `!!(sm.editor?.comments?.show||sm.sdk?.comments?.show)`
+	case method == "sdk.print":
+		probe = `!!(sm.editor?.print||sm.sdk?.print)`
+	case strings.HasPrefix(method, "sdk.version."):
+		probe = `!!(sm.editor?.version?.createRevision||sm.editor?.editor?.createRevision||sm.editor?.createRevision||sm.sdk?.version?.createRevision)`
+	default:
+		probe = `true`
+	}
+	return `(()=>{const sm=window.__SM__;
+if(!sm)return !!(window.smsdk?.__DRIVE_SDK__?.editor)||!!globalThis.sdk;
+const ed=sm.editor;
+if(ed?.initialized===false)return false;
+if(sm.sdk?._rendered===false)return false;
+// 不同套件的"渲染完成"信号不同：文档/文稿是 editor.initialized，
+// 表格是 canvas 首帧。任一成立且页面已有可见文本即视为就绪。
+const rendered=(ed?.initialized===true)||(sm.sdk?._rendered===true)||!!document.querySelector('canvas');
+if(!rendered)return false;
+if(!(document.body?.innerText||'').trim())return false;
+return ` + probe + `})()`
+}
+
+func waitEditorReady(ws *WSConn, timeout time.Duration, method string) bool {
 	deadline := time.Now().Add(timeout)
 	id := 1200
+	expr := phase2ReadyExpression(method)
 	for time.Now().Before(deadline) {
 		res, err := ws.Call(id, "Runtime.evaluate", map[string]any{
-			"expression":    `!!(window.smsdk?.__DRIVE_SDK__?.editor) || !!globalThis.sdk`,
+			"expression":    expr,
 			"returnByValue": true,
 		}, 5*time.Second)
 		id++
