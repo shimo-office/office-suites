@@ -1,0 +1,88 @@
+name: 问题反馈
+description: 报告 shimo-net 使用中遇到的异常或文档错误
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先查 [安装与排错](https://github.com/shimo-office/office-suites/blob/main/docs/install.md#faq)。
+        安全漏洞不要在这里提交，请按 [SECURITY.md](https://github.com/shimo-office/office-suites/blob/main/SECURITY.md) 私下报告。
+  - type: textarea
+    id: version
+    attributes:
+      label: 版本与诊断信息
+      description: 粘贴 `shimo-net version --json` 与 `shimo-net doctor --json` 的输出，去掉账号、cookie、内网地址。
+      render: json
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows x64
+        - Windows ARM64
+        - Linux x64
+        - Linux ARM64
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 安装方式
+      options:
+        - npm install -g shimo-net-cli
+        - bootstrap.sh 一键脚本
+        - install.ps1
+        - 直接下载平台二进制
+        - 源码构建
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: 调用方
+      options:
+        - 自己直接运行 CLI
+        - WorkBuddy
+        - Codex
+        - DeepSeek Harness
+        - 豆包工作
+        - 其他 Agent / 脚本
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 写出实际执行的命令（占位符替换为「文件夹链接」这类描述即可），以及每一步的结果。
+      placeholder: |
+        1. shimo-net ls "<文件夹链接>" --json
+        2. 观察到 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      description: 贴出错误输出或 `--json` 返回，去掉敏感信息。
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认
+      options:
+        - label: 已确认使用的是最新版本，且问题可重复出现
+          required: true
+        - label: 内容中不含账号、cookie、内网地址等敏感信息
+          required: true

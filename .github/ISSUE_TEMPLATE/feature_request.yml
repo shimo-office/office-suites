@@ -1,0 +1,36 @@
+name: 功能建议
+description: 提出新的办公场景、命令或接入方式需求
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 你在什么情况下需要这个能力？涉及哪类文件（轻文档 / 文稿 / 表格 / 幻灯片 / 表单）？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的用法
+      description: 期望的命令形态与输出，例如：`shimo-net <命令> "<链接>" --参数 --json`。
+  - type: textarea
+    id: workaround
+    attributes:
+      label: 当前怎么绕过
+      description: 目前在网页、Agent 内置浏览器或其他工具里怎么完成这件事。
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: 部署方式
+      options:
+        - shimo.net 公有云
+        - 客户私有部署
+        - 两者都要
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: 边界确认
+      options:
+        - label: 我理解权限变更、文件锁定、限制编辑和彻底删除按设计必须由人工在石墨网页完成
+          required: true

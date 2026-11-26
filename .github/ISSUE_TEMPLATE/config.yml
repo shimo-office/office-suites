@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安装与排错
+    url: https://github.com/shimo-office/office-suites/blob/main/docs/install.md#faq
+    about: 装不上、登录失败、找不到命令先在 FAQ 里查。
+  - name: 命令参考
+    url: https://github.com/shimo-office/office-suites/blob/main/docs/cli-reference.md
+    about: 参数、返回结构与退出码的完整说明。
+  - name: 安全漏洞
+    url: https://github.com/shimo-office/office-suites/blob/main/SECURITY.md
+    about: 漏洞请按安全策略私下报告，不要开公开 Issue。
