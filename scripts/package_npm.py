@@ -18,14 +18,14 @@ LAUNCHER = r'''#!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 
-function main() {
+function bundledBinary(root) {
   const system = { darwin: 'darwin', linux: 'linux', win32: 'windows' }[process.platform];
   const arch = { x64: 'amd64', arm64: 'arm64' }[process.arch];
   if (!system || !arch) throw new Error(`Unsupported platform: ${process.platform}/${process.arch}`);
   const asset = `shimo-net_${system}_${arch}${system === 'windows' ? '.exe' : ''}`;
-  const directory = path.join(__dirname, '..', 'binaries');
+  const directory = path.join(root, 'binaries');
   const binary = path.join(directory, asset);
   let expected;
   let actual;
@@ -39,6 +39,123 @@ function main() {
   }
   if (!/^[a-f0-9]{64}$/.test(expected || '') || actual !== expected) {
     throw new Error('Bundled runtime SHA-256 mismatch; nothing executed. Reinstall shimo-net-cli from the official npm registry.');
+  }
+  return binary;
+}
+
+function stableVersion(value) {
+  if (typeof value !== 'string' || !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(value)) {
+    throw new Error('Expected a stable npm version; no update performed.');
+  }
+  return value.split('.').map(BigInt);
+}
+
+function newerVersion(latest, current) {
+  const a = stableVersion(latest), b = stableVersion(current);
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] > b[i];
+  }
+  return false;
+}
+
+function npmCLI() {
+  const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  dirs.push(path.dirname(process.execPath));
+  for (const dir of dirs) {
+    const candidates = [path.join(dir, 'node_modules/npm/bin/npm-cli.js')];
+    if (process.platform !== 'win32') {
+      try { candidates.unshift(fs.realpathSync(path.join(dir, 'npm'))); } catch (_) { /* Try next location. */ }
+    }
+    for (const candidate of candidates) {
+      if (path.basename(candidate) === 'npm-cli.js' && fs.existsSync(candidate)) return candidate;
+    }
+  }
+  throw new Error('Cannot locate npm-cli.js. Install npm, then retry shimo-net update.');
+}
+
+function runNpm(cli, args, cwd) {
+  return new Promise((resolve, reject) => {
+    execFile(process.execPath, [cli, ...args, '--registry=https://registry.npmjs.org'], {
+      cwd, shell: false, timeout: 120000, maxBuffer: 1024 * 1024, windowsHide: true,
+      killSignal: 'SIGKILL', encoding: 'utf8'
+    }, (error, stdout) => {
+      if (error) reject(new Error(`npm ${args[0]} failed (${error.killed ? 'timeout/output limit' : error.code || 'unknown error'}). Retry using npm install shimo-net-cli@latest with the original installation scope.`));
+      else resolve(stdout.trim());
+    });
+  });
+}
+
+async function installationScope(root, cli) {
+  const modules = path.dirname(root), prefix = path.dirname(modules);
+  if (path.basename(modules) !== 'node_modules' || root.split(path.sep).some(p => p === '_npx' || p === '.pnpm') ||
+      root.split(path.sep).filter(p => p === 'node_modules').length !== 1) {
+    throw new Error('Cannot safely update this installation. Use its original package manager or reinstall shimo-net-cli.');
+  }
+  const projectFile = path.join(prefix, 'package.json');
+  if (fs.existsSync(projectFile)) {
+    const project = JSON.parse(fs.readFileSync(projectFile, 'utf8'));
+    if (!['dependencies', 'devDependencies', 'optionalDependencies'].some(key => project[key] && project[key]['shimo-net-cli'])) {
+      throw new Error('This is not a direct project dependency. Update it with the original package manager.');
+    }
+    if ((project.packageManager && !/^npm@/.test(project.packageManager)) ||
+        ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb'].some(file => fs.existsSync(path.join(prefix, file)))) {
+      throw new Error('This project uses another package manager. Update shimo-net-cli with that package manager.');
+    }
+    return { prefix, args: ['--global=false', '--prefix', prefix, '--workspaces=false'], scope: 'project' };
+  }
+  if (process.platform !== 'win32' && path.basename(prefix) === 'lib') {
+    return { prefix: path.dirname(prefix), args: ['--global', '--prefix', path.dirname(prefix)], scope: 'global' };
+  }
+  const globalRoot = await runNpm(cli, ['root', '--global'], prefix);
+  if (fs.realpathSync(globalRoot) === modules) {
+    return { prefix, args: ['--global', '--prefix', prefix], scope: 'global' };
+  }
+  throw new Error('Cannot identify this npm installation scope. Update it with the original npm install command.');
+}
+
+async function updatePackage(args, root) {
+  if (args.some(arg => !['update', '--check', '--json'].includes(arg)) || args.filter(arg => arg === 'update').length !== 1) {
+    throw new Error('Usage: shimo-net update [--check] [--json]');
+  }
+  const metadata = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  if (metadata.name !== 'shimo-net-cli') throw new Error('Unexpected npm package name; nothing updated.');
+  stableVersion(metadata.version);
+  const cli = npmCLI();
+  const scope = await installationScope(root, cli);
+  const latest = JSON.parse(await runNpm(cli, ['view', 'shimo-net-cli@latest', 'version', '--json'], scope.prefix));
+  const available = newerVersion(latest, metadata.version);
+  const result = { ok: true, source: 'npm', currentVersion: metadata.version,
+    latestVersion: latest, updateAvailable: available, updated: false, checkOnly: args.includes('--check'), path: root, scope: scope.scope };
+  if (available && !args.includes('--check')) {
+    await runNpm(cli, ['install', ...scope.args, `shimo-net-cli@${latest}`, '--ignore-scripts', '--no-audit', '--no-fund'], scope.prefix);
+    const installed = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+    if (installed.name !== 'shimo-net-cli' || installed.version !== latest) {
+      throw new Error('npm finished but the current installation has not reached the requested version. Check the installation path.');
+    }
+    const binary = bundledBinary(root);
+    await new Promise((resolve, reject) => {
+      execFile(binary, ['version', '--json'], { timeout: 10000, maxBuffer: 65536, shell: false, windowsHide: true }, (error, stdout) => {
+        let reported;
+        try { reported = JSON.parse(stdout).version; } catch (_) { /* Invalid version output fails below. */ }
+        if (error || reported !== latest) reject(new Error('Updated runtime did not report the expected version. Reinstall shimo-net-cli using npm.'));
+        else resolve();
+      });
+    });
+    result.updated = true;
+  }
+  const message = result.updated ? `Updated shimo-net ${metadata.version} -> ${latest}` :
+    available ? `Update available: ${metadata.version} -> ${latest}; run shimo-net update` : `shimo-net ${metadata.version} is up to date`;
+  process.stdout.write(args.includes('--json') ? JSON.stringify(result) + '\n' : message + '\n');
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const root = fs.realpathSync(path.join(__dirname, '..'));
+  const binary = bundledBinary(root);
+  const command = args.find(arg => arg !== '--json' && arg !== '--relogin');
+  if (command === 'update' && !args.includes('--help') && !args.includes('-h')) {
+    await updatePackage(args, root);
+    return;
   }
   const child = spawn(binary, process.argv.slice(2), { stdio: 'inherit', shell: false });
   const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
@@ -64,10 +181,12 @@ function main() {
     }
   });
 }
-try { main(); } catch (error) {
-  process.stderr.write(`shimo-net: ${error.message}\n`);
+main().catch(error => {
+  const args = process.argv.slice(2);
+  process.stderr.write(args.includes('update') && args.includes('--json') ?
+    JSON.stringify({ ok: false, error: error.message }) + '\n' : `shimo-net: ${error.message}\n`);
   process.exitCode = 1;
-}
+});
 '''
 
 
@@ -116,9 +235,13 @@ npm install --global shimo-net-cli@{version} --registry=https://registry.npmjs.o
 shimo-net version
 shimo-net --help
 shimo-net schema --json
+shimo-net update --check
+shimo-net update
 ```
 
 需要 Node.js 18+（建议使用受支持的 Node.js LTS）。本包包含 macOS/Linux/Windows 的 amd64、arm64 完整 Go 二进制，无第三方 npm 依赖、无安装脚本、无首次执行下载，不访问 GitHub 获取运行程序。每次启动会校验包内二进制 SHA-256，参数、标准输入输出及退出码传递给 `shimo-net`。
+
+`shimo-net update` 通过官方 npm registry 更新当前安装范围中的整个包；`--check` 只检查。支持可识别的 npm 全局安装和项目直接依赖；其他包管理器或无法识别的安装位置应使用原安装方式更新。更新不会安装或修改助手技能。
 
 安装成功不等于石墨已登录。文件链接优先在宿主内置预览展示；新建、导入或编辑后同样展示实际结果链接。内置工具能操作就优先使用，只能预览时使用可用的外部 Computer Use / Browser Use 并复用会话。预览不代表保存成功，纯页面任务无需先登录 CLI。
 

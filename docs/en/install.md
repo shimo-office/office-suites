@@ -92,7 +92,9 @@ The PATH change applies to this shell only. Add the directory to your shell conf
 
 **Windows:** create `%LOCALAPPDATA%\shimo-net\` if necessary, rename the download to `shimo-net.exe`, and move it there. Add that directory to your user PATH, open a new terminal and run `shimo-net version`.
 
-To update, replace the executable in the same location and check its version again. Skill ZIP packages configure AI assistants; they are separate from these native executables.
+On versions that support it, run `shimo-net update`, or `shimo-net update --check` to check only. Native installations fetch the latest stable GitHub Release for the current OS and architecture, verify SHA-256 and the new executable’s reported version, then replace the current executable. Download or validation failures preserve the old executable. Equal or older releases are skipped. `--json` is supported; updating requires no Shimo login and does not change the service address, credentials, or assistant skills.
+
+If an older CLI reports an unknown `update` command, download a newer executable once, replace it in the same location, and check its version. If the directory is not writable or Windows locks a file, follow the error instructions before retrying or replace it manually. Skill ZIP packages configure AI assistants separately.
 
 ### Install from the repository
 

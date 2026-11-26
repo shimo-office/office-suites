@@ -66,6 +66,18 @@ The npm package is **`shimo-net-cli`**; the command is **`shimo-net`**. npm inst
 
 The CLI is a native Go program. You can also use the [curl setup script, platform binaries or source build](docs/en/install.md) without Node.js. macOS, Linux and Windows are supported on x64 and ARM64.
 
+### Update the CLI
+
+Versions that support the update command can run:
+
+```bash
+shimo-net update --check  # Check for a newer release
+shimo-net update          # Update the current installation
+shimo-net version        # Confirm the installed version
+```
+
+Add `--json` for structured output. npm installations update the whole package; native installations validate and replace the executable. Updates do not downgrade or change Shimo login, configuration, or assistant Skills. If an older version reports an unknown `update` command, upgrade once using the [npm guide](docs/en/npm.md#update-or-pin-a-version) or [native installation guide](docs/en/install.md). See the [update command reference](docs/en/cli-reference.md#update-the-cli) for arguments and result fields.
+
 ## Common commands
 
 Replace placeholders with accessible Shimo links. Add `--json` to data commands for script-friendly output.

@@ -17,7 +17,17 @@ The package is [`shimo-net-cli`](https://www.npmjs.com/package/shimo-net-cli); t
 
 ## Update or pin a version
 
-Update to the latest version published on npm:
+Versions that support the update command can run:
+
+```bash
+shimo-net update --check  # Check only
+shimo-net update          # Update the current installation
+shimo-net version
+```
+
+For npm installations, `update` uses the official npm registry to update the whole package in its existing global or project location. Project installations can use `npm exec -- shimo-net update`. It supports `--json`, skips equal or older releases, and reports manual instructions for ambiguous installations such as temporary `npx` caches. On Windows, a custom global prefix that differs from the active npm global directory also requires the original installation command. Projects declaring pnpm, Yarn, or Bun must use that package manager. Failed npm updates follow npm installation behavior; they do not have the native executable replacement rollback guarantee.
+
+If an older CLI reports an unknown `update` command, upgrade once using the command below. You can also use it directly to install the latest published npm version:
 
 ```bash
 npm install -g shimo-net-cli@latest --registry=https://registry.npmjs.org

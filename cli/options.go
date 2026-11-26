@@ -12,7 +12,7 @@ func usageError(format string, args ...any) error {
 
 func isBooleanOption(name string) bool {
 	switch name {
-	case "--default", "--no-verify", "--no-browser", "--verify", "--new", "--login", "--no-save", "--once", "--keep-open", "--close":
+	case "--check", "--default", "--no-verify", "--no-browser", "--verify", "--new", "--login", "--no-save", "--once", "--keep-open", "--close":
 		return true
 	}
 	return false
@@ -22,7 +22,7 @@ func isBooleanOption(name string) bool {
 // option must fail before the dispatcher can perform a mutation.
 func (a *App) validateOptions() error {
 	options := map[string]string{
-		"init": "--origin --login", "login": "--origin --new",
+		"update": "--check", "init": "--origin --login", "login": "--origin --new",
 		"config": "--origin", "session": "--no-save --no-verify --interval --source --expected-revision --once",
 		"search": "--limit", "spaces": "--limit", "ls": "--limit --since",
 		"upload": "--to", "import": "--to --title --share",

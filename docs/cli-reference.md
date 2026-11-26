@@ -4,7 +4,7 @@
 
 本页供终端用户、脚本开发者和 Agent 查参数。用 AI 助手时无需记命令，先看[一句话安装与使用](agent/README.md)；想知道可以怎么提需求，见[办公场景](scenarios.md)。
 
-安装、账号切换与排错见[安装说明](install.md)。本页对应源码版本 0.9.19，实际可用动作以本机 `shimo-net schema --json` 为准。
+安装、账号切换与排错见[安装说明](install.md)。本页跟随仓库源码维护，可能包含尚未发布的命令；实际可用命令与动作以本机 `shimo-net schema --json` 为准。
 
 `editor` 是编辑器接口与页面入口的公开命令；旧命令 `phase2` 保留为兼容别名，使用相同实现和参数。现有脚本无需改写，新增示例统一使用公开命令。
 
@@ -45,8 +45,33 @@ shimo-net <command> [位置参数] [--option value] [--json]
 | `whoami` | 查询实际当前账号。 |
 | `doctor` | 检查平台运行环境、浏览器、origin 和账号；失败返回非 0。 |
 | `schema` | 输出命令、类型、动作分类、场景与能力计数。 |
+| `update [--check] [--json]` | 更新当前安装；`--check` 只检查。npm 安装更新整个包，原生安装校验 GitHub Release 后替换；不降级、不修改登录和配置。旧版需先按[安装说明](install.md)升级一次。 |
 | `version` | 输出本地二进制版本；支持 `--json`。 |
 | `help` / `--help` / `-h` | 输出当前帮助。 |
+
+### 更新 CLI
+
+```bash
+shimo-net update --check --json  # 联网检查，不安装
+shimo-net update --json          # 更新当前安装
+shimo-net version --json         # 核对当前版本
+```
+
+`update` 不接受位置参数或指定版本；需要固定版本时使用 [npm 版本管理](npm.md#更新与指定版本)或指定版本的 Release 文件。npm 安装查询官方 npm registry，原生安装查询本仓库最新稳定 GitHub Release。已有版本相同或更高时成功退出，不执行安装；检查与更新均不需要石墨账号。
+
+带 `--json` 时，成功在 stdout 输出一个 JSON 对象，失败将错误 JSON 写入 stderr，并以非 0 退出。字段说明：
+
+| 字段 | 含义 |
+|---|---|
+| `ok`、`source` | 成功标记；来源为 `npm` 或 `github`。 |
+| `currentVersion`、`latestVersion` | 本次操作开始时的版本、查询到的最新版本。 |
+| `updateAvailable` | 查询时最新版本是否高于当前版本；更新成功后此字段仍可为 `true`。 |
+| `updated`、`checkOnly` | 本次是否完成更新、是否只检查；`--check` 时 `updated` 必为 `false`。 |
+| `path` | npm 包目录，或原生程序解析符号链接后的实际路径。 |
+| `scope` | 仅 npm：`global` 或 `project`。 |
+| `backupPath` | 仅原生更新按需返回：Windows 尚未能删除的旧程序路径；当前进程退出后可清理。 |
+
+原生更新先检查下载大小、SHA-256 和新版程序输出的版本，再替换；下载或验证失败保留旧程序。npm 更新遵循包管理器的安装行为；无法确定安装范围时拒绝自动更新，改用原安装命令。详细限制与旧版升级方法见[安装说明](install.md)及 [npm 指南](npm.md)。
 
 ## API：文件与目录
 

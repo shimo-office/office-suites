@@ -4,7 +4,7 @@
 
 Use this page to look up commands, arguments, and output. For setup and account changes, see [Installation](install.md). For natural-language requests, see [Scenarios](scenarios.md).
 
-This reference describes source version 0.9.19. Run `shimo-net schema --json` to check the actions available in your installed version. The public editor command is `editor`; `phase2` remains a compatibility alias with the same implementation and arguments.
+This reference follows the repository source and may include commands not yet released. Run `shimo-net schema --json` to check the commands and actions available in your installed version. The public editor command is `editor`; `phase2` remains a compatibility alias with the same implementation and arguments.
 
 [Configuration](#configuration-and-diagnostics) · [Files](#files-and-folders) · [Aliases](#location-aliases) · [Editor](#editor-api-and-page-actions) · [Browser](#opening-a-page) · [Advanced editing](#advanced-editing) · [Errors](#json-exit-codes-and-recovery)
 
@@ -36,8 +36,33 @@ shimo-net <command> [arguments] [--option value] [--json]
 | `whoami` | Queries the actual signed-in account. |
 | `doctor` | Checks runtime, browser, origin, and account; exits nonzero on failure. |
 | `schema` | Returns commands, file types, action categories, scenarios, and capability counts. |
+| `update [--check] [--json]` | Updates the current installation; `--check` only checks. npm updates the whole package; native installs validate a GitHub Release before replacing the executable. No downgrade or login/config changes. Older versions need one upgrade using the [installation guide](install.md). |
 | `version` | Shows the local binary version; supports `--json`. |
 | `help` / `--help` / `-h` | Shows help. |
+
+### Update the CLI
+
+```bash
+shimo-net update --check --json  # Query releases without installing
+shimo-net update --json          # Update the current installation
+shimo-net version --json         # Verify the installed version
+```
+
+`update` accepts no positional arguments or version selector. To pin a version, use [npm version management](npm.md#update-or-pin-a-version) or a specific Release executable. npm installations query the official npm registry; native installations query this repository’s latest stable GitHub Release. Equal or newer installed versions exit successfully without installing. Neither checking nor updating requires a Shimo account.
+
+With `--json`, success writes one JSON object to stdout. Failures write error JSON to stderr and exit nonzero.
+
+| Field | Meaning |
+|---|---|
+| `ok`, `source` | Success flag; the source is `npm` or `github`. |
+| `currentVersion`, `latestVersion` | Version at the start of this operation and latest version found. |
+| `updateAvailable` | Whether the latest version was newer when checked; may remain `true` after a successful update. |
+| `updated`, `checkOnly` | Whether this run completed an update and whether it only checked. `--check` always returns `updated: false`. |
+| `path` | npm package directory, or the resolved native executable path. |
+| `scope` | npm only: `global` or `project`. |
+| `backupPath` | Native updates only, when needed: an old executable that Windows could not yet delete. It can be removed after this process exits. |
+
+Native updates validate download size, SHA-256, and the new executable’s version before replacing the old file. Download or validation failures preserve the old executable. npm follows its own installation behavior; ambiguous installation scopes are refused and require the original installation command. See [Installation](install.md) and the [npm guide](npm.md) for limits and upgrading an older CLI.
 
 ## Files and folders
 

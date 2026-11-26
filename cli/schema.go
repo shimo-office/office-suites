@@ -32,6 +32,7 @@ func schema() map[string]any {
 		{"name": "editor", "usage": "shimo-net editor <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--verify|--no-verify]", "desc": "调用同源 API 或套件前端 SDK；历史/评论面板、保存版本、打印需 --verify；提交评论仍需页面操作"},
 		{"name": "phase2", "usage": "shimo-net phase2 …", "aliasOf": "editor", "desc": "editor 的兼容命令别名"},
 		{"name": "purge", "usage": "shimo-net purge <链接>", "desc": "按设计拒绝；彻底删除须到网页回收站人工操作"},
+		{"name": "update", "usage": "shimo-net update [--check] [--json]", "desc": "检查或安装最新稳定版；原生程序校验 SHA-256 后替换，npm 安装通过 npm 更新"},
 		{"name": "version", "usage": "shimo-net version [--json]", "desc": "输出 CLI 版本"},
 		{"name": "phase3", "usage": "shimo-net phase3 <链接|guid|@别名> --action <动作> [--payload JSON] [--read-range 工作表!A1:D4] [--out 目录] [--verify]", "desc": "三期列明范围已验收，37.2 关联字段保留；逐项证据另列，artifact 仅检查本地包结构"},
 		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "limit 限制扫描文件数，仅对扫描到的订阅文件排序；可打开浏览器"},
@@ -113,6 +114,7 @@ func helpText() string {
   shimo-net read <链接> [--max-chars N]              11 读正文
   shimo-net get <链接> [--out <目录>]                13 下载单个文件
   shimo-net fav <list|add|rm|show> …                15 常用文件夹别名（下次直接 @别名）
+  shimo-net update [--check]                       更新到最新稳定版；--check 仅检查
   shimo-net version                                输出版本
   shimo-net open <链接|guid> [--default]            用独立配置打开，不注入会话；--default 选择默认浏览器应用
   shimo-net purge <链接>                            彻底删除（按设计拒绝，请到网页回收站操作）

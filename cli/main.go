@@ -144,7 +144,7 @@ func (a *App) Run() error {
 
 func dispatch(a *App) map[string]func() error {
 	return map[string]func() error{
-		"init": a.cmdInit, "config": a.cmdConfig,
+		"init": a.cmdInit, "config": a.cmdConfig, "update": a.cmdUpdate,
 		"login": a.cmdLogin, "logout": a.cmdLogout,
 		"whoami": a.cmdWhoami, "doctor": a.cmdDoctor,
 		"search": a.cmdSearch, "spaces": a.cmdSpaces, "ls": a.cmdLs, "info": a.cmdInfo,

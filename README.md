@@ -66,6 +66,18 @@ npm 包名为 **`shimo-net-cli`**，命令名为 **`shimo-net`**。npm 只安装
 <a id="安装"></a>
 不想安装 Node.js？CLI 本体是 Go 原生程序，也可使用 [curl 配置脚本](docs/install.md#curl-一键配置)、[平台二进制](docs/install.md#直接下载原生程序)或[源码构建](docs/install.md#源码构建与本地开发)。支持 macOS、Linux、Windows 的 x64 / ARM64。
 
+### 更新 CLI
+
+支持更新命令的版本可以直接执行：
+
+```bash
+shimo-net update --check  # 只检查是否有新版本
+shimo-net update          # 更新当前安装
+shimo-net version        # 确认更新后的版本
+```
+
+支持 `--json`。npm 安装会更新整个包，原生安装会校验并替换程序；不会降级或修改石墨登录、配置和助手技能。旧版若提示“未知命令 update”，请先按 [npm 更新说明](docs/npm.md#更新与指定版本)或[原生安装说明](docs/install.md#直接下载原生程序)升级一次。参数与返回字段见[更新命令](docs/cli-reference.md#更新-cli)。
+
 ## 常用命令
 
 将占位符换成你有权限访问的石墨链接；数据命令加 `--json` 便于解析。

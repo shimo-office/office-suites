@@ -225,5 +225,191 @@ class NpmLauncherTests(unittest.TestCase):
             self.assertEqual(launched.stdout, subprocess.check_output([NODE, '--version']))
 
 
+
+@unittest.skipUnless(NODE, 'Node is required for update execution tests')
+class NpmUpdateTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.prefix = self.root / 'prefix with spaces'
+        modules = self.prefix / ('node_modules' if os.name == 'nt' else 'lib/node_modules')
+        self.package = modules / 'shimo-net-cli'
+        (self.package / 'bin').mkdir(parents=True)
+        (self.package / 'binaries').mkdir()
+        system, arch = json.loads(subprocess.check_output([NODE, '-p',
+            'JSON.stringify([process.platform,process.arch])'], text=True))
+        system = {'win32': 'windows'}.get(system, system)
+        arch = {'x64': 'amd64', 'arm64': 'arm64'}[arch]
+        self.asset = f'shimo-net_{system}_{arch}' + ('.exe' if os.name == 'nt' else '')
+        binary = self.package / 'binaries' / self.asset
+        shutil.copyfile(NODE, binary)
+        binary.chmod(0o755)
+        (self.package / 'binaries/sha256.json').write_text(json.dumps({
+            self.asset: hashlib.sha256(binary.read_bytes()).hexdigest()}))
+        (self.package / 'package.json').write_text(json.dumps({'name': 'shimo-net-cli', 'version': '1.2.3'}))
+        self.launcher = self.package / 'bin/shimo-net.cjs'
+        self.launcher.write_text(packager.LAUNCHER)
+        self.fake_bin = self.root / 'npm tools'
+        cli = self.fake_bin / 'node_modules/npm/bin/npm-cli.js'
+        cli.parent.mkdir(parents=True)
+        cli.write_text(r"""
+const fs = require('fs');
+const a = process.argv.slice(2);
+fs.appendFileSync(process.env.UPDATE_LOG, JSON.stringify(a) + '\n');
+if (a[0] === 'root') { console.log(process.env.UPDATE_GLOBAL_ROOT); }
+else if (a[0] === 'view') { console.log(JSON.stringify(process.env.UPDATE_LATEST || '1.3.0')); }
+else if (a[0] === 'install') {
+  if (process.env.UPDATE_FAIL) { console.error('fixture install failed'); process.exit(9); }
+  if (!process.env.UPDATE_UNCHANGED) {
+    const file = process.env.UPDATE_PACKAGE + '/package.json';
+    const metadata = JSON.parse(fs.readFileSync(file));
+    metadata.version = process.env.UPDATE_LATEST || '1.3.0';
+    fs.writeFileSync(file, JSON.stringify(metadata));
+  }
+  if (process.env.UPDATE_CORRUPT) fs.writeFileSync(process.env.UPDATE_PACKAGE + '/binaries/sha256.json', '{}');
+  console.log('npm output must not pollute JSON');
+} else process.exit(8);
+""")
+        if os.name == 'nt':
+            (self.fake_bin / 'npm.cmd').write_text('@echo off\n')
+        else:
+            (self.fake_bin / 'npm').symlink_to(cli)
+        self.log = self.root / 'npm-log.jsonl'
+        preload = self.root / 'runtime-fixture.cjs'
+        preload.write_text(r"""
+if (require('path').basename(process.argv[1] || '') === 'version') {
+  const metadata = JSON.parse(require('fs').readFileSync(process.env.UPDATE_PACKAGE + '/package.json'));
+  console.log(JSON.stringify({version: process.env.UPDATE_RUNTIME_VERSION || metadata.version}));
+  process.exit(0);
+}
+""")
+        self.env = dict(os.environ, PATH=str(self.fake_bin), UPDATE_LOG=str(self.log),
+                        UPDATE_GLOBAL_ROOT=str(modules), UPDATE_PACKAGE=str(self.package),
+                        NODE_OPTIONS='--require=' + json.dumps(str(preload)))
+
+    def run_update(self, *args):
+        return subprocess.run([NODE, str(self.launcher), *args], env=self.env,
+                              capture_output=True, text=True, timeout=20)
+
+    def calls(self):
+        return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
+
+    def test_check_is_read_only_and_json_clean(self):
+        result = self.run_update('update', '--check', '--json')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertEqual(data['currentVersion'], '1.2.3')
+        self.assertEqual(data['latestVersion'], '1.3.0')
+        self.assertTrue(data['updateAvailable'])
+        self.assertFalse(data['updated'])
+        self.assertFalse(any(call[0] == 'install' for call in self.calls()))
+
+    def test_global_update_targets_original_prefix_and_verifies_version(self):
+        result = self.run_update('--json', 'update')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertTrue(data['updated'])
+        install = next(call for call in self.calls() if call[0] == 'install')
+        self.assertIn('--global', install)
+        self.assertEqual(install[install.index('--prefix') + 1], str(self.prefix.resolve()))
+        self.assertIn('shimo-net-cli@1.3.0', install)
+        self.assertIn('--registry=https://registry.npmjs.org', install)
+        self.assertIn('--ignore-scripts', install)
+
+    def test_project_install_never_becomes_global(self):
+        project = self.root / 'project'
+        destination = project / 'node_modules/shimo-net-cli'
+        destination.parent.mkdir(parents=True)
+        shutil.move(str(self.package), destination)
+        (project / 'package.json').write_text(json.dumps({'dependencies': {'shimo-net-cli': '^1.2.3'}}))
+        self.package = destination
+        self.launcher = destination / 'bin/shimo-net.cjs'
+        self.env['UPDATE_PACKAGE'] = str(destination)
+        result = self.run_update('update', '--json')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        install = next(call for call in self.calls() if call[0] == 'install')
+        self.assertNotIn('--global', install)
+        self.assertIn('--global=false', install)
+        self.assertIn('--workspaces=false', install)
+        self.assertEqual(install[install.index('--prefix') + 1], str(project.resolve()))
+
+    def test_newer_current_version_never_downgrades(self):
+        self.env['UPDATE_LATEST'] = '1.2.2'
+        result = self.run_update('update', '--json')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(json.loads(result.stdout)['updateAvailable'])
+        self.assertFalse(any(call[0] == 'install' for call in self.calls()))
+
+    def test_bad_arguments_fail_before_npm(self):
+        for args in [('update', '--force'), ('update', 'other'), ('update', '--check=true')]:
+            result = self.run_update(*args, '--json')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(json.loads(result.stderr)['ok'])
+        self.assertEqual(self.calls(), [])
+
+    def test_equal_version_is_noop(self):
+        self.env['UPDATE_LATEST'] = '1.2.3'
+        result = self.run_update('update', '--json')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(json.loads(result.stdout)['updated'])
+        self.assertFalse(any(call[0] == 'install' for call in self.calls()))
+
+    def test_versions_are_compared_numerically(self):
+        self.env['UPDATE_LATEST'] = '1.10.0'
+        result = self.run_update('update', '--check', '--json')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(json.loads(result.stdout)['updateAvailable'])
+
+    def test_npx_and_ambiguous_installations_are_not_modified(self):
+        for location in ['_npx/temp/node_modules/shimo-net-cli', 'unknown/node_modules/shimo-net-cli']:
+            with self.subTest(location=location):
+                destination = self.root / location
+                shutil.copytree(self.package, destination)
+                launcher = destination / 'bin/shimo-net.cjs'
+                result = subprocess.run([NODE, str(launcher), 'update', '--json'], env=self.env,
+                                        capture_output=True, text=True, timeout=20)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(json.loads(result.stderr)['ok'])
+                self.assertFalse(any(call[0] == 'install' for call in self.calls()))
+
+    def test_other_package_manager_project_is_not_modified(self):
+        project = self.root / 'yarn-project'
+        destination = project / 'node_modules/shimo-net-cli'
+        shutil.copytree(self.package, destination)
+        (project / 'package.json').write_text(json.dumps({'dependencies': {'shimo-net-cli': '^1.2.3'}}))
+        (project / 'yarn.lock').touch()
+        result = subprocess.run([NODE, str(destination / 'bin/shimo-net.cjs'), 'update', '--json'],
+                                env=self.env, capture_output=True, text=True, timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('package manager', json.loads(result.stderr)['error'])
+        self.assertEqual(self.calls(), [])
+
+    def test_explicit_non_npm_package_manager_is_not_modified_without_lockfile(self):
+        project = self.root / 'declared-project'
+        destination = project / 'node_modules/shimo-net-cli'
+        shutil.copytree(self.package, destination)
+        for manager in ['yarn@4.0.0', 'pnpm@9.0.0', 'bun@1.2.0']:
+            with self.subTest(manager=manager):
+                (project / 'package.json').write_text(json.dumps({
+                    'dependencies': {'shimo-net-cli': '^1.2.3'}, 'packageManager': manager}))
+                result = subprocess.run([NODE, str(destination / 'bin/shimo-net.cjs'), 'update', '--json'],
+                                        env=self.env, capture_output=True, text=True, timeout=20)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('package manager', json.loads(result.stderr)['error'])
+                self.assertEqual(self.calls(), [])
+
+    def test_invalid_registry_version_and_failed_install_are_errors(self):
+        for flag, value in [('UPDATE_LATEST', '1.3.0-beta'), ('UPDATE_FAIL', '1'),
+                            ('UPDATE_UNCHANGED', '1'), ('UPDATE_RUNTIME_VERSION', '0.0.1'), ('UPDATE_CORRUPT', '1')]:
+            with self.subTest(flag=flag):
+                self.env[flag] = value
+                (self.package / 'package.json').write_text(json.dumps({'name': 'shimo-net-cli', 'version': '1.2.3'}))
+                result = self.run_update('update', '--json')
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(json.loads(result.stderr)['ok'])
+                self.env.pop(flag)
+
+
 if __name__ == '__main__':
     unittest.main()

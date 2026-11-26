@@ -93,7 +93,9 @@ shimo-net version
 
 Windows：将下载的文件重命名为 `shimo-net.exe`，放到 `%LOCALAPPDATA%\shimo-net\`（目录不存在时先创建），把该目录加入用户 PATH，重新打开终端后运行 `shimo-net version`。
 
-升级时下载新版本并替换同一位置的程序，再用 `shimo-net version` 核对。这里下载的是原生程序；技能 ZIP 用于配置 AI 助手。
+支持更新命令的版本可执行 `shimo-net update`，或先用 `shimo-net update --check` 只检查。原生安装从本仓库 GitHub Release 获取当前系统与架构的最新稳定版，校验 SHA-256 并确认新版能输出正确版本后，再替换当前程序；下载或校验失败不覆盖旧程序。相同或更旧的版本不会安装。支持 `--json`，无需登录石墨，不修改服务地址、登录状态或助手技能。
+
+旧版提示“未知命令 update”时，先下载新版并替换同一位置的程序，再用 `shimo-net version` 核对。安装目录不可写或 Windows 文件占用时，按错误提示处理后重试，也可手动替换。技能 ZIP 用于配置 AI 助手，与 CLI 更新分开。
 
 ### 从仓库安装
 

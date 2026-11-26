@@ -17,7 +17,17 @@ shimo-net version
 
 ## 更新与指定版本
 
-更新到 npm 已发布的最新版本：
+支持更新命令的版本可直接执行：
+
+```bash
+shimo-net update --check  # 只检查新版本
+shimo-net update          # 更新当前安装
+shimo-net version
+```
+
+通过 npm 安装时，`update` 使用官方 npm registry 更新整个包，保留当前全局或项目内安装位置；不单独替换包内二进制。项目内安装可使用 `npm exec -- shimo-net update`。支持 `--json`；版本相同或本地版本更新时不降级。临时 `npx` 缓存等无法确认的安装方式会给出手动更新提示。 Windows 自定义全局目录如果与当前 npm 的全局目录不一致，也会提示用原安装命令更新。项目声明使用 pnpm、Yarn 或 Bun 时，请沿用对应包管理器。npm 更新失败按 npm 的安装语义处理，不提供原生程序替换的回退保证。
+
+旧版本提示“未知命令 update”时，先用下面的命令升级一次。也可随时用它更新到 npm 已发布的最新版本：
 
 ```bash
 npm install -g shimo-net-cli@latest --registry=https://registry.npmjs.org
