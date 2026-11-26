@@ -134,23 +134,31 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          if npm view "shimo-net-cli@${version}" version >/dev/null 2>&1; then
+          registry_version() {
+            # Poll the public registry, not fresh-but-stale local metadata.
+            # Bound each request so npm's own retries cannot defeat our deadline.
+            npm view "shimo-net-cli@${version}" version \
+              --registry=https://registry.npmjs.org/ --prefer-online \
+              --fetch-retries=0 --fetch-timeout=15000
+          }
+          if registry_version >/dev/null 2>&1; then
             echo "shimo-net-cli@${version} is already published; skipping"
             exit 0
           fi
           # The ./ prefix matters: without it npm reads the argument as the
           # GitHub shorthand owner/repo and fails with a git ls-remote error.
           if npm publish "./dist/shimo-net-cli-${version}.tgz" --access public; then
-            # The registry accepts the upload several seconds before the new
-            # version becomes readable, so poll instead of failing on the gap.
-            for attempt in $(seq 1 12); do
-              if npm view "shimo-net-cli@${version}" version; then
+            # npm processing exceeded the old 180s window in v0.9.34 and v0.9.36.
+            # Count request time as well as sleeps; never repeat the upload.
+            deadline=$((SECONDS + 900))
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              if registry_version; then
                 exit 0
               fi
-              echo "registry has not exposed ${version} yet (attempt ${attempt}); waiting"
+              echo "registry is still processing ${version}; waiting for visibility"
               sleep 15
             done
-            echo "::error::npm accepted ${version}, but registry visibility could not be verified within 180s; check registry availability and re-run this job"
+            echo "::error::npm accepted ${version}, but registry visibility could not be verified within 900s; check registry availability and re-run this job"
             exit 1
           fi
           # GitHub assets already exist, but npm is required for installation:
