@@ -139,8 +139,12 @@ Use the actual worksheet name in place of `Sheet1`.
 | `sheet-delete` | Same structure as `sheet-insert` | Deletes rows, not columns or worksheets. Confirm the target and affected range first. |
 | `sheet-format` | `{"range":"Sheet1!A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}` | Sets supported cell attributes through the API. Multiple attributes are submitted separately, not atomically. |
 | `sheet-merge` | `{"sheetName":"Sheet1","cell":"A1","rowspan":1,"colspan":3}` | Merges the specified cells. Verify both exported structure and the page. |
-| `mentions-list` | Uses the target file's default action context | Reads through same-origin fetch in a temporary local browser; rejected when browser use is disabled. |
-| `comments-list` | Uses the target file's default action context | Same browser requirement as mentions. Reading comments does not add or reply to them. |
+| `mentions-list` | Uses the target file's default action context | Reads the page signature and list over HTTP without launching a browser. For `/docs/`, returns `document URL#atGuid`. |
+| `comments-list` | Uses the target file's default action context | Reads over HTTP without launching a browser. For `/docs/`, returns `document URL#selectionGuid`, deduplicated by location. |
+
+`mentions-list/comments-list` require an existing login and never automatically launch a browser to obtain one; explicit `--relogin` retains the global login behavior. `--verify` and `--keep-open` do not launch a browser for these reads. Text output shows counts and unique links, with explicit empty-list and missing-location messages. `--json` preserves the original `result.ok` and `result.value`, adding `links`, `count`, and `unlocatedCount`. `verified:true` / `verifyWith:"http"` confirms the API read only, not browser navigation.
+
+Deep links are generated only for `/docs/`: mentions use `#atGuid` (not `?mentionAt=`); comments use `#selectionGuid` (already prefixed with `comment-`, not `commentGuid`). Other suites or missing valid location fields produce an explanation and the document URL instead of guessed anchors. Open the link in a new tab or reload so the editor runs its initial navigation.
 
 Ranges use `Worksheet!A1:C5`. Alternatively, provide `sheetName` together with a range lacking the worksheet prefix. The CLI combines them.
 
@@ -148,7 +152,7 @@ Ranges use `Worksheet!A1:C5`. Alternatively, provide `sheetName` together with a
 
 Spreadsheet API writes do not launch local Chrome by default; they return `verified:false` and a page-verification reminder. Complete verification requires **readback → XLSX export inspection → a real page screenshot**. HTTP 2xx, `applied`, or a values response alone is insufficient.
 
-Use `--verify` for CLI screenshots after selecting an approved browser route. `--no-verify` disables screenshot verification only. `--no-browser` or `SHIMO_NET_NO_BROWSER=1` prevents this entry point from launching a browser, so `mentions-list` and `comments-list` are rejected. Follow the [browser selection rules](scenarios.md#browser-selection).
+Use `--verify` for CLI screenshots after selecting an approved browser route. `--no-verify` disables screenshot verification only. `--no-browser` or `SHIMO_NET_NO_BROWSER=1` prevents this entry point from launching a browser; `mentions-list` and `comments-list` support this option. Follow the [browser selection rules](scenarios.md#browser-selection).
 
 ### Page actions
 

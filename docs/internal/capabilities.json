@@ -244,21 +244,21 @@
     {
       "id": 16,
       "name": "只看与我相关的",
-      "help": "API：mentions-list / comments-list / subscriptions；定位需页面",
+      "help": "API：mentions-list / comments-list / subscriptions；提及与评论返回定位链接",
       "capabilities": [
         {
           "id": "16.1",
           "name": "读取提及",
           "mode": "API",
           "entry": "editor --action mentions-list",
-          "limits": "返回真实用户/位置标识；实际定位需页面。"
+          "limits": "使用已有登录态直接 HTTP 读取，不启动浏览器；轻文档返回 #atGuid 链接，JSON 保留原始数据。"
         },
         {
           "id": "16.2",
           "name": "读取相关评论",
           "mode": "API",
           "entry": "editor --action comments-list",
-          "limits": "跨文件汇总需扫描；不能猜正文位置。"
+          "limits": "直接 HTTP 读取；轻文档返回 #selectionGuid 链接并按位置去重。跨文件汇总需扫描；缺少定位信息时不猜。"
         },
         {
           "id": "16.3",

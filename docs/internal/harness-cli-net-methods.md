@@ -51,11 +51,11 @@
 
 | 分类 | 动作 |
 |---|---|
-| API 路径 | `sheet-append`, `sheet-delete`, `sheet-format`, `sheet-insert`, `sheet-merge`, `sheet-update`, `sheet-values` |
-| 需要浏览器上下文 | `mentions-list`, `comments-list`, `history-show`, `history-hide`, `comments-show`, `comments-hide` |
+| API 路径 | `mentions-list`, `comments-list`, `sheet-append`, `sheet-delete`, `sheet-format`, `sheet-insert`, `sheet-merge`, `sheet-update`, `sheet-values` |
+| 需要浏览器上下文 | `history-show`, `history-hide`, `comments-show`, `comments-hide` |
 | 仅页面处理；CLI 不直接执行 | `comment-add`, `find`, `page-width`, `print`, `replace-all`, `save-version`, `sheet-filter`, `sheet-freeze`, `sheet-sort`, `sheet-validation` |
 
-`sheet-values` 读取；`sheet-update/append/insert/delete/format/merge` 写入。`mentions-list/comments-list` 虽是读取，当前实现仍依赖临时浏览器。历史/评论面板 show/hide 只是面板显示，不代表保存版本或提交评论。参数见[编辑器接口](../cli-reference.md#编辑器接口与页面入口)。
+`sheet-values` 读取；`sheet-update/append/insert/delete/format/merge` 写入。`mentions-list/comments-list` 使用已有登录态直接 HTTP 读取，返回轻文档定位链接，不启动浏览器；JSON 保留原始数据。历史/评论面板 show/hide 只是面板显示，不代表保存版本或提交评论。参数见[编辑器接口](../cli-reference.md#编辑器接口与页面入口)。
 
 ## phase3 全部动作
 

@@ -41,15 +41,6 @@ func TestPhase2ExpressionUsesWhitelistedHistoryAction(t *testing.T) {
 	}
 }
 
-func TestPhase2ExpressionUsesDocumentAPIs(t *testing.T) {
-	expr := phase2Expression("api:mention-at-list", "[]", "wv67RM7GKLCGNEWD")
-	for _, want := range []string{"mention-at-list", "credentials", "wv67RM7GKLCGNEWD"} {
-		if !contains(expr, want) {
-			t.Errorf("API expression missing %q: %s", want, expr)
-		}
-	}
-}
-
 func TestPhase2ExpressionVerifiesAuthenticatedPage(t *testing.T) {
 	expr := phase2Expression("browser.verify", "[]", "demo")
 	for _, want := range []string{"location.pathname", "/login", "验证码登录", "页面未登录", "ok:true"} {

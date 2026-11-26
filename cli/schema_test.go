@@ -25,13 +25,18 @@ func TestSchemaDisclosesBrowserAndCredentialRequirements(t *testing.T) {
 		t.Fatal("credential file fallback is missing")
 	}
 	actions := s["editor"].(map[string]any)["browserRequiredActions"].([]string)
-	for _, want := range []string{"mentions-list", "comments-list", "history-show", "history-hide", "comments-show", "comments-hide"} {
+	for _, want := range []string{"history-show", "history-hide", "comments-show", "comments-hide"} {
 		found := false
 		for _, action := range actions {
 			found = found || action == want
 		}
 		if !found {
 			t.Errorf("browser requirement missing for %s", want)
+		}
+	}
+	for _, action := range actions {
+		if action == "mentions-list" || action == "comments-list" {
+			t.Errorf("HTTP read incorrectly requires browser: %s", action)
 		}
 	}
 }

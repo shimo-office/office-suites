@@ -142,12 +142,16 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 | `sheet-delete` | 与插入行相同 | 删除指定行；不是删除列或删除工作表。先确认目标及影响范围。 |
 | `sheet-format` | `{"range":"工作表1!A1:C1","attrs":{"background":"#D32F2F","color":"#FFFFFF","bold":true}}` | 单元格底色、字体颜色等走 API。允许属性见下文；多属性分次提交，不宣称原子性。 |
 | `sheet-merge` | `{"sheetName":"工作表1","cell":"A1","rowspan":1,"colspan":3}` | 合并指定单元格范围；核对导出结构和页面。 |
-| `mentions-list` | 按动作默认读取目标文件 | 通过临时本地浏览器的同源 fetch 读取；禁用浏览器时拒绝，定位依套件页面上下文。 |
-| `comments-list` | 按动作默认读取目标文件 | 通过临时本地浏览器的同源 fetch 读取；禁用浏览器时拒绝，不代表添加或回复已完成。 |
+| `mentions-list` | 按动作默认读取目标文件 | 通过 HTTP 读取页面签名和提及列表；不启动浏览器。轻文档输出 `文档地址#atGuid`。 |
+| `comments-list` | 按动作默认读取目标文件 | 通过 HTTP 读取页面签名和评论列表；不启动浏览器。轻文档输出 `文档地址#selectionGuid`，同一位置只输出一个链接。 |
+
+`mentions-list/comments-list` 使用已有登录态，未登录时提示登录，不自动打开浏览器；显式 `--relogin` 仍按全局规则执行登录。即使传入 `--verify` 或 `--keep-open`，这两个读取动作也不启动浏览器。文本输出条数和去重后的定位链接；空列表或缺少定位字段会明确提示。`--json` 保留 `result.ok` 和 `result.value` 原始数据，并增加 `links`、`count`、`unlocatedCount`；`verified:true` / `verifyWith:"http"` 仅表示 API 读取成功，不表示已验证页面跳转。
+
+定位链接目前仅为 `/docs/` 轻文档生成：提及使用 `#atGuid`（不是 `?mentionAt=`），评论使用 `#selectionGuid`（字段已含 `comment-`，不是 `commentGuid`）。其他套件或缺少有效定位字段时不猜测链接，文本会提示并给出文档地址。建议新标签页打开或刷新链接，让编辑器初始化时执行定位。
 
 区域格式为 `工作表名!A1:C5`；也可同时提供 `sheetName` 和不带表名的 `range`，CLI 会拼接。`sheet-format` 只接受已验证的 `background/color/bold/italic/underline`；字体大小、字体名称、对齐、数字格式、列宽等不在该动作支持范围内，会返回错误。文稿或幻灯片同名格式能力不能外推为电子表格 API 支持。
 
-表格 API 写入默认不启动本地 Chrome，返回 `verified:false` 和页面核验提示。完成要求是 **读回 → 导出 XLSX 核对目标单元格/结构 → 真实页面截图**；HTTP 2xx、`applied` 或 values 中看不到变化都不是完整物证。需 CLI 截图且浏览器方案已确定时使用 `--verify`；`--no-verify` 只关闭截图验证；`--no-browser` / `SHIMO_NET_NO_BROWSER=1` 禁止此入口启动浏览器，所以 mentions-list/comments-list 会明确拒绝。浏览器选择只遵循 [场景清单](scenarios.md#浏览器优先级)。
+表格 API 写入默认不启动本地 Chrome，返回 `verified:false` 和页面核验提示。完成要求是 **读回 → 导出 XLSX 核对目标单元格/结构 → 真实页面截图**；HTTP 2xx、`applied` 或 values 中看不到变化都不是完整物证。需 CLI 截图且浏览器方案已确定时使用 `--verify`；`--no-verify` 只关闭截图验证；`--no-browser` / `SHIMO_NET_NO_BROWSER=1` 禁止此入口启动浏览器；mentions-list/comments-list 支持此选项。浏览器选择只遵循 [场景清单](scenarios.md#浏览器优先级)。
 
 ### 页面动作
 

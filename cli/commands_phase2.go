@@ -93,6 +93,9 @@ func (a *App) cmdPhase2() error {
 	if !ok {
 		return fmt.Errorf("未知扩展动作 %q；可用动作：%s", action, strings.Join(phase2ActionNames(), ", "))
 	}
+	if strings.HasPrefix(method, "api:") {
+		return a.cmdEditorRead(action, method)
+	}
 	phase2KeepBrowserOpen = phase2ViewAction(action)
 	if a.has("--close") {
 		phase2KeepBrowserOpen = false
@@ -122,12 +125,7 @@ func (a *App) cmdPhase2() error {
 		shot = absolute
 	}
 	var value any
-	if strings.HasPrefix(method, "api:") {
-		// These endpoints need the editor's same-origin signature headers; run
-		// them through the page fetch path. They are read-only and do not need a
-		// screenshot, so --no-verify must not block them.
-		value, err = phase2RunBrowser(target, method, args, "")
-	} else if strings.HasPrefix(method, "http:") {
+	if strings.HasPrefix(method, "http:") {
 		// An API response proves only that the server accepted the mutation. The
 		// user-facing result also requires a visual check in the real editor.
 		// Open the target page in the isolated browser, inject the CLI session
@@ -182,16 +180,12 @@ func (a *App) cmdPhase2() error {
 			out["note"] = "直接调用套件前端 SDK；结果以接口返回为准"
 		}
 	}
-	if strings.HasPrefix(method, "api:") {
-		out["verified"] = true
-		out["verifyWith"] = "page-fetch"
-		out["note"] = "只读 API 通过页面同源 fetch 执行；无需截图"
-	} else if !cliBrowserVerification(a) {
+	if !cliBrowserVerification(a) {
 		out["verified"] = false
 		out["verifyWith"] = "host-browser"
 		out["note"] = "默认不启动 CLI 本地浏览器；结果待页面核验，浏览器选择见 docs/scenarios.md#浏览器优先级；需要 CLI 截图时加 --verify"
 	}
-	if shot != "" && cliBrowserVerification(a) && !strings.HasPrefix(method, "api:") {
+	if shot != "" && cliBrowserVerification(a) {
 		out["screenshot"] = shot
 	}
 	if phase2KeptProfile != "" {
@@ -202,9 +196,7 @@ func (a *App) cmdPhase2() error {
 	if a.JSON {
 		return a.printJSON(out)
 	}
-	if strings.HasPrefix(method, "api:") {
-		fmt.Printf("只读 API 已读取：%s\n", action)
-	} else if screenshot, ok := out["screenshot"].(string); ok {
+	if screenshot, ok := out["screenshot"].(string); ok {
 		if strings.HasPrefix(method, "sdk.") {
 			fmt.Printf("前端 SDK 动作已执行：%s\n截图：%s\n", action, terminalText(screenshot))
 		} else {
@@ -779,15 +771,6 @@ func phase2Expression(method, argsJSON, guid string) string {
 	}
 	if method == "browser.verify" {
 		return `(async()=>{const path=location.pathname||"";const text=(document.body?.innerText||"").trim();if(path==="/login"||text.includes("验证码登录")||text.includes("欢迎使用石墨办公"))return {ok:false,error:"页面未登录，无法完成视觉核验"};if(document.readyState!=="complete")return {ok:false,error:"页面尚未渲染完成，不能作为视觉核验证据"};if(!document.querySelector("canvas")&&text.length<20)return {ok:false,error:"页面尚未渲染完成，不能作为视觉核验证据"};return {ok:true,textLength:text.length,canvas:document.querySelectorAll("canvas").length};})()`
-	}
-	if strings.HasPrefix(method, "api:") {
-		endpoint := map[string]string{
-			"api:mention-at-list": "/sdk/v2/collab-files/%s/mention-at-list",
-			"api:comment-list":    "/sdk/v2/collab-files/%s/comment-list",
-		}[method]
-		pathJSON, _ := json.Marshal(fmt.Sprintf(endpoint, "__FILE_GUID__"))
-		guidJSON, _ := json.Marshal(guid)
-		return fmt.Sprintf(`(async()=>{const path=%s.replace("__FILE_GUID__",encodeURIComponent(%s));const r=await fetch(path,{credentials:"include"});const text=await r.text();let body=text;try{body=JSON.parse(text)}catch{};if(!r.ok)return {ok:false,error:"HTTP "+r.status,body};return {ok:true,value:body};})()`, string(pathJSON), string(guidJSON))
 	}
 	parts := strings.Split(method, ".")
 	pathJSON, _ := json.Marshal(parts)

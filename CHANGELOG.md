@@ -564,3 +564,5 @@
 - 新增 `shimo-net update [--check] [--json]`：按 npm / 原生安装方式更新当前 CLI，只升级到最新稳定版本，不降级。
 - 原生更新使用 GitHub Release SHA-256 校验及版本运行检查；下载或验证失败保留旧程序。npm 安装更新整个包，保留全局或项目安装位置。
 - 更新不修改石墨登录、服务地址和助手技能；旧版 CLI 需要先按原安装方式升级一次才能使用新命令。
+
+- `editor --action mentions-list/comments-list` 改为直接 HTTP 读取页面签名与 API，不启动浏览器；轻文档输出提及 `#atGuid` 和评论 `#selectionGuid` 定位链接。JSON 保留原始结果并增加链接与计数，同一评论位置去重；缺少定位信息时明确提示。

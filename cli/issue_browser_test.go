@@ -21,7 +21,7 @@ func TestIssueBrowserActionsRespectNoBrowserBeforeTargetLookup(t *testing.T) {
 		calls++
 		return nil, errors.New("unexpected target lookup")
 	})}
-	for _, action := range []string{"mentions-list", "comments-list"} {
+	for _, action := range []string{"history-show", "history-hide", "comments-show", "comments-hide"} {
 		for _, flag := range []string{"--no-browser", "env"} {
 			t.Run(action+flag, func(t *testing.T) {
 				t.Setenv("SHIMO_NET_NO_BROWSER", "")

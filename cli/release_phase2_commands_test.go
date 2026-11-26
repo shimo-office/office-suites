@@ -144,7 +144,7 @@ func TestReleasePhase2FormattingStopsAtFirstFailedAttribute(t *testing.T) {
 }
 
 func TestReleasePhase2BrowserBoundaryClassification(t *testing.T) {
-	for _, mode := range []string{"api-json", "api-text", "panel-json", "panel-text", "http-verified", "http-text", "browser-failure", "panel-no-verify"} {
+	for _, mode := range []string{"panel-json", "panel-text", "http-verified", "http-text", "browser-failure", "panel-no-verify"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("SHIMO_NET_COOKIE", "sid=synthetic")
 			t.Setenv("SHIMO_NET_NO_BROWSER", "")
@@ -157,9 +157,6 @@ func TestReleasePhase2BrowserBoundaryClassification(t *testing.T) {
 				browserCalls++
 				if mode == "browser-failure" {
 					return nil, errors.New("synthetic browser verification failed")
-				}
-				if strings.HasPrefix(method, "api:") && shot != "" {
-					t.Error("read API requested screenshot")
 				}
 				if shot != "" {
 					if err := os.WriteFile(shot, []byte("synthetic screenshot boundary"), 0600); err != nil {
@@ -174,10 +171,6 @@ func TestReleasePhase2BrowserBoundaryClassification(t *testing.T) {
 			})}
 			action := "sheet-update"
 			payload := `{"range":"Sheet1!A1","resource":{"values":[[1]]}}`
-			if strings.HasPrefix(mode, "api") {
-				action = "mentions-list"
-				payload = `{}`
-			}
 			if strings.HasPrefix(mode, "panel") {
 				action = "history-show"
 				payload = `[]`
@@ -211,9 +204,6 @@ func TestReleasePhase2BrowserBoundaryClassification(t *testing.T) {
 				if strings.Contains(mode, "panel") && !strings.Contains(stdout, "前端 SDK 动作已执行") {
 					t.Fatal(stdout)
 				}
-				if strings.Contains(mode, "api") && !strings.Contains(stdout, "只读 API 已读取") {
-					t.Fatal(stdout)
-				}
 				if mode == "http-text" && !strings.Contains(stdout, "请核对页面结果") {
 					t.Fatal(stdout)
 				}
@@ -222,9 +212,6 @@ func TestReleasePhase2BrowserBoundaryClassification(t *testing.T) {
 			var result map[string]any
 			_ = json.Unmarshal([]byte(stdout), &result)
 			if strings.HasPrefix(mode, "panel") && (result["actionVerified"] != false || result["scope"] != "page-sdk") {
-				t.Fatal(result)
-			}
-			if strings.HasPrefix(mode, "api") && (result["verifyWith"] != "page-fetch" || result["screenshot"] != nil) {
 				t.Fatal(result)
 			}
 		})
