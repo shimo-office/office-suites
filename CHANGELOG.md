@@ -571,7 +571,7 @@
 
 ### 修复：应用表格
 
-- `table-field-add` / `table-record-add` 的 `viewTargetGuids` 只提交 Grid 视图：表里同时存在看板视图时不再返回 HTTP 400（此前删掉看板才能写入）。
+- `table-field-add` / `table-record-add` 的 `viewTargetGuids` 只提交当前激活视图的锚点：表里同时存在看板视图、或多个 Grid 视图时不再返回 HTTP 400（服务端要求 viewTargetGuids 仅含单一视图，此前把每个 Grid 视图都列进去会报 `invalid viewTargetGuids`）。
 - SDK 非 2xx 响应回显服务端 `errorCode`/`error`/响应正文，不再只有一句“SDK 请求失败（HTTP 400）”。
 - 表内没有任何 Grid 视图（只有看板/日历）时也能执行写动作：就绪判定接受任一原生视图渲染，不再空等 5 分钟。
 - 视图展示验收按“可见记录子集”核对：每条已渲染记录都必须与独立 API 一致，长表格虚拟化未挂载的行不再判失败，结果用 `virtualized` 与记录数标注。

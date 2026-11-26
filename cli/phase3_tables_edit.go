@@ -230,48 +230,38 @@ func preparePhase3TableFields(p *phase3TableEditPlan, payload, before map[string
 		cols = append(cols, map[string]any{"guid": id, "name": name, "type": typ, "isPrimary": false, "props": props})
 		fields[id] = map[string]any{"name": name, "type": typ, "isPrimary": false, "props": props, "desc": "", "formQuestionGuid": ""}
 	}
-	return p.add("CreateColumn", map[string]any{"tableGuid": p.TableGuid, "viewGuid": viewGuid, "viewTargetGuids": phase3TableAppendTargets(before, "fields", p.CreatedIDs), "cols": cols})
+	return p.add("CreateColumn", map[string]any{"tableGuid": p.TableGuid, "viewGuid": viewGuid, "viewTargetGuids": phase3TableAppendTargets(before, "fields", viewGuid, p.CreatedIDs), "cols": cols})
 }
-// phase3TableAppendTargets maps each writable view to the column/row anchors
-// the SDK expects. Only grid views accept a column anchor: submitting a Kanban
-// or Gantt view here makes CreateColumn fail with HTTP 400, so those views are
-// left out instead of poisoning the whole request.
-func phase3TableAppendTargets(table map[string]any, key string, ids []string) map[string]any {
-	out := map[string]any{}
-	all := []map[string]any{}
+// phase3TableAppendTargets returns the single viewTargetGuids entry the SDK
+// expects for CreateColumn/CreateRow: a map keyed only by the active view,
+// whose value anchors the new columns/rows at the end of that view's member
+// order. The server rejects a map that lists several views here (HTTP 400
+// "invalid viewTargetGuids"), so we emit exactly the active view rather than
+// every grid view; a Kanban/Gantt active view is never used for these writes
+// because the caller already resolves the active view to a grid.
+func phase3TableAppendTargets(table map[string]any, key, viewGuid string, ids []string) map[string]any {
+	items := []any{}
 	for _, v := range phase3TableRows(table, "views") {
 		view, _ := v.(map[string]any)
-		if view == nil || str(view, "guid") == "" {
+		if view == nil || str(view, "guid") != viewGuid {
 			continue
 		}
-		all = append(all, view)
+		items, _ = view[key].([]any)
+		break
 	}
-	grid := []map[string]any{}
-	for _, view := range all {
-		if str(view, "type") == "Grid" {
-			grid = append(grid, view)
+	last := ""
+	if len(items) > 0 {
+		last, _ = items[len(items)-1].(string)
+	}
+	anchors := make([]string, len(ids))
+	for i := range anchors {
+		if i == 0 {
+			anchors[i] = last
+		} else {
+			anchors[i] = ids[i-1]
 		}
 	}
-	if len(grid) == 0 {
-		grid = all
-	}
-	for _, view := range grid {
-		items, _ := view[key].([]any)
-		last := ""
-		if len(items) > 0 {
-			last, _ = items[len(items)-1].(string)
-		}
-		anchors := make([]string, len(ids))
-		for i := range anchors {
-			if i == 0 {
-				anchors[i] = last
-			} else {
-				anchors[i] = ids[i-1]
-			}
-		}
-		out[str(view, "guid")] = anchors
-	}
-	return out
+	return map[string]any{viewGuid: anchors}
 }
 func phase3TableValues(values map[string]any, fields map[string]map[string]any) error {
 	if len(values) == 0 {
@@ -338,7 +328,7 @@ func preparePhase3TableRecords(p *phase3TableEditPlan, payload, before map[strin
 		rows = append(rows, row)
 		expected[id] = phase3TableCopy(m)
 	}
-	return p.add("CreateRow", map[string]any{"tableGuid": p.TableGuid, "viewGuid": viewGuid, "viewTargetGuids": phase3TableAppendTargets(before, "records", p.CreatedIDs), "rows": rows})
+	return p.add("CreateRow", map[string]any{"tableGuid": p.TableGuid, "viewGuid": viewGuid, "viewTargetGuids": phase3TableAppendTargets(before, "records", viewGuid, p.CreatedIDs), "rows": rows})
 }
 func preparePhase3TableConditional(p *phase3TableEditPlan, payload, before map[string]any, viewGuid string) error {
 	where, ok := payload["where"].(map[string]any)

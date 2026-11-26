@@ -47,7 +47,8 @@ func preparePhase3TableReference(payload map[string]any, baseGuid string, tables
 	p.CreatedIDs = []string{p.FieldGuid, p.ReferenceFieldGuid}
 	field := map[string]any{"guid": p.FieldGuid, "name": p.Name, "type": "ReferenceRecord", "isPrimary": false, "props": map[string]any{"baseGuid": "", "tableGuid": p.ReferenceTableGuid, "isMultiple": true, "isRefToView": false, "refViewGuid": "", "error": "", "foreignTableColumnGuid": p.ReferenceFieldGuid}}
 	view := views[0].(map[string]any)
-	return p, p.add("CreateColumn", map[string]any{"tableGuid": p.TableGuid, "viewGuid": str(view, "guid"), "viewTargetGuids": phase3TableAppendTargets(source, "fields", []string{p.FieldGuid}), "cols": []any{field}})
+	viewGuid := str(view, "guid")
+	return p, p.add("CreateColumn", map[string]any{"tableGuid": p.TableGuid, "viewGuid": viewGuid, "viewTargetGuids": phase3TableAppendTargets(source, "fields", viewGuid, []string{p.FieldGuid}), "cols": []any{field}})
 }
 
 func verifyPhase3TableReference(before, after map[string]map[string]any, p phase3BaseEditPlan) error {

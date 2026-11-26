@@ -271,3 +271,30 @@ func tableFixtureForSnapshot() map[string]any {
 	}
 	return table
 }
+
+// viewTargetGuids 必须只含当前激活视图：服务端对「列出多个视图」返回
+// HTTP 400 invalid viewTargetGuids，且看板/日历视图不接受列锚点。
+func TestPhase3TableAppendTargetsSingleActiveView(t *testing.T) {
+	table := map[string]any{
+		"guid":  "t1",
+		"views": []any{
+			map[string]any{"guid": "kanban", "type": "Kanban", "fields": []any{"f1", "f2"}, "records": []any{"r1", "r2"}},
+			map[string]any{"guid": "grid1", "type": "Grid", "fields": []any{"f1", "f2"}, "records": []any{"r1", "r2"}},
+			map[string]any{"guid": "grid2", "type": "Grid", "fields": []any{"f2", "f1"}, "records": []any{"r2", "r1"}},
+		},
+	}
+	got := phase3TableAppendTargets(table, "fields", "grid1", []string{"f3"})
+	if len(got) != 1 {
+		t.Fatalf("应只返回激活视图一个键，实际 %d：%v", len(got), got)
+	}
+	anchors, ok := got["grid1"].([]string)
+	if !ok || len(anchors) != 1 || anchors[0] != "f2" {
+		t.Fatalf("grid1 锚点应为 f2，实际 %v", got)
+	}
+	// 多字段时：第一个锚点是视图末位字段，其余用前一个新字段 guid 补全。
+	multi := phase3TableAppendTargets(table, "fields", "grid2", []string{"f3", "f4"})
+	anchors2, _ := multi["grid2"].([]string)
+	if len(anchors2) != 2 || anchors2[0] != "f1" || anchors2[1] != "f3" {
+		t.Fatalf("grid2 多字段锚点应为 [f1 f3]，实际 %v", multi)
+	}
+}
