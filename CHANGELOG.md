@@ -538,3 +538,13 @@
 - 响应 Cookie 没有合法 Path 时使用实际请求目录，保留编码路径与同名 Cookie 的删除范围，避免凭据作用范围扩大。
 
 验证：Windows/Linux 全量测试及 CodeQL 全部通过；本地 Go 覆盖率 81.59%，76 项 Python 测试、静态检查、构建和文档检查通过。损坏会话文件需要检查处理，不提供静默覆盖恢复；显式环境变量覆盖语义保持不变。
+
+## 0.9.36 — 2026-11-26
+
+- `share` 恢复为可执行：支持 7 档分享权限（private / readonly / commentable / editable / enterprise_*），写入后重新读取 shareMode 验收；`import --share` 同步生效。
+- `get --format` 按文件类型导出：文档 md/docx/pdf/jpg（`--embed-images false` 关闭内嵌图片）、文稿 docx/wps/pdf、表格 xlsx、幻灯片 pptx/pdf；不支持的组合在请求前拒绝。
+- `pull` 把服务端「暂不支持该导出类型」（3613）单独计数，不再让整个批次以失败退出。
+- 新增 `preview`：输出固定 `/files/<guid>` 预览地址。
+- `editor` 的 history-show / comments-show 改调套件根级 SDK 并等待面板渲染；新增 `save-version`（createRevision）与 `print`（sdk.print）动作。
+- 新增轻文档 `doc-page-width`（标准/加宽/自适应），以纸张容器 `page-width-*` 类验收。
+- 修正误报：`doc-image` 导出引用异步滞后不再判失败；`document-paragraph` 非目标段字符属性快照差异降级；`document-graphic` 仅在正文变化时失败，版式重排记为告警；幻灯片主题允许对象层级重排。

@@ -38,6 +38,7 @@ shimo-net phase3 https://shimo.net/docs/<guid> --action doc-format \
 | `doc-format` | `{"paragraph":3,"text":"整段原文","start":4,"end":10,"attrs":{...}}` 或 `{"scope":"all","attrs":{...}}` | `attrs` 可含 `bold` `italic` `underline` `strike`（布尔）、`fontSize`（6–200）、`fontFamily`、`color`、`highlight`（`#RRGGBB`，不接受 `NONE`）。`scope=all` 表示全文，见下。 |
 | `doc-paragraph` | `{"paragraph":3,"text":"整段原文","attrs":{...}}` | `heading`（0–6、`title`、`subtitle`）、`align`（`left/center/right/justify`）、`list`（`ordered/unordered/todo/none`）、`indent`（±1–8，按次增减）、`lineHeight`（`1.0/1.15/1.5/2.0/2.5/3.0`）。 |
 | `doc-replace` | `{"find":"旧文本","replace":"新文本","scope":"all"}` | `scope` 取 `all` 或 `first`；`replace` 必须显式给出，允许空串。 |
+| `doc-page-width` | `{"width":"standard"}` | `standard`（标准）/ `wide`（加宽）/ `full`（自适应）。控件只在标题上方 hover 出现；以纸张容器 `page-width-*` 类验收。 |
 
 `paragraph` 是从 1 起的段落序号，按正文里所有 `p` 的出现顺序编号，表格单元格内的段落也计入；`text` 必须是该段完整正文，用于写入前核对。字符范围按 Unicode 码点计，`start` 与 `end` 必须同时给出。
 
@@ -57,7 +58,18 @@ shimo-net phase3 https://shimo.net/docs/<guid> --action doc-format \
 
 `verticalAlign`（上下标）在轻文档上没有工具栏入口，参数层直接拒绝，需要时用文稿的 `document-format`。色板是固定集合，找不到请求色时会返回当前可用色值；色板没有「无」格，因此 `color`/`highlight` 不接受 `NONE`（清除靠页面上人工操作，接口上明说而不是假装成功）。选中文字后在工具栏点下拉不会丢失选区，编辑器会保留最后一次选区。
 
-未命令化的轻文档能力：合并/拆分单元格与列宽、图片裁剪与环绕方式、页面宽度、评论与提及、预览与打印，仍需在页面人工操作；这些场景当前不由 `doc-*` 覆盖。
+未命令化的轻文档能力：合并/拆分单元格与列宽、图片裁剪与环绕方式、评论与提及，仍需在页面人工操作。
+
+跨套件的通用入口：
+
+```bash
+shimo-net share <链接> readonly          # 7 档权限，写完重新读取 shareMode
+shimo-net get <链接> --format pdf        # 文档 md/docx/pdf/jpg；文稿 docx/wps/pdf；表格 xlsx；幻灯片 pptx/pdf
+shimo-net get <链接> --format md --embed-images false
+shimo-net preview <链接>                 # 输出 /files/<guid>
+shimo-net editor <链接> --action print --verify
+shimo-net editor <链接> --action save-version --payload '{"name":"版本名"}' --verify
+```
 
 ## 幻灯片
 

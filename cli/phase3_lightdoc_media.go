@@ -447,8 +447,17 @@ const ev=new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:tr
 	if err != nil {
 		return run.fail(fmt.Errorf("导出写后内容失败：%w", err))
 	}
-	if !strings.Contains(afterMD, "data:image/") && !strings.Contains(afterMD, "![](") {
-		return run.fail(errors.New("导出物里没有出现图片引用，插入可能未落库"))
+	// 导出服务异步生成快照：刚插入的图片可能还没进这一次的 md。页面新增图片节点
+	// 与刷新后数量已能证明写入生效，导出引用只作旁证，缺失时补一次导出再判定。
+	exportReferenced := strings.Contains(afterMD, "data:image/") || strings.Contains(afterMD, "![](")
+	if !exportReferenced {
+		for i := 0; i < 2 && !exportReferenced; i++ {
+			time.Sleep(2 * time.Second)
+			if p, md, e := a.lightDocExportMarkdown(guid, filepath.Join(dir, fmt.Sprintf("after-retry%d", i+1))); e == nil {
+				afterPath, afterMD = p, md
+				exportReferenced = strings.Contains(md, "data:image/") || strings.Contains(md, "![](")
+			}
+		}
 	}
 	if err = b.reloadLightDoc(userID); err != nil {
 		return run.fail(err)
@@ -465,8 +474,8 @@ const ev=new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:tr
 	}
 	result := map[string]any{"ok": true, "verified": true, "action": "doc-image", "target": target, "spec": spec,
 		"imagesBefore": before, "imagesAfter": after, "imagesAfterReload": reloaded,
-		"afterArtifact": afterPath, "evidenceDir": dir,
-		"verificationScope": "新增图片节点、导出物引用与刷新后数量；轻文档把图片存成内嵌 data URI，不走 CDN",
+		"afterArtifact": afterPath, "evidenceDir": dir, "exportReferencedImage": exportReferenced,
+		"verificationScope": "新增图片节点、刷新后数量与导出引用（异步导出可能滞后，缺失时以页面节点+刷新为准）",
 		"storageNote":       "图片以内嵌 base64 保存，大图会显著增大文档体积"}
 	if err = phase3WriteEvidence(filepath.Join(dir, "result.json"), result); err != nil {
 		return err

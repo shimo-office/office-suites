@@ -52,9 +52,9 @@ func TestIssuePanelActionsRejectIncompleteWorkflowBeforeLookup(t *testing.T) {
 		calls++
 		return nil, errors.New("unexpected target lookup")
 	})}
-	for _, action := range []string{"save-version", "comment-add", "print"} {
+	for _, action := range []string{"comment-add"} {
 		a := newApp([]string{"editor", "not-a-real-guid", "--action", action, "--verify"})
-		if err := a.cmdPhase2(); err == nil || !strings.Contains(err.Error(), "未保存、未提交、未打印") {
+		if err := a.cmdPhase2(); err == nil || !strings.Contains(err.Error(), "未执行") {
 			t.Errorf("%s misrepresents panel-only workflow: %v", action, err)
 		}
 	}
@@ -69,7 +69,7 @@ func TestIssueAvailableActionsAreExecutable(t *testing.T) {
 	if err == nil {
 		t.Fatal("unknown action accepted")
 	}
-	for _, page := range []string{"find", "replace-all", "page-width", "sheet-freeze", "sheet-sort", "sheet-filter", "sheet-validation", "save-version", "comment-add", "print"} {
+	for _, page := range []string{"find", "replace-all", "page-width", "sheet-freeze", "sheet-sort", "sheet-filter", "sheet-validation", "comment-add"} {
 		if strings.Contains(err.Error(), page) {
 			t.Errorf("unsupported %s advertised: %v", page, err)
 		}

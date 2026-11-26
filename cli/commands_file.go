@@ -15,6 +15,24 @@ import (
 	"time"
 )
 
+// exportFormatOptions 是按文件类型可用的导出格式。服务端对不支持的组合返回
+// 3613「暂不支持该导出类型」，CLI 在发请求前先按这张表拒绝，避免无意义调用。
+var exportFormatOptions = map[string][]string{
+	"document":     {"md", "docx", "pdf", "jpg"},
+	"documentPro":  {"docx", "wps", "pdf"},
+	"spreadsheet":  {"xlsx"},
+	"presentation": {"pptx", "pdf"},
+}
+
+func exportFormatAllowed(fileType, format string) bool {
+	for _, v := range exportFormatOptions[fileType] {
+		if v == format {
+			return true
+		}
+	}
+	return false
+}
+
 func (a *App) exportFile(guid, prefer string, fileType ...string) (map[string]string, error) {
 	alts := map[string][]string{
 		"document":     {"md", "docx", "pdf"},
@@ -34,7 +52,11 @@ func (a *App) exportFile(guid, prefer string, fileType ...string) (map[string]st
 	}
 	last := ""
 	for _, typ := range types {
-		r, err := a.authRequest("/files/export/"+url.PathEscape(guid), "POST", map[string]any{"type": typ}, nil, nil)
+		body := map[string]any{"type": typ}
+		if typ == "md" && len(fileType) > 1 && fileType[1] == "no-embed-images" {
+			body["enableImageFilter"] = true
+		}
+		r, err := a.authRequest("/files/export/"+url.PathEscape(guid), "POST", body, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -58,6 +80,15 @@ func (a *App) exportFile(guid, prefer string, fileType ...string) (map[string]st
 		last = "导出超时"
 	}
 	return nil, errors.New("导出失败：" + last)
+}
+
+// isUnsupportedExport 识别服务端「暂不支持该导出类型」（code 3613）。
+func isUnsupportedExport(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "3613") || strings.Contains(msg, "暂不支持该导出类型")
 }
 
 func (a *App) downloadURL(guid string) (string, error) {
@@ -157,10 +188,12 @@ func (a *App) downloadOne(f map[string]any, outDir string, exactFormat ...string
 		prefer = "pdf"
 	}
 	fallbackTypes := []string{str(f, "type")}
+	var exportOpts []string
 	if len(exactFormat) > 0 {
 		prefer, fallbackTypes = exactFormat[0], nil
+		exportOpts = exactFormat[1:]
 	}
-	exp, err := a.exportFile(guid, prefer, fallbackTypes...)
+	exp, err := a.exportFile(guid, prefer, append(fallbackTypes, exportOpts...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +209,19 @@ func (a *App) cmdGet() error {
 	if len(a.Pos) == 0 {
 		return errors.New("用法：shimo-net get <链接|guid|@别名> [--out <目录>]")
 	}
-	if f := strings.TrimSpace(a.opt("--format")); f != "" {
-		return fmt.Errorf("get 暂不支持 --format %s；当前按文件类型导出，表格导出 xlsx", f)
+	format := strings.ToLower(strings.TrimSpace(a.opt("--format")))
+	if format != "" {
+		known := false
+		for _, formats := range exportFormatOptions {
+			for _, v := range formats {
+				if v == format {
+					known = true
+				}
+			}
+		}
+		if !known {
+			return fmt.Errorf("不支持导出格式 %s；可用：md / docx / wps / pdf / jpg / xlsx / pptx", format)
+		}
 	}
 	guid, err := a.resolveTarget(a.Pos[0])
 	if err != nil {
@@ -195,7 +239,27 @@ func (a *App) cmdGet() error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return err
 	}
-	got, err := a.downloadOne(withGUID(info, guid), outDir)
+	if format != "" {
+		if boolv(info, "isCloudFile") {
+			return errors.New("该文件是上传的原始文件（仅预览），只支持原样下载，不参与格式转换；请去掉 --format")
+		}
+		typ := str(info, "type")
+		if !exportFormatAllowed(typ, format) {
+			allowed := exportFormatOptions[typ]
+			if len(allowed) == 0 {
+				return fmt.Errorf("%s 没有可用的导出格式", typeLabel(info))
+			}
+			return fmt.Errorf("%s 不支持导出为 %s；可用：%s", typeLabel(info), format, strings.Join(allowed, " / "))
+		}
+	}
+	exact := []string{}
+	if format != "" {
+		exact = append(exact, format)
+		if format == "md" && strings.EqualFold(a.opt("--embed-images"), "false") {
+			exact = append(exact, "no-embed-images")
+		}
+	}
+	got, err := a.downloadOne(withGUID(info, guid), outDir, exact...)
 	if err != nil {
 		return err
 	}
@@ -240,9 +304,19 @@ func (a *App) cmdPull() error {
 		files = filtered
 	}
 	manifest := []map[string]any{}
-	downloaded, failed, skipped := 0, 0, 0
+	downloaded, failed, skipped, unsupported := 0, 0, 0, 0
 	for _, f := range files {
 		got, err := a.downloadOne(f, outDir)
+		if err != nil && isUnsupportedExport(err) {
+			// 服务端没有这类文件的导出能力（如思维导图/表单/应用表格），
+			// 属于目标格式不受支持，不是 CLI 执行失败：记录后继续。
+			unsupported++
+			manifest = append(manifest, map[string]any{"guid": str(f, "guid"), "name": str(f, "name"), "url": str(f, "url"), "status": "unsupported", "reason": err.Error()})
+			if !a.JSON {
+				fmt.Printf("- %s：该类型暂不支持导出，已跳过（%v）\n", terminalText(str(f, "name")), terminalText(err.Error()))
+			}
+			continue
+		}
 		if err != nil {
 			failed++
 			if !a.JSON {
@@ -286,7 +360,7 @@ func (a *App) cmdPull() error {
 		}
 	}
 	result := map[string]any{"ok": failed == 0, "target": a.Pos[0], "source": a.Pos[0], "dir": outDir, "since": a.opt("--since"), "count": len(manifest), "files": manifest,
-		"recursive": false, "scope": "current-directory", "downloaded": downloaded, "failed": failed, "skipped": skipped, "manifest": ""}
+		"recursive": false, "scope": "current-directory", "downloaded": downloaded, "failed": failed, "skipped": skipped, "unsupported": unsupported, "manifest": ""}
 	// A fresh hidden file avoids both remote names and prior run manifests.
 	// CreateTemp reserves exclusively; a hidden prefix alone is not a boundary.
 	manifestFile, err := os.CreateTemp(outDir, ".shimo-pull-manifest-*.json")
@@ -310,12 +384,12 @@ func (a *App) cmdPull() error {
 		return &commandError{Message: "下载清单写入失败：" + err.Error(), Result: result, NoReplay: true}
 	}
 	if failed > 0 {
-		return &commandError{Message: fmt.Sprintf("下载未全部完成：成功 %d、失败 %d、跳过目录 %d；清单：%s", downloaded, failed, skipped, manifestPath), Result: result, NoReplay: true}
+		return &commandError{Message: fmt.Sprintf("下载未全部完成：成功 %d、失败 %d、不支持导出 %d、跳过目录 %d；清单：%s", downloaded, failed, unsupported, skipped, manifestPath), Result: result, NoReplay: true}
 	}
 	if a.JSON {
 		return a.printJSON(result)
 	}
-	fmt.Printf("\n当前层下载完成：%d 个文件，跳过 %d 个目录；位置：%s（清单：%s）\n", downloaded, skipped, terminalText(outDir), terminalText(manifestPath))
+	fmt.Printf("\n当前层下载完成：%d 个文件，跳过 %d 个目录，%d 个类型不支持导出；位置：%s（清单：%s）\n", downloaded, skipped, unsupported, terminalText(outDir), terminalText(manifestPath))
 	return nil
 }
 
@@ -428,5 +502,29 @@ func (a *App) cmdRead() error {
 	if boolv(r, "truncated") {
 		fmt.Println("\n…（已截断，加 --max-chars 20000 看更多）")
 	}
+	return nil
+}
+
+// cmdPreview 只做预览入口：返回固定的 /files/<guid> 浏览地址，由宿主内置
+// 浏览器打开查看，不触发导出或写入。
+func (a *App) cmdPreview() error {
+	if len(a.Pos) == 0 {
+		return errors.New("用法：shimo-net preview <链接|guid|@别名> [--open]")
+	}
+	guid, err := a.resolveTarget(a.Pos[0])
+	if err != nil {
+		return err
+	}
+	info, err := a.fileInfo(guid)
+	if err != nil {
+		return err
+	}
+	u := a.originURL("/files/" + url.PathEscape(guid))
+	out := map[string]any{"ok": true, "guid": guid, "name": str(info, "name"), "type": str(info, "type"), "url": u,
+		"note": "预览地址固定为 /files/<guid>，可直接在内置浏览器打开；不产生写入"}
+	if a.JSON {
+		return a.printJSON(out)
+	}
+	fmt.Printf("预览：%s\n%s\n", terminalText(str(out, "name")), u)
 	return nil
 }

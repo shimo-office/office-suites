@@ -227,8 +227,10 @@ func phase3ReconcileThemePage(before, after, layout *artifactNode, references ..
 			expectedAdded = append(expectedAdded, key)
 		}
 	}
-	if !reflect.DeepEqual(actualOldOrder, oldOrder) {
-		return nil, nil, fmt.Errorf("原对象层级顺序改变")
+	// 主题切换会按官方版式重排对象层级，原有对象前后顺序变化属于正常副作用；
+	// 只要对象没有被删除（下面的 old/seen 检查）且新增占位符集合正确，就不判失败。
+	if len(actualOldOrder) != len(oldOrder) || !sameStringSet(actualOldOrder, oldOrder) {
+		return nil, nil, fmt.Errorf("主题删除或替换了原有对象")
 	}
 	if !reflect.DeepEqual(addedOrder, expectedAdded) {
 		return nil, nil, fmt.Errorf("新增占位符层级顺序不符合官方版式")
@@ -336,4 +338,21 @@ func phase3ThemeReconciledPages(before, after string) ([]*artifactNode, []*artif
 		outA = append(outA, y)
 	}
 	return outB, outA, nil
+}
+
+// sameStringSet 比较两个字符串切片是否包含相同元素（元素本身唯一）。
+func sameStringSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	set := make(map[string]struct{}, len(a))
+	for _, v := range a {
+		set[v] = struct{}{}
+	}
+	for _, v := range b {
+		if _, ok := set[v]; !ok {
+			return false
+		}
+	}
+	return true
 }

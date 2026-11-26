@@ -14,6 +14,14 @@ spec.loader.exec_module(packager)
 # it trips the marketplace scan and cannot work in an offline sandbox.
 FORBIDDEN_SUFFIXES = {'.sh', '.ps1', '.bat', '.cmd', '.exe', '.dll', '.so', '.dylib'}
 
+# WorkBuddy reserves names platform-wide and the personal account already owns
+# the original slug, so only that target ships under the enterprise name.
+WORKBUDDY_PREFIX = 'shimo-net-cli-ent'
+
+
+def package_prefix(target):
+    return WORKBUDDY_PREFIX if target == 'workbuddy' else 'shimo-net-cli'
+
 
 class SkillHubPackageTests(unittest.TestCase):
     def fixture(self, directory):
@@ -43,32 +51,36 @@ class SkillHubPackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root, source = self.fixture(directory)
             for target in ['skillhub', 'workbuddy']:
+                prefix = package_prefix(target)
                 archive = packager.build(root, root / 'dist', 'v1.2.3', target)
+                self.assertEqual(archive.name, f'{prefix}-v1.2.3-{target}.zip')
                 first = archive.read_bytes()
                 self.assertLess(len(first), 3_000_000)
                 with zipfile.ZipFile(archive) as z:
-                    expected = {'shimo-net-cli/SKILL.md', 'shimo-net-cli/LICENSE.md',
-                                'shimo-net-cli/scripts/selfcheck.py',
-                                'shimo-net-cli/scripts/plan.py',
-                                'shimo-net-cli/references/install.md',
-                                'shimo-net-cli/references/scenarios.md',
-                                'shimo-net-cli/references/cli-reference.md',
-                                'shimo-net-cli/references/SECURITY.md'}
+                    expected = {f'{prefix}/SKILL.md', f'{prefix}/LICENSE.md',
+                                f'{prefix}/scripts/selfcheck.py',
+                                f'{prefix}/scripts/plan.py',
+                                f'{prefix}/references/install.md',
+                                f'{prefix}/references/scenarios.md',
+                                f'{prefix}/references/cli-reference.md',
+                                f'{prefix}/references/SECURITY.md'}
                     self.assertEqual(set(z.namelist()), expected)
                     self.assertIsNone(z.testzip())
-                    skill = z.read('shimo-net-cli/SKILL.md').decode('utf-8')
+                    skill = z.read(f'{prefix}/SKILL.md').decode('utf-8')
                     self.assertIn('Keep the actual instructions.', skill)
                     self.assertIn('(references/install.md)', skill)
                     self.assertNotIn('此上传包', skill)
                     if target == 'skillhub':
                         self.assertIn('slug: "shimo-net-cli"\n', skill)
+                        self.assertIn('name: shimo-net-cli\n', skill)
                     else:
                         self.assertIn('display_name: 石墨办公 CLI\n', skill)
-                    self.assertEqual(z.read('shimo-net-cli/LICENSE.md'),
+                        self.assertIn(f'name: {WORKBUDDY_PREFIX}\n', skill)
+                    self.assertEqual(z.read(f'{prefix}/LICENSE.md'),
                                      (root / 'LICENSE').read_bytes())
                     self.assertIn('(cli-reference.md#commands)',
-                                  z.read('shimo-net-cli/references/install.md').decode())
-                    check = z.read('shimo-net-cli/scripts/selfcheck.py').decode('utf-8')
+                                  z.read(f'{prefix}/references/install.md').decode())
+                    check = z.read(f'{prefix}/scripts/selfcheck.py').decode('utf-8')
                     compile(check, 'selfcheck.py', 'exec')
                     self.assertNotIn('http', check)
                 self.assertEqual(packager.build(root, root / 'dist', 'v1.2.3', target).read_bytes(),
@@ -81,7 +93,7 @@ class SkillHubPackageTests(unittest.TestCase):
             with zipfile.ZipFile(archive) as z:
                 for name in z.namelist():
                     self.assertNotIn(Path(name).suffix, FORBIDDEN_SUFFIXES, name)
-                body = z.read('shimo-net-cli/SKILL.md').decode('utf-8')
+                body = z.read(f'{WORKBUDDY_PREFIX}/SKILL.md').decode('utf-8')
             for pattern in ('curl |', 'curl -fsSL', 'Invoke-WebRequest', 'chmod +x'):
                 self.assertNotIn(pattern, body)
 

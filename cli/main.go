@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const version = "0.9.35"
+const version = "0.9.36"
 
 func main() {
 	app := newApp(os.Args[1:])
@@ -151,7 +151,7 @@ func dispatch(a *App) map[string]func() error {
 		"upload": a.cmdUpload, "import": a.cmdImport, "new": a.cmdNew, "rename": a.cmdRename,
 		"share": a.cmdShare, "audit": a.cmdAudit, "delete": a.cmdDelete, "trash": a.cmdTrash,
 		"restore": a.cmdRestore, "purge": a.cmdPurge, "read": a.cmdRead, "pull": a.cmdPull,
-		"get": a.cmdGet, "fav": a.cmdFav, "open": a.cmdOpen, "editor": a.cmdPhase2, "phase2": a.cmdPhase2, "subscriptions": a.cmdSubscriptions,
+		"get": a.cmdGet, "preview": a.cmdPreview, "fav": a.cmdFav, "open": a.cmdOpen, "editor": a.cmdPhase2, "phase2": a.cmdPhase2, "subscriptions": a.cmdSubscriptions,
 		"phase3": a.cmdPhase3,
 		"mkdir":  a.cmdMkdir, "session": a.cmdSession,
 	}

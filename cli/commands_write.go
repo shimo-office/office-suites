@@ -120,8 +120,13 @@ func (a *App) cmdImport() error {
 	if len(a.Pos) == 0 {
 		return errors.New("用法：shimo-net import <本地文件> --to <桌面|文件夹链接|@别名> [--title 名称]")
 	}
-	if a.opt("--share") != "" {
-		return manualOnlyError("导入后的权限设置（限制编辑/高级权限/成员级授权）")
+	shareMode := ""
+	if raw := strings.TrimSpace(a.opt("--share")); raw != "" {
+		mode, err := normalizeShareMode(raw)
+		if err != nil {
+			return err
+		}
+		shareMode = mode
 	}
 	local := expandHome(a.Pos[0])
 	if _, err := os.Stat(local); err != nil {
@@ -168,6 +173,15 @@ func (a *App) cmdImport() error {
 		info = withGUID(info, guid)
 		info["name"] = title
 	}
+	if shareMode != "" {
+		if _, err := a.setShareMode(guid, shareMode); err != nil {
+			// 导入已完成，权限可能已生效；不重放导入，只报告真实状态。
+			return &commandError{Message: fmt.Sprintf("已导入 %q（guid %s），但设置权限失败：%v；请核查该文件后单独重试 share，不要重新导入", str(info, "name"), guid, err),
+				Result: map[string]any{"imported": true, "shareMode": shareMode, "guid": guid, "url": a.urlOf(withGUID(info, guid)), "stage": "share"}, NoReplay: true}
+		}
+		info = withGUID(info, guid)
+		info["shareMode"] = shareMode
+	}
 	result := map[string]any{"ok": true, "name": str(info, "name"), "guid": guid, "type": str(info, "type"),
 		"typeLabel": typeLabel(info), "url": a.urlOf(withGUID(info, guid)), "shareMode": str(info, "shareMode"),
 		"folder": a.describeTarget(parent)}
@@ -178,7 +192,6 @@ func (a *App) cmdImport() error {
 	fmt.Printf("类型：%s（%s）\n", terminalText(str(result, "typeLabel")), terminalText(str(result, "type")))
 	fmt.Printf("链接：%s\n", terminalText(str(result, "url")))
 	fmt.Printf("当前权限：%s（%s）\n", terminalText(str(result, "shareMode")), shareModes[str(result, "shareMode")])
-	fmt.Printf("\n权限变更（限制编辑、高级权限、成员级授权）必须由人工在石墨网页完成。\n")
 	return nil
 }
 
@@ -303,8 +316,85 @@ func (a *App) cmdRename() error {
 	return nil
 }
 
+// shareModeAliases 把用户习惯写法和中文名归一到服务端枚举。
+var shareModeAliases = map[string]string{
+	"private": "private", "私有": "private", "仅自己": "private",
+	"readonly": "readonly", "read-only": "readonly", "read": "readonly", "只读": "readonly", "公开只读": "readonly",
+	"commentable": "commentable", "comment": "commentable", "可评论": "commentable", "公开可评论": "commentable",
+	"editable": "editable", "edit": "editable", "可编辑": "editable", "公开可编辑": "editable",
+	"enterprise_readonly": "enterprise_readonly", "企业只读": "enterprise_readonly",
+	"enterprise_commentable": "enterprise_commentable", "企业可评论": "enterprise_commentable",
+	"enterprise_editable": "enterprise_editable", "企业可编辑": "enterprise_editable",
+}
+
+func normalizeShareMode(raw string) (string, error) {
+	key := strings.ToLower(strings.TrimSpace(raw))
+	mode, ok := shareModeAliases[key]
+	if !ok {
+		return "", fmt.Errorf("未知权限档位 %q；可用：private（私有）、readonly（公开只读）、commentable（公开可评论）、editable（公开可编辑）、enterprise_readonly / enterprise_commentable / enterprise_editable（企业内三档）", raw)
+	}
+	return mode, nil
+}
+
+// setShareMode 通过文件元数据接口更新权限，并以重新读取的结果作为验收依据。
+func (a *App) setShareMode(guid, mode string) (map[string]any, error) {
+	r, err := a.authRequest("/files/"+url.PathEscape(guid), "PATCH", map[string]any{"shareMode": mode}, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	if r.Status != 200 {
+		return nil, fmt.Errorf("设置权限失败：HTTP %d %s", r.Status, snippet(r.Raw))
+	}
+	info, err := a.fileInfo(guid)
+	if err != nil {
+		return nil, err
+	}
+	got := str(info, "shareMode")
+	if got != mode {
+		return nil, &commandError{Message: fmt.Sprintf("权限写入后读回不一致：期望 %s，实际 %s；请刷新网页核对，禁止自动重放", mode, got),
+			Result: map[string]any{"guid": guid, "requested": mode, "actual": got, "mutationAttempted": true, "mayHaveApplied": true, "noReplay": true}, NoReplay: true}
+	}
+	return map[string]any{"guid": guid, "shareMode": got, "shareModeLabel": shareModes[got], "verified": true}, nil
+}
+
 func (a *App) cmdShare() error {
-	return manualOnlyError("权限变更（限制编辑/高级权限/成员级授权）")
+	if len(a.Pos) == 0 {
+		return errors.New("用法：shimo-net share <链接|guid|@别名> <权限档位|--mode 档位>")
+	}
+	raw := strings.TrimSpace(a.opt("--mode"))
+	if raw == "" && len(a.Pos) > 1 {
+		raw = strings.TrimSpace(a.Pos[1])
+	}
+	if raw == "" {
+		return errors.New("缺少权限档位：private / readonly / commentable / editable，或企业内三档 enterprise_*")
+	}
+	mode, err := normalizeShareMode(raw)
+	if err != nil {
+		return err
+	}
+	guid, err := a.resolveTarget(a.Pos[0])
+	if err != nil {
+		return err
+	}
+	info, err := a.fileInfo(guid)
+	if err != nil {
+		return err
+	}
+	if perms := asMap(info["permissions"]); perms != nil && perms["shareModeManageable"] == false {
+		return fmt.Errorf("当前账号没有修改该文件分享权限的权限；未执行变更")
+	}
+	out, err := a.setShareMode(guid, mode)
+	if err != nil {
+		return err
+	}
+	out["name"] = str(info, "name")
+	out["url"] = a.urlOf(withGUID(info, guid))
+	if a.JSON {
+		return a.printJSON(out)
+	}
+	fmt.Printf("权限已更新：%s → %s（%s）\n", terminalText(str(out, "name")), terminalText(mode), shareModes[mode])
+	fmt.Printf("链接：%s\n", terminalText(str(out, "url")))
+	return nil
 }
 
 func (a *App) cmdDelete() error {

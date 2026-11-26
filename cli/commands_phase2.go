@@ -20,10 +20,12 @@ import (
 // the document/sheet page. The method is intentionally selected from a
 // whitelist; callers provide only the documented method arguments as JSON.
 var phase2Actions = map[string]string{
-	"history-show":  "actions.showViewHistory",
-	"history-hide":  "actions.hideViewHistory",
-	"comments-show": "actions.showViewCommentList",
-	"comments-hide": "actions.hideViewCommentList",
+	"history-show":  "sdk.history.show",
+	"history-hide":  "sdk.history.hide",
+	"comments-show": "sdk.comments.show",
+	"comments-hide": "sdk.comments.hide",
+	"save-version":  "sdk.version.createRevision",
+	"print":         "sdk.print",
 	"sheet-append":  "http:PUT:/lizard-api/files/%s/sheets/values",
 	"sheet-insert":  "http:POSTROW:/lizard-api/files/%s/sheets",
 	"sheet-delete":  "http:DELETEROW:/lizard-api/files/%s/sheets",
@@ -38,9 +40,7 @@ var phase2Actions = map[string]string{
 }
 
 var phase2PageOnlyActions = map[string]string{
-	"save-version":     "保存版本",
 	"comment-add":      "提交评论",
-	"print":            "打印",
 	"find":             "查找/替换",
 	"replace-all":      "查找/替换",
 	"page-width":       "页面宽度/重排",
@@ -73,9 +73,6 @@ func (a *App) cmdPhase2() error {
 		return manualOnlyError(operation)
 	}
 	if label, pageOnly := phase2PageOnlyActions[action]; pageOnly {
-		if action == "save-version" || action == "comment-add" || action == "print" {
-			return fmt.Errorf("%s 需要持久页面中的完整交互；临时 SDK 面板无法完成该流程，本次未保存、未提交、未打印。请使用宿主浏览器，选择规则见 docs/scenarios.md#浏览器优先级", label)
-		}
 		return fmt.Errorf("%s 需要页面操作（当前 editor SDK 未暴露该能力）；浏览器选择见 docs/scenarios.md#浏览器优先级，本次未执行", label)
 	}
 	method, ok := phase2Actions[action]
@@ -145,10 +142,23 @@ func (a *App) cmdPhase2() error {
 		return err
 	}
 	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value}
-	if strings.HasPrefix(method, "actions.") {
-		out["scope"] = "panel-visibility-only"
-		out["actionVerified"] = false
-		out["note"] = "仅切换面板显示并截图，不表示保存、评论提交或打印完成"
+	if strings.HasPrefix(method, "sdk.") {
+		out["scope"] = "page-sdk"
+		actionVerified := false
+		panelVisible := false
+		if m, ok := value.(map[string]any); ok {
+			actionVerified = boolv(m, "ok")
+			panelVisible = boolv(m, "panelVisible")
+		}
+		if strings.HasPrefix(method, "sdk.history.") || strings.HasPrefix(method, "sdk.comments.") {
+			// 面板类动作必须看到真实面板，只调用成功不算完成。
+			out["actionVerified"] = actionVerified && panelVisible
+			out["panelVisible"] = panelVisible
+			out["note"] = "调用前端 SDK 打开面板，等待渲染后检测面板可见性；截图需自行核对"
+		} else {
+			out["actionVerified"] = actionVerified
+			out["note"] = "直接调用套件前端 SDK；结果以接口返回为准"
+		}
 	}
 	if strings.HasPrefix(method, "api:") {
 		out["verified"] = true
@@ -168,8 +178,8 @@ func (a *App) cmdPhase2() error {
 	if strings.HasPrefix(method, "api:") {
 		fmt.Printf("只读 API 已读取：%s\n", action)
 	} else if screenshot, ok := out["screenshot"].(string); ok {
-		if strings.HasPrefix(method, "actions.") {
-			fmt.Printf("仅切换面板显示并截图，未保存、未提交、未打印：%s\n截图：%s\n", action, terminalText(screenshot))
+		if strings.HasPrefix(method, "sdk.") {
+			fmt.Printf("前端 SDK 动作已执行：%s\n截图：%s\n", action, terminalText(screenshot))
 		} else {
 			fmt.Printf("动作已执行并截图，请核对页面结果：%s\n截图：%s\n", action, terminalText(screenshot))
 		}
@@ -404,7 +414,7 @@ func isRetryableEditorError(err error) bool {
 		return false
 	}
 	msg := strings.ToLower(err.Error())
-	for _, needle := range []string{"页面未暴露 editor sdk", "editor sdk", "sdk 方法不可用", "页面尚未渲染", "cannot read", "undefined is not"} {
+	for _, needle := range []string{"页面未暴露 editor sdk", "editor sdk", "sdk 方法不可用", "页面尚未渲染", "cannot read", "undefined is not", "没有版本接口", "没有可用的历史面板", "没有可用的评论面板", "没有打印接口"} {
 		if strings.Contains(msg, needle) {
 			return true
 		}
@@ -472,7 +482,7 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	// must not be accepted as visual proof.  Wait for a real document body
 	// before running the action or capturing the result.
 	waitPageReady(ws, 30*time.Second)
-	if strings.HasPrefix(method, "actions.") && !waitEditorReady(ws, 10*time.Second) {
+	if (strings.HasPrefix(method, "actions.") || strings.HasPrefix(method, "sdk.")) && !waitEditorReady(ws, 15*time.Second) {
 		return nil, errors.New("页面已打开但编辑器未加载完成（等待 10 秒）；未执行页面动作")
 	}
 	argsJSON, _ := json.Marshal(args)
@@ -481,8 +491,12 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	// missing SDK in the first second usually means "not initialized yet", not
 	// "this page will never support the action". Retry a small, bounded number
 	// of times so a slow editor does not turn into a hard failure.
-	const editorAttempts = 5
-	const editorRetryDelay = 2 * time.Second
+	editorAttempts := 5
+	editorRetryDelay := 2 * time.Second
+	if strings.HasPrefix(method, "sdk.") {
+		// 根级 SDK（version/history/print）比编辑器外壳晚初始化，给足冷启动时间。
+		editorAttempts, editorRetryDelay = 9, 3*time.Second
+	}
 	var value any
 	var lastErr error
 	attempts := 0
@@ -554,6 +568,17 @@ func sameCookieHost(target string) bool {
 }
 
 func phase2Expression(method, argsJSON, guid string) string {
+	switch method {
+	case "sdk.history.show", "sdk.history.hide", "sdk.comments.show", "sdk.comments.hide", "sdk.version.createRevision", "sdk.print":
+		var args any
+		_ = json.Unmarshal([]byte(argsJSON), &args)
+		kind := map[string]string{
+			"sdk.history.show": "history-show", "sdk.history.hide": "history-hide",
+			"sdk.comments.show": "comments-show", "sdk.comments.hide": "comments-hide",
+			"sdk.version.createRevision": "save-version", "sdk.print": "print",
+		}[method]
+		return phase2SDKCallExpression(kind, args)
+	}
 	if method == "browser.verify" {
 		return `(async()=>{const path=location.pathname||"";const text=(document.body?.innerText||"").trim();if(path==="/login"||text.includes("验证码登录")||text.includes("欢迎使用石墨办公"))return {ok:false,error:"页面未登录，无法完成视觉核验"};if(document.readyState!=="complete")return {ok:false,error:"页面尚未渲染完成，不能作为视觉核验证据"};if(!document.querySelector("canvas")&&text.length<20)return {ok:false,error:"页面尚未渲染完成，不能作为视觉核验证据"};return {ok:true,textLength:text.length,canvas:document.querySelectorAll("canvas").length};})()`
 	}

@@ -19,6 +19,13 @@ SELFCHECK = 'docs/agent/selfcheck.py'
 # Local preview of a sheet write: standard library only, no network, no account.
 PLAN = 'docs/agent/plan.py'
 
+# WorkBuddy reserves skill names across the whole platform, not per account or
+# per marketplace. The author's personal account already owns "shimo-net-cli",
+# and the platform neither migrates assets between subjects nor releases a
+# retired name, so the WorkBuddy build ships under its own slug. SkillHub and
+# every other consumer keep the original name.
+WORKBUDDY_NAME = 'shimo-net-cli-ent'
+
 
 def local_links(text, source_path, destination, version):
     """Keep bundled references local; pin other repository links to the release."""
@@ -96,6 +103,11 @@ def build(root, out_dir, tag=None, target='skillhub'):
         raise ValueError('release tag does not match SKILL.md version')
     if target not in ('skillhub', 'workbuddy'):
         raise ValueError('unknown marketplace')
+    # The slug inside SKILL.md, the top-level directory and the asset filename
+    # must agree, so the WorkBuddy rewrite happens before the header is rebuilt.
+    package_name = WORKBUDDY_NAME if target == 'workbuddy' else name
+    if not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', package_name) or not 2 <= len(package_name) <= 128:
+        raise ValueError('invalid packaged skill slug')
     extra = {'license': 'Proprietary', 'homepage': 'https://github.com/shimo-office/office-suites'}
     if target == 'skillhub':
         extra.update({'slug': name, 'displayName': scalar(header, 'display_name'),
@@ -103,8 +115,14 @@ def build(root, out_dir, tag=None, target='skillhub'):
     for key in extra:
         if re.search(r'^' + re.escape(key) + r'\s*:', header, re.M):
             raise ValueError(f'{key} already exists; reconcile packaging metadata')
+    body_source = source[4:]
+    if package_name != name:
+        body_source, rewritten = re.subn(r'^name: [^\r\n]+$', f'name: {package_name}',
+                                         body_source, count=1, flags=re.M)
+        if rewritten != 1:
+            raise ValueError('failed to rewrite the packaged skill name')
     skill = '---\n' + ''.join(f'{key}: {json.dumps(value, ensure_ascii=False)}\n'
-                             for key, value in extra.items()) + source[4:]
+                             for key, value in extra.items()) + body_source
     skill_header, body = skill.split('\n---\n', 1)
     # Validate what the marketplace will parse, after metadata injection.
     validate_header(skill_header.split('\n', 1)[1])
@@ -128,7 +146,7 @@ def build(root, out_dir, tag=None, target='skillhub'):
     with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as z:
         for filename, data in files.items():
             # Marketplaces require a single top-level {skill-name}/ directory.
-            entry = zipfile.ZipInfo(f'{name}/{filename}', date_time=(1980, 1, 1, 0, 0, 0))
+            entry = zipfile.ZipInfo(f'{package_name}/{filename}', date_time=(1980, 1, 1, 0, 0, 0))
             entry.compress_type = zipfile.ZIP_DEFLATED
             entry.create_system = 3
             entry.external_attr = (0o100755 if filename.endswith('.sh') else 0o100644) << 16
@@ -136,7 +154,7 @@ def build(root, out_dir, tag=None, target='skillhub'):
     if len(buffer.getvalue()) > limit:
         raise ValueError('marketplace ZIP size exceeded')
     out_dir.mkdir(parents=True, exist_ok=True)
-    archive = out_dir / f'{name}-v{version}-{target}.zip'
+    archive = out_dir / f'{package_name}-v{version}-{target}.zip'
     archive.write_bytes(buffer.getvalue())
     return archive
 
