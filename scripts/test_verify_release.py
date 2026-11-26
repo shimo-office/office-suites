@@ -85,7 +85,7 @@ class ReleaseCheckTests(unittest.TestCase):
 
     def test_required_assets_follow_the_version(self):
         names = verify_release.required_assets('9.9.9')
-        self.assertIn('shimo-net-cli-v9.9.9-workbuddy.zip', names)
+        self.assertIn('shimo-net-cli-ent-v9.9.9-workbuddy.zip', names)
         self.assertIn('shimo-net-cli-v9.9.9-skillhub.zip', names)
         self.assertIn('shimo-net-cli-9.9.9.tgz', names)
         self.assertIn('bootstrap.sh', names)

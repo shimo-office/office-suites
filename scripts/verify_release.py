@@ -31,7 +31,9 @@ def required_assets(version):
         'SKILL.md',
         f'shimo-net-cli-{version}.tgz',
         f'shimo-net-cli-v{version}-skillhub.zip',
-        f'shimo-net-cli-v{version}-workbuddy.zip',
+        # WorkBuddy reserves skill names platform-wide and the personal account
+        # owns the original slug, so its asset ships under the enterprise name.
+        f'shimo-net-cli-ent-v{version}-workbuddy.zip',
     )
 
 
