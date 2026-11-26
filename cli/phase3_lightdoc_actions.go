@@ -582,7 +582,7 @@ func (a *App) cmdPhase3LightDocFormat() error {
 		return errors.New("目标不是轻文档（/docs/）；文稿请用 document-format，表格请用 sheet-*")
 	}
 	guid := guidFromURL(target)
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

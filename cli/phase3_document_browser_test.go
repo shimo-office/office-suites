@@ -381,3 +381,23 @@ func TestPhase3PresenceGuardErrorsDoNotClaimOverallWriteState(t *testing.T) {
 		t.Fatalf("%v %s", e, out)
 	}
 }
+
+// The fast-fail rule must never fire on a page that is already collaborating:
+// a signed-in table can take longer than the grace period to inject _sdk.
+func TestPhase3PresenceReadyGate(t *testing.T) {
+	cases := []struct {
+		state map[string]any
+		want  bool
+	}{
+		{map[string]any{"presence": map[string]any{"ready": true, "connected": true}}, true},
+		{map[string]any{"presence": map[string]any{"ready": true, "connected": false}}, false},
+		{map[string]any{"presence": map[string]any{"ready": false, "connected": true}}, false},
+		{map[string]any{"presence": nil}, false},
+		{map[string]any{}, false},
+	}
+	for i, c := range cases {
+		if got := phase3PresenceReady(c.state); got != c.want {
+			t.Fatalf("case %d: got %v want %v", i, got, c.want)
+		}
+	}
+}

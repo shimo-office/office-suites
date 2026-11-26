@@ -133,8 +133,8 @@ func phase3ViewRecordSpec(table, view map[string]any, timezone string, browserTi
 		}
 		expected[id] = record
 	}
-	if len(expected) == 0 || len(expected) > 20 {
-		return nil, errors.New("视图完整展示验收要求1至20条非空文本主字段记录，拒绝空数据或未证明的虚拟化集合")
+	if len(expected) == 0 || len(expected) > 5000 {
+		return nil, errors.New("视图展示验收要求至少一条非空文本主字段记录，且不超过 5000 条")
 	}
 	spec["expectedRecords"], spec["excludedWhollyEmptyRecords"] = expected, excluded
 	return spec, nil

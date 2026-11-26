@@ -346,7 +346,7 @@ func (a *App) cmdPhase3FormRead() error {
 	if views, ok := statMap["views"].(float64); !ok || views < 0 {
 		return errors.New("表单 statistics 缺少有效访问数")
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

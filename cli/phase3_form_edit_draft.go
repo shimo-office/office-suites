@@ -184,7 +184,7 @@ func (a *App) cmdPhase3FormDraft() error {
 	}
 	result := map[string]any{"ok": true, "action": "form-draft", "guid": s.guid, "url": s.target, "form": draft, "source": "signed server draft content; SDK Delta decoder only", "mutationAttempted": false}
 	if a.opt("--out") != "" {
-		dir, err := phase3EvidenceDir(a.opt("--out"))
+		dir, err := a.phase3EvidenceDir(a.opt("--out"))
 		if err != nil {
 			return err
 		}

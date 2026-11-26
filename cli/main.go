@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,7 +9,7 @@ import (
 	"strings"
 )
 
-const version = "0.9.37"
+const version = "0.9.38"
 
 func main() {
 	app := newApp(os.Args[1:])
@@ -27,6 +28,7 @@ type App struct {
 	Flags        map[string]string
 	Bool         map[string]bool
 	parseErr     error
+	evidence     *phase3EvidenceRun
 }
 
 func newApp(args []string) *App {
@@ -123,6 +125,13 @@ func (a *App) Run() error {
 		fmt.Println("shimo-net " + version)
 		return nil
 	case "schema":
+		if action := a.opt("--action"); action != "" {
+			out, err := schemaAction(action)
+			if err != nil {
+				return err
+			}
+			return a.printJSON(out)
+		}
 		return a.printJSON(schema())
 	}
 	fn, ok := dispatch(a)[a.Cmd]
@@ -158,6 +167,17 @@ func dispatch(a *App) map[string]func() error {
 }
 
 func (a *App) printJSON(v any) error {
+	if a.evidence != nil {
+		var out bytes.Buffer
+		enc := json.NewEncoder(&out)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(v); err != nil {
+			return err
+		}
+		a.evidence.output, a.evidence.jsonOutput = out.Bytes(), true
+		return nil
+	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")

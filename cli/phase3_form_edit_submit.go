@@ -233,7 +233,7 @@ func (a *App) cmdPhase3FormSubmit() (runErr error) {
 	for _, r := range rows {
 		prior[str(r, "submitId")] = true
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

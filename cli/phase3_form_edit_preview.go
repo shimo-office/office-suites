@@ -156,7 +156,7 @@ func (a *App) cmdPhase3FormPreview() (runErr error) {
 	if err != nil {
 		return err
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

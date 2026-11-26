@@ -180,7 +180,7 @@ func (a *App) cmdPhase3LightDocTable() error {
 		return errors.New("目标不是轻文档（/docs/）；文稿内表格请用 document-table")
 	}
 	guid := guidFromURL(target)
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}
@@ -388,7 +388,7 @@ func (a *App) cmdPhase3LightDocImage() error {
 	}
 	encoded := base64.StdEncoding.EncodeToString(body)
 	guid := guidFromURL(target)
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

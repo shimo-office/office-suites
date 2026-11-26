@@ -78,7 +78,7 @@ func (a *App) cmdPhase3Document() (runErr error) {
 	if guid == "" {
 		return fmt.Errorf("目标缺少GUID")
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

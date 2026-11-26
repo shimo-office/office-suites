@@ -62,7 +62,7 @@ func (a *App) cmdPhase3DocumentTable() (runErr error) {
 	if guid == "" {
 		return fmt.Errorf("目标缺少 GUID")
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

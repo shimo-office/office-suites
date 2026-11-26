@@ -81,7 +81,7 @@ Native updates validate download size, SHA-256, and the new executable’s versi
 | `trash` | Lists the recycle bin. |
 | `restore <guid>` | Restores an item from the recycle bin. |
 | `audit <folder> [--limit 200]` | Reads permissions without changing them. Unknown permissions are reported separately; unknown or truncated results cause a nonzero exit. |
-| `read <url> [--max-chars 12000]` | Extracts text from the actual export. May fall back from Markdown to DOCX; rejects PDF text parsing and recommends `get`. Long output is truncated. |
+| `read <url> [--max-chars 12000]` | Extracts text from the actual export. May fall back from Markdown to DOCX; rejects PDF text parsing and recommends `get`. Long output is truncated. Spreadsheet headings use the workbook sheet name, so they can be reused directly as a `range` prefix in `sheet-values` / `sheet-update`. |
 | `get <url> [--out directory]` | Downloads attachments unchanged or exports online files. May fall back to PDF; inspect `exportType` and the actual extension. Defaults to `./shimo-pull`; adds a number to avoid overwriting existing files. `--format csv` is unsupported. |
 | `pull <folder> [--out directory] [--since 7d] [--limit N]` | Downloads the current level only, with no recursive traversal. Defaults to `./shimo-pull` and no item limit. Subfolders are recorded as skipped; name conflicts get numbered. Checks downloaded sizes and returns nonzero if any item fails, preserving successful downloads and per-item errors. |
 | `subscriptions [--limit 200] [--depth 3] [--open index-or-guid] [--default]` | Scans accessible files and sorts discovered subscriptions by update time. `limit` caps files scanned, not results returned. List first, then select. `--open` launches a local browser under the [browser rules](scenarios.md#browser-selection). |
@@ -180,7 +180,7 @@ The `phase3` entry point provides fixed actions for Word-style documents, presen
 
 Detailed references are currently in Chinese: [Overview](../phase3-commands.md) · [Documents](../phase3-document-commands.md) · [Presentations](../phase3-slide-commands.md) · [Forms](../phase3-form-commands.md).
 
-Spreadsheet actions `sheet-update/append/insert/delete/format/merge` through this entry point require `--read-range`. `--out` stores evidence for each run. `phase3 artifact <local-file>` checks package structure only and reports `actionVerified:false`; it does not prove an online write. See the [acceptance record (Chinese)](../phase3-acceptance.md) for limits and deferred capabilities.
+Spreadsheet actions `sheet-update/append/insert/delete/format/merge` through this entry point require `--read-range`. `--out` keeps evidence for each run. Without it, ordinary successful actions remove temporary evidence after verification; failed evidence has age and size limits. PDF and form-response exports remain user deliverables. See the [temporary-file policy (Chinese)](../phase3-commands.md). `phase3 artifact <local-file>` checks package structure only and reports `actionVerified:false`; it does not prove an online write. See the [acceptance record (Chinese)](../phase3-acceptance.md) for limits and deferred capabilities.
 
 ## Actions reserved for the user
 

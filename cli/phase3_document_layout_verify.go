@@ -489,6 +489,16 @@ func verifyDocumentLayout(before, after documentLayoutSnapshot, s documentLayout
 				allowed[key] = true
 			}
 		}
+		// The page-settings call re-serialises the whole section, so attributes
+		// that previously relied on their default can appear explicitly
+		// (cols.sep="0", pgMar.gutter="0", ...). Accept that only when the
+		// effective value is unchanged; a real change still fails below.
+		if s.Columns == 0 {
+			if e := documentSectionDefaultEffects(before.SectionValues[section], v, s.Margins); e == nil {
+				allowed["cols"] = true
+				allowed["pgMar"] = true
+			}
+		}
 		if !layoutEqualExcept(before.Sections[section], after.Sections[section], allowed) {
 			return fmt.Errorf("非目标页面属性变化")
 		}

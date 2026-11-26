@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -93,6 +94,9 @@ func (a *App) phase3SDK(target, typ string) (*phase3SDKSession, error) {
 
 func phase3SDKJSON(r *Response) (any, error) {
 	if r.Status < 200 || r.Status >= 300 {
+		if detail := phase3SDKErrorDetail(r); detail != "" {
+			return nil, fmt.Errorf("SDK 请求失败（HTTP %d）：%s", r.Status, detail)
+		}
 		return nil, fmt.Errorf("SDK 请求失败（HTTP %d）", r.Status)
 	}
 	if r.Data == nil {
@@ -100,16 +104,40 @@ func phase3SDKJSON(r *Response) (any, error) {
 	}
 	if m, ok := r.Data.(map[string]any); ok {
 		if code := str(m, "errorCode"); code != "" && code != "0" {
-			return nil, fmt.Errorf("SDK 业务错误（code %s）", code)
+			return nil, fmt.Errorf("SDK 业务错误（%s）", phase3SDKErrorDetail(r))
 		}
 		if code := str(m, "code"); code != "" && code != "0" && code != "200" {
-			return nil, fmt.Errorf("SDK 业务错误（code %s）", code)
+			return nil, fmt.Errorf("SDK 业务错误（%s）", phase3SDKErrorDetail(r))
 		}
 		if e := str(m, "error"); e != "" {
-			return nil, errors.New("SDK 返回业务错误")
+			return nil, fmt.Errorf("SDK 业务错误（%s）", phase3SDKErrorDetail(r))
 		}
 	}
 	return r.Data, nil
+}
+
+// phase3SDKErrorDetail surfaces the server's own error fields. Without them a
+// 400 is indistinguishable from a permission problem or a bad request shape.
+func phase3SDKErrorDetail(r *Response) string {
+	if m, ok := r.Data.(map[string]any); ok {
+		parts := []string{}
+		for _, k := range []string{"errorCode", "code", "error", "errMsg", "message", "msg", "errorMessage"} {
+			if v := str(m, k); v != "" {
+				parts = append(parts, k+"="+v)
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, "，")
+		}
+	}
+	raw := strings.TrimSpace(string(r.Raw))
+	if raw == "" {
+		return ""
+	}
+	if len(raw) > 300 {
+		raw = raw[:300] + "…"
+	}
+	return "响应正文 " + raw
 }
 func (s *phase3SDKSession) get(path string) (any, error) {
 	r, err := s.app.authRequestPath(s.prefix+path, "GET", nil, nil, s.headers)
@@ -214,6 +242,14 @@ func (a *App) cmdPhase3TableRead() error {
 		return err
 	}
 	result := map[string]any{"ok": true, "action": "table-inspect", "fileType": "table", "url": s.target, "revision": rev, "mutationAttempted": false}
+	recordLimit := 20
+	if raw := strings.TrimSpace(a.opt("--records-limit")); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 0 || n > 500 {
+			return errors.New("--records-limit 必须是 0 到 500 之间的整数")
+		}
+		recordLimit = n
+	}
 	summaries := []any{}
 	found := false
 	for _, v := range list {
@@ -221,7 +257,23 @@ func (a *App) cmdPhase3TableRead() error {
 		if !ok || str(table, "guid") == "" {
 			return errors.New("应用表格包含无效数据表")
 		}
-		summaries = append(summaries, phase3TableSummary(table))
+		summary := phase3TableSummary(table)
+		// 只读盘点必须直接给出字段/视图/记录 GUID：写动作一律按 GUID 取键，
+		// 让调用方再猜或再跑一次 --table 属于实现不足。
+		if num(table, "tableType") != 4 {
+			structure, err := s.tableStructure(str(table, "guid"), recordLimit)
+			if err != nil {
+				return err
+			}
+			summary["fields"] = structure["fields"]
+			summary["views"] = structure["views"]
+			summary["recordCount"] = structure["recordCount"]
+			summary["recordGuids"] = structure["recordGuids"]
+			summary["recordGuidsTruncated"] = structure["recordGuidsTruncated"]
+		} else {
+			summary["dashboard"] = true
+		}
+		summaries = append(summaries, summary)
 		if id := a.opt("--table"); id != "" && id == str(table, "guid") {
 			var detail map[string]any
 			var err error
@@ -241,5 +293,70 @@ func (a *App) cmdPhase3TableRead() error {
 		return errors.New("指定数据表不属于目标应用表格")
 	}
 	result["tables"] = summaries
+	result["recordLimit"] = recordLimit
 	return a.printJSON(result)
+}
+
+// tableStructure 是 table-inspect 的轻量结构读取：一次 GET 拿到字段、视图与
+// 记录 GUID，不做 revision 双读与视图顺序补全——盘点不需要，写动作才需要
+// tableSnapshot 的严格快照。
+func (s *phase3SDKSession) tableStructure(tableGuid string, recordLimit int) (map[string]any, error) {
+	data, err := s.get("table-api/tables/" + url.PathEscape(tableGuid) + "?withData=true")
+	if err != nil {
+		return nil, err
+	}
+	table, ok := data.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("数据表 %s 结构响应不是对象", tableGuid)
+	}
+	if str(table, "guid") != tableGuid || str(table, "baseGuid") != s.guid {
+		return nil, fmt.Errorf("数据表 %s 结构读回身份不匹配", tableGuid)
+	}
+	pick := func(key string, keys []string) ([]any, error) {
+		entries, ok := table[key].([]any)
+		if !ok {
+			return nil, fmt.Errorf("数据表 %s 结构缺少 %s 数组", tableGuid, key)
+		}
+		out := make([]any, 0, len(entries))
+		for _, raw := range entries {
+			m, ok := raw.(map[string]any)
+			if !ok || str(m, "guid") == "" {
+				return nil, fmt.Errorf("数据表 %s 的 %s 存在无效条目", tableGuid, key)
+			}
+			item := map[string]any{"guid": str(m, "guid")}
+			for _, k := range keys {
+				if v, exists := m[k]; exists {
+					item[k] = v
+				}
+			}
+			out = append(out, item)
+		}
+		return out, nil
+	}
+	fields, err := pick("fields", []string{"name", "type", "isPrimary"})
+	if err != nil {
+		return nil, err
+	}
+	views, err := pick("views", []string{"name", "type", "isDefault"})
+	if err != nil {
+		return nil, err
+	}
+	records, err := pick("records", nil)
+	if err != nil {
+		return nil, err
+	}
+	guids := make([]any, 0, len(records))
+	for i, raw := range records {
+		if recordLimit >= 0 && i >= recordLimit {
+			break
+		}
+		guids = append(guids, raw.(map[string]any)["guid"])
+	}
+	return map[string]any{
+		"fields":               fields,
+		"views":                views,
+		"recordCount":          len(records),
+		"recordGuids":          guids,
+		"recordGuidsTruncated": len(guids) < len(records),
+	}, nil
 }

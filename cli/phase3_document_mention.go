@@ -59,7 +59,15 @@ func documentMentionJS(s documentFormatSpec, id, name string) string {
 
 func documentMentionReadbackJS(s documentFormatSpec, id, name string) string {
 	raw, _ := json.Marshal(map[string]any{"paragraph": s.Paragraph, "text": s.Text + "@" + name, "userId": id, "label": "@" + name})
-	return `(async()=>{const spec=` + string(raw) + `,e=window._sdk?.editor,p=e?.getParagraphs?.()[spec.paragraph-1];if(!p||!Array.isArray(p.children))return {ok:false,error:'提及段落模型不可读取'};const text=(await e.getParagraphRange(p).getText()).replace(/\r?\n$/,'');if(text!==spec.text)return {ok:false,error:'提及段落正文不符'};const mentions=p.children.filter(c=>c.atType===1);if(mentions.length!==1)return {ok:false,error:'真实用户提及节点数不是1'};const m=mentions[0];const collected={Text:''};const returned=typeof m.getText==='function'?m.getText(collected):null;const label=typeof returned==='string'?returned:collected.Text;if(String(m.atInfo?.userId)!==spec.userId||label!==spec.label)return {ok:false,error:'真实提及的用户ID或显示名不符'};return {ok:true,userId:String(m.atInfo.userId),atType:m.atType,displayText:label,paragraph:spec.paragraph,nodeId:typeof m.getId==='function'?m.getId():null,text};})()`
+	// The mention node is not always a direct child of the paragraph: the editor
+	// can nest it inside the hyperlink wrapper. Walk the model instead of
+	// reading p.children once, and fall back to the document root when the
+	// paragraph object itself exposes no children accessor.
+	return `(async()=>{const spec=` + string(raw) + `,e=window._sdk?.editor,p=e?.getParagraphs?.()[spec.paragraph-1];if(!p)return {ok:false,error:'提及段落不存在'};const text=(await e.getParagraphRange(p).getText()).replace(/\r?\n$/,'');if(text!==spec.text)return {ok:false,error:'提及段落正文不符'};
+const kids=n=>{if(Array.isArray(n?.children))return n.children;for(const k of ['getChildren','getChildNodes','getNodes','getChildrenNodes'])if(typeof n?.[k]==='function'){try{const v=n[k]();if(Array.isArray(v))return v}catch(_){}}return null};
+const find=root=>{const out=[],seen=new Set();const walk=(n,d)=>{if(!n||typeof n!=='object'||d>40||seen.has(n))return;seen.add(n);const cs=kids(n);if(!cs)return;for(const c of cs){if(c?.atType===1)out.push(c);walk(c,d+1)}};walk(root,0);return out};
+let mentions=find(p),scope='paragraph';if(mentions.length===0){const doc=typeof e.getDocument==='function'?e.getDocument():e.docsApi?.getDocument?.();mentions=find(doc);scope='document'}
+if(mentions.length!==1)return {ok:false,error:'真实用户提及节点数不是1（'+mentions.length+'）'};const m=mentions[0];const collected={Text:''};const returned=typeof m.getText==='function'?m.getText(collected):null;const label=typeof returned==='string'?returned:collected.Text;if(String(m.atInfo?.userId)!==spec.userId||label!==spec.label)return {ok:false,error:'真实提及的用户ID或显示名不符'};return {ok:true,userId:String(m.atInfo.userId),atType:m.atType,displayText:label,paragraph:spec.paragraph,scope,nodeId:typeof m.getId==='function'?m.getId():null,text};})()`
 }
 
 func documentMentionIdentity(me map[string]any) (string, string, error) {

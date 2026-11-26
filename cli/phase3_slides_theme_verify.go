@@ -316,7 +316,7 @@ func verifyPhase3SlideThemeArtifacts(before, after string, ids, next []string, s
 		return e
 	}
 	if !reflect.DeepEqual(b, a) || !reflect.DeepEqual(bs, as) {
-		return fmt.Errorf("应用主题改变了原文字、局部样式、非占位对象、备注或页面尺寸")
+		return fmt.Errorf("应用主题改变了原文字、局部样式、非占位对象、备注或页面尺寸：%s", phase3ThemePageDiff(b, a, bs, as))
 	}
 	bp, e := phase3ReadShowProperties(before)
 	if e != nil {
@@ -330,4 +330,49 @@ func verifyPhase3SlideThemeArtifacts(before, after string, ids, next []string, s
 		return fmt.Errorf("应用主题改变了演示设置")
 	}
 	return nil
+}
+
+// phase3ThemePageDiff names the exact page and property that broke theme
+// acceptance, so a failure points at a slide/shape instead of the whole deck.
+func phase3ThemePageDiff(before, after []phase3ThemeLocalPage, bs, as any) string {
+	if len(before) != len(after) {
+		return fmt.Sprintf("页面数 %d → %d", len(before), len(after))
+	}
+	for i := range before {
+		b, a := before[i], after[i]
+		switch {
+		case b.ID != a.ID:
+			return fmt.Sprintf("第%d页页面 ID %s → %s", i+1, b.ID, a.ID)
+		case b.Hidden != a.Hidden:
+			return fmt.Sprintf("第%d页（%s）隐藏状态被改变", i+1, b.ID)
+		case b.Notes != a.Notes:
+			return fmt.Sprintf("第%d页（%s）备注被改变", i+1, b.ID)
+		case !reflect.DeepEqual(b.Content, a.Content):
+			return fmt.Sprintf("第%d页（%s）文字或局部样式被改变", i+1, b.ID)
+		case !reflect.DeepEqual(b.Transforms, a.Transforms):
+			return fmt.Sprintf("第%d页（%s）图形位置/尺寸被改变：%s", i+1, b.ID, phase3ThemeTransformDiff(b.Transforms, a.Transforms))
+		}
+	}
+	if !reflect.DeepEqual(bs, as) {
+		return "页面尺寸或母版集合被改变"
+	}
+	return "差异未定位到具体页面"
+}
+
+func phase3ThemeTransformDiff(before, after map[string]*phase3ThemeTransform) string {
+	for key, b := range before {
+		a, ok := after[key]
+		if !ok {
+			return fmt.Sprintf("对象 %s 丢失", key)
+		}
+		if !reflect.DeepEqual(b, a) {
+			return fmt.Sprintf("对象 %s 的几何数据变化", key)
+		}
+	}
+	for key := range after {
+		if _, ok := before[key]; !ok {
+			return fmt.Sprintf("新增对象 %s", key)
+		}
+	}
+	return "对象集合未对齐"
 }

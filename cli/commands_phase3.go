@@ -16,7 +16,11 @@ var phase3MutationActions = map[string]bool{
 // Phase3 validates a request before any mutation, records both exports, and
 // reports success only after proving the requested postcondition. No inference
 // from HTTP status, metadata strings, or unrelated workbook styles is allowed.
-func (a *App) cmdPhase3() (runErr error) {
+func (a *App) cmdPhase3() error {
+	return a.withPhase3Evidence(a.runPhase3)
+}
+
+func (a *App) runPhase3() (runErr error) {
 	if len(a.Pos) != 1 && !(len(a.Pos) == 2 && a.Pos[0] == "artifact") {
 		return errors.New("用法：phase3 <链接> --action <动作> --payload JSON --read-range 工作表!A1:D4 [--out 目录]；phase3 artifact <文件>")
 	}
@@ -141,7 +145,7 @@ func (a *App) cmdPhase3() (runErr error) {
 	if str(info, "type") != "spreadsheet" || boolv(info, "isCloudFile") || boolv(info, "isFolder") {
 		return errors.New("phase3 表格动作只接受在线 spreadsheet；未执行写入")
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}
@@ -212,11 +216,7 @@ func (a *App) cmdPhase3() (runErr error) {
 	if err := phase3WriteEvidence(filepath.Join(dir, "result.json"), result); err != nil {
 		return fmt.Errorf("验收结果保存失败：%w", err)
 	}
-	if a.JSON {
-		return a.printJSON(result)
-	}
-	fmt.Printf("动作验收通过：%s\n证据：%s\n", action, terminalText(dir))
-	return nil
+	return a.printPhase3Result(result, fmt.Sprintf("动作验收通过：%s", action))
 }
 
 func phase3ActionNeedsBrowser(action string) bool {

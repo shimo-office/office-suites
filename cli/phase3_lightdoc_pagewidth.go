@@ -67,7 +67,7 @@ func (a *App) cmdPhase3LightDocPageWidth() error {
 	if !isLightDocURL(target) {
 		return errors.New("目标不是轻文档（/docs/）；文稿请用 document-page")
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

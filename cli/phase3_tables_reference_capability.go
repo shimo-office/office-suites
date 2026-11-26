@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -91,7 +92,7 @@ func (g *phase3TablePresence) ReferenceCapability(tableGuid string) (map[string]
 	if err = g.browser.WaitReady(`(()=>{return [...document.querySelectorAll('[data-field-type]')].some(e=>e.getBoundingClientRect().width>0)})()`, 10*time.Second); err != nil {
 		return nil, err
 	}
-	raw, err := g.browser.EvalReadOnly(phase3ReferenceCapabilityReadyRead)
+	raw, err := g.referenceCapabilityRead(point)
 	if err != nil {
 		return nil, err
 	}
@@ -107,4 +108,33 @@ func (g *phase3TablePresence) ReferenceCapability(tableGuid string) (map[string]
 		return value, err
 	}
 	return value, nil
+}
+
+// referenceCapabilityRead re-opens the native field-type menu when a repaint
+// dropped its items. A single hover is not reliable evidence: the menu can be
+// mounted and then replaced, which used to fail with "field menu is not
+// initialized" even though the capability existed.
+func (g *phase3TablePresence) referenceCapabilityRead(point map[string]any) (any, error) {
+	x, y := num(point, "x"), num(point, "y")
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			// Move off the menu, then back: some menus only re-open on enter.
+			_, _ = g.browser.ws.Call(778, "Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": x + 80, "y": y + 24}, 10*time.Second)
+			time.Sleep(300 * time.Millisecond)
+			if _, err := g.browser.ws.Call(778, "Input.dispatchMouseEvent", map[string]any{"type": "mouseMoved", "x": x, "y": y}, 10*time.Second); err != nil {
+				return nil, err
+			}
+			time.Sleep(700 * time.Millisecond)
+		}
+		raw, err := g.browser.EvalReadOnly(phase3ReferenceCapabilityRead)
+		if err == nil {
+			return raw, nil
+		}
+		lastErr = err
+		if !strings.Contains(err.Error(), "native field menu is not initialized") {
+			return nil, err
+		}
+	}
+	return nil, fmt.Errorf("原生字段类型菜单在 %d 次悬停后仍未初始化；未执行写入：%w", 5, lastErr)
 }

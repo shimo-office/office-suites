@@ -6,6 +6,7 @@ import (
 	"math"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -56,8 +57,8 @@ func documentReplaceOffsets(text, find string) []int {
 	}
 	return offsets
 }
-func documentReplaceSteps(before documentLayoutSnapshot, s documentReplaceSpec) ([]documentFormatSpec, error) {
-	steps := []documentFormatSpec{}
+func documentReplaceSteps(before documentLayoutSnapshot, s documentReplaceSpec) ([]documentReplaceStep, error) {
+	steps := []documentReplaceStep{}
 	count := 0
 	for _, p := range before.Paragraphs {
 		count += strings.Count(p.Text, s.Find)
@@ -71,12 +72,64 @@ func documentReplaceSteps(before documentLayoutSnapshot, s documentReplaceSpec) 
 		current := p.Text
 		for j := len(offsets) - 1; j >= 0; j-- {
 			start, end := offsets[j], offsets[j]+utf8.RuneCountInString(s.Find)
-			steps = append(steps, documentFormatSpec{Paragraph: i + 1, Text: current, Start: start, End: end})
+			format := documentRunFormat{}
+			if i < len(before.Text.Paragraphs) {
+				if chars := documentExpanded(before.Text.Paragraphs[i]); start < len(chars) {
+					format = documentReplaceFormat(chars[start].Attrs)
+				}
+			}
+			steps = append(steps, documentReplaceStep{Paragraph: i + 1, Text: current, Start: start, End: end, Format: format})
 			runes := []rune(current)
 			current = string(runes[:start]) + s.Replacement + string(runes[end:])
 		}
 	}
 	return steps, nil
+}
+
+// documentReplaceStep carries the exact run attributes of the replaced text so
+// the editor's typing attributes can be set before pasting. Without this the
+// paste stamps the paragraph default and the replacement loses its formatting.
+type documentReplaceStep struct {
+	Paragraph int               `json:"paragraph"`
+	Text      string            `json:"text"`
+	Start     int               `json:"start"`
+	End       int               `json:"end"`
+	Format    documentRunFormat `json:"format"`
+}
+
+type documentRunFormat struct {
+	FontFamily    string  `json:"fontFamily,omitempty"`
+	FontSize      float64 `json:"fontSize,omitempty"`
+	Color         string  `json:"color,omitempty"`
+	Bold          *bool   `json:"bold,omitempty"`
+	Italic        *bool   `json:"italic,omitempty"`
+	Underline     *bool   `json:"underline,omitempty"`
+	Strike        *bool   `json:"strike,omitempty"`
+	VerticalAlign int     `json:"verticalAlign,omitempty"`
+}
+
+func documentReplaceFormat(attrs map[string]string) documentRunFormat {
+	f := documentRunFormat{}
+	for _, key := range []string{"fontFamily.eastAsia", "fontFamily.ascii", "fontFamily.hAnsi", "fontFamily.cs"} {
+		if v, ok := attrs[key]; ok && v != "" && !strings.HasSuffix(key, "Theme") {
+			f.FontFamily = v
+			break
+		}
+	}
+	if v, err := strconv.ParseFloat(attrs["fontSize"], 64); err == nil && v > 0 {
+		f.FontSize = v
+	}
+	if v := attrs["color"]; strings.HasPrefix(v, "#") && len(v) == 7 {
+		f.Color = v
+	}
+	for key, target := range map[string]**bool{"bold": &f.Bold, "italic": &f.Italic, "underline": &f.Underline, "strike": &f.Strike} {
+		if v, ok := attrs[key]; ok {
+			b := v == "true"
+			*target = &b
+		}
+	}
+	f.VerticalAlign = map[string]int{"baseline": 0, "superscript": 1, "subscript": 2}[attrs["verticalAlign"]]
+	return f
 }
 func verifyDocumentReplace(before, after documentLayoutSnapshot, s documentReplaceSpec) error {
 	if _, e := documentReplaceSteps(before, s); e != nil {
@@ -122,7 +175,7 @@ func verifyDocumentReplace(before, after documentLayoutSnapshot, s documentRepla
 	return nil
 }
 
-func documentReplaceJS(s documentReplaceSpec, before documentLayoutSnapshot, steps []documentFormatSpec) string {
+func documentReplaceJS(s documentReplaceSpec, before documentLayoutSnapshot, steps []documentReplaceStep) string {
 	request, _ := json.Marshal(s)
 	rawSteps, _ := json.Marshal(steps)
 	texts := []string{}
@@ -130,8 +183,14 @@ func documentReplaceJS(s documentReplaceSpec, before documentLayoutSnapshot, ste
 		texts = append(texts, p.Text)
 	}
 	rawTexts, _ := json.Marshal(texts)
-	return `(async()=>{` + phase3PresenceGuardJS() + `const request=` + string(request) + `,steps=` + string(rawSteps) + `,baseline=` + string(rawTexts) + `;const locate=async(spec)=>{` + documentRangeBodyJS() + `return {ok:true,range,selected}};const e=window._sdk.editor;if(typeof e.pasteDataInternal!=='function')return {ok:false,error:'精确替换方法未就绪'};if(e.getParagraphs().length!==baseline.length)return {ok:false,error:'段落数已变化'};for(let i=0;i<baseline.length;i++){if((await e.getParagraphRange(e.getParagraphs()[i]).getText()).replace(/\r?\n$/,'')!==baseline[i])return {ok:false,error:'全文基线变化，未写入'}};for(const s of steps){const r=await locate({...s,text:baseline[s.paragraph-1]});if(!r.ok)return r;if(r.selected!==request.find)return {ok:false,error:'预检选区不匹配，未写入'}};let completed=0;for(const spec of steps){const r=await locate(spec);if(!r.ok)return {ok:false,error:'已替换'+completed+'处；后续选区失败，禁止重放：'+r.error};if(r.selected!==request.find)return {ok:false,error:'已替换'+completed+'处；选区文本变化，禁止重放'};` + `const applied=await e.runSelectionCallback(r.range,async()=>{` + phase3PresenceGuardJS() + `if(e.config?.mode?.role!=='editor'||e.docsApi.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'编辑权限已变化'};await e.pasteDataInternal(request.replacement,'text');return {ok:true}});if(!applied?.ok)return {ok:false,error:'已提交'+completed+'处；后续写入中止，禁止重放：'+(applied?.error||'未知状态')};completed++}return {ok:true,submitted:true,completed};})()`
+	return `(async()=>{` + phase3PresenceGuardJS() + `const request=` + string(request) + `,steps=` + string(rawSteps) + `,baseline=` + string(rawTexts) + `;const locate=async(spec)=>{` + documentRangeBodyJS() + `return {ok:true,range,selected}};const e=window._sdk.editor;if(typeof e.pasteDataInternal!=='function')return {ok:false,error:'精确替换方法未就绪'};if(e.getParagraphs().length!==baseline.length)return {ok:false,error:'段落数已变化'};for(let i=0;i<baseline.length;i++){if((await e.getParagraphRange(e.getParagraphs()[i]).getText()).replace(/\r?\n$/,'')!==baseline[i])return {ok:false,error:'全文基线变化，未写入'}};for(const s of steps){const r=await locate({...s,text:baseline[s.paragraph-1]});if(!r.ok)return r;if(r.selected!==request.find)return {ok:false,error:'预检选区不匹配，未写入'}};let completed=0;for(const spec of steps){const r=await locate(spec);if(!r.ok)return {ok:false,error:'已替换'+completed+'处；后续选区失败，禁止重放：'+r.error};if(r.selected!==request.find)return {ok:false,error:'已替换'+completed+'处；选区文本变化，禁止重放'};
+ const applied=await e.runSelectionCallback(r.range,async()=>{` + phase3PresenceGuardJS() + `if(e.config?.mode?.role!=='editor'||e.docsApi.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'编辑权限已变化'};await e.pasteDataInternal(request.replacement,'text');return {ok:true}});if(!applied?.ok)return {ok:false,error:'已提交'+completed+'处；后续写入中止，禁止重放：'+(applied?.error||'未知状态')};
+ const f=spec.format||{};if(Object.keys(f).length){const width=Array.from(request.replacement).length;const now=(await e.getParagraphRange(e.getParagraphs()[spec.paragraph-1]).getText()).replace(/\r?\n$/,'');const r2=await locate({paragraph:spec.paragraph,text:now,start:spec.start,end:spec.start+width});if(!r2.ok)return {ok:false,error:'已替换'+(completed+1)+'处；格式回填选区失败，禁止重放：'+r2.error};if(r2.selected!==request.replacement)return {ok:false,error:'已替换'+(completed+1)+'处；格式回填选区文本不符，禁止重放'};
+  const restored=await e.runSelectionCallback(r2.range,()=>{` + phase3PresenceGuardJS() + `if(e.config?.mode?.role!=='editor'||e.docsApi.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'编辑权限已变化'};const api=e.docsApi;if(f.fontFamily&&typeof api.setFontFamily==='function')api.setFontFamily(f.fontFamily);if(f.fontSize&&typeof api.setFontSize==='function')api.setFontSize(f.fontSize);if(f.color&&typeof api.setTextColor==='function')api.setTextColor({r:parseInt(f.color.slice(1,3),16),g:parseInt(f.color.slice(3,5),16),b:parseInt(f.color.slice(5,7),16)});if(typeof f.bold==='boolean'&&typeof api.setBold==='function')api.setBold(f.bold);if(typeof f.italic==='boolean'&&typeof api.setItalic==='function')api.setItalic(f.italic);if(typeof f.underline==='boolean'&&typeof api.setUnderline==='function')api.setUnderline({value:f.underline?'single':'none',color:f.underline?'auto':undefined});if(typeof f.strike==='boolean'&&typeof api.setStrikeout==='function')api.setStrikeout(f.strike);if(typeof f.verticalAlign==='number'&&typeof api.setTextVertAlign==='function')api.setTextVertAlign(f.verticalAlign);return {ok:true}});
+  if(!restored?.ok)return {ok:false,error:'已替换'+(completed+1)+'处；格式回填失败，禁止重放：'+(restored?.error||'未知状态')}}
+ completed++}return {ok:true,submitted:true,completed};})()`
 }
+
 func (a *App) cmdPhase3DocumentReplace() (runErr error) {
 	if len(a.Pos) != 1 {
 		return fmt.Errorf("document-replace 需要一个文稿链接")
@@ -156,7 +215,7 @@ func (a *App) cmdPhase3DocumentReplace() (runErr error) {
 		return fmt.Errorf("目标 origin 不一致")
 	}
 	guid := guidFromURL(target)
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

@@ -44,7 +44,7 @@ shimo-net <command> [位置参数] [--option value] [--json]
 | `session logout` | 只标记共享会话已退出；`logout` 会同时清理本地凭据。 |
 | `whoami` | 查询实际当前账号。 |
 | `doctor` | 检查平台运行环境、浏览器、origin 和账号；失败返回非 0。 |
-| `schema` | 输出命令、类型、动作分类、场景与能力计数。 |
+| `schema [--action 动作]` | 输出命令、类型、动作分类、场景与能力计数；`phase3.actionParams` 给出每个动作的 payload 契约（必填、可选、枚举、示例），带 `--action` 只输出该动作的契约。 |
 | `update [--check] [--json]` | 更新当前安装；`--check` 只检查。npm 安装更新整个包，原生安装校验 GitHub Release 后替换；不降级、不修改登录和配置。旧版需先按[安装说明](install.md)升级一次。 |
 | `version` | 输出本地二进制版本；支持 `--json`。 |
 | `help` / `--help` / `-h` | 输出当前帮助。 |
@@ -90,7 +90,7 @@ shimo-net version --json         # 核对当前版本
 | `trash` | 列回收站。 |
 | `restore <guid>` | 恢复回收站中的目标。 |
 | `audit <目录> [--limit 200]` | 只读权限巡检；未知权限单独分组，未知或截断时非 0 退出，不计作私有。 |
-| `read <链接> [--max-chars 12000]` | 按实际导出格式解析正文；可从 md 回退 docx，回退 PDF 时明确拒绝解析并提示 get。超长内容会截断。 |
+| `read <链接> [--max-chars 12000]` | 按实际导出格式解析正文；可从 md 回退 docx，回退 PDF 时明确拒绝解析并提示 get。超长内容会截断。表格输出的工作表标题使用工作簿中的真实工作表名（可直接用于 `sheet-values` / `sheet-update` 的 `range`），不再固定显示 `Sheet 1`。 |
 | `get <链接> [--out 目录]` | 附件原样下载，在线文件按类型首选格式导出，失败可回退 PDF；以 `exportType` 和实际扩展名为准。默认 `./shimo-pull`，同名或已有本地目标自动加序号保留，明确拒绝 `--format csv`。 |
 | `pull <目录> [--out 目录] [--since 7d] [--limit N]` | 仅下载文件夹/空间当前层，默认 `./shimo-pull`；子目录记入 manifest 为 skipped，不递归。默认不限当前层数量；文件名冲突自动加序号；结束前核对落盘文件大小。清单使用独立隐藏文件，以结果 `manifest` 字段为准，不覆盖云端 `manifest.json` 或旧清单。有失败项非 0 退出，保留已下载文件、清单与逐项错误。 |
 | `subscriptions [--limit 200] [--depth 3] [--open 序号或guid] [--default]` | limit 是扫描文件数上限，不是返回条数；仅对扫描范围内的订阅文件按更新时间排序，先列再选择。`--open` 会启动本地浏览器，先按浏览器规则确定该方式适用；无服务端全量“最近正文”接口。 |
@@ -180,7 +180,7 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 
 扩展固定动作保持 `phase3` 命令入口，接受动作白名单及受约束的 JSON 参数；不接受任意 JavaScript。参数与示例见 [总览](phase3-commands.md)、[文稿](phase3-document-commands.md)、[幻灯片](phase3-slide-commands.md)、[表单](phase3-form-commands.md)；轻文档（`/docs/`）的 `doc-format/doc-paragraph/doc-replace` 见[总览的轻文档一节](phase3-commands.md#轻文档)。
 
-电子表格补强动作 `sheet-update/append/insert/delete/format/merge` 必须提供 `--read-range`；`--out` 保存逐次运行证据。`phase3 artifact <本地文件>` 只检查文件包结构，明确 `actionVerified:false`，不证明线上写入，不能将本地检查或只读查询当成整项需求通过。
+电子表格补强动作 `sheet-update/append/insert/delete/format/merge` 必须提供 `--read-range`；`--out` 保存逐次运行证据。不指定 `--out` 的普通动作成功后清理临时证据；失败证据限期、限量保留，PDF 和表单答卷导出保留为正式结果，详见[临时文件规则](phase3-commands.md)。`phase3 artifact <本地文件>` 只检查文件包结构，明确 `actionVerified:false`，不证明线上写入，不能将本地检查或只读查询当成整项需求通过。
 
 ## 人工禁用
 

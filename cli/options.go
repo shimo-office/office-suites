@@ -32,7 +32,8 @@ func (a *App) validateOptions() error {
 		"subscriptions": "--limit --depth --open --default",
 		"editor":        "--action --payload --screenshot --verify --no-verify --no-browser --keep-open --close",
 		"phase2":        "--action --payload --screenshot --verify --no-verify --no-browser --keep-open --close",
-		"phase3":        "--action --payload --read-range --out --kind --table --confirm-text --no-browser --verify",
+		"phase3":        "--action --payload --read-range --out --kind --table --records-limit --confirm-text --no-browser --verify",
+		"schema":        "--action",
 	}
 	allowed := " " + options[a.Cmd] + " --no-browser "
 	for name := range a.Flags {

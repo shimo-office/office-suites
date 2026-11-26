@@ -13,6 +13,10 @@ import (
 )
 
 const phase3EditorReadyTimeout = 300 * time.Second
+
+// phase3EditorSdkMissingGrace is how long a fully loaded page may stay without
+// an injected editor SDK before the session is declared unusable.
+const phase3EditorSdkMissingGrace = 30 * time.Second
 const phase3EditorReadOnlyTimeout = 90 * time.Second
 
 // The editor bridge executes fixed, request-specific operations only. It does
@@ -27,6 +31,7 @@ type phase3EditorBrowser struct {
 	nextID           int
 	readyAttempts    int
 	startupEvidence  string
+	diagnosticDirs   []string
 	presenceObserver string
 	navURL           string
 	// 轻文档页面不挂 window.logged，协作名单里的当前用户只能靠 CLI 传入并记住，
@@ -128,7 +133,15 @@ func (b *phase3EditorBrowser) Close() {
 		_ = b.cmd.Process.Kill()
 		_ = b.cmd.Wait()
 	}
-	_ = os.RemoveAll(b.profile)
+	if err := os.RemoveAll(b.profile); err != nil {
+		fmt.Fprintf(os.Stderr, "警告：临时浏览器配置未能清理（%s）：%s\n", terminalText(b.profile), terminalText(err.Error()))
+	}
+	for _, dir := range b.diagnosticDirs {
+		if err := retainManagedEvidence(dir); err != nil {
+			fmt.Fprintf(os.Stderr, "警告：浏览器诊断保留期限未能记录（%s）：%s\n", terminalText(dir), terminalText(err.Error()))
+		}
+	}
+	b.diagnosticDirs = nil
 	if b.cleanupLog != nil {
 		b.cleanupLog()
 		b.cleanupLog = nil
@@ -272,6 +285,16 @@ func phase3PollReady(timeout, interval time.Duration, probe func() (map[string]a
 			if state["login"] == true {
 				return attempts, errors.New("隔离编辑器未登录；本次就绪检查为只读")
 			}
+			// A signed-out table/document page can stay blank without ever
+			// navigating to /login, so readiness polls for minutes. Once the
+			// document is complete and no editor SDK was injected, the session
+			// is unusable: fail fast with the action the user needs to take.
+			if state["documentState"] == "complete" && state["sdk"] == "undefined" && state["presentationSDK"] == "undefined" && !phase3PresenceReady(state) {
+				if ms, ok := state["pageElapsedMs"].(float64); ok && ms > float64(phase3EditorSdkMissingGrace/time.Millisecond) {
+					detail, _ := json.Marshal(state)
+					return attempts, fmt.Errorf("页面已加载 %s 但仍未注入编辑器 SDK，判定登录态失效；请先执行 shimo-net login 后重试（last=%s）", time.Duration(ms)*time.Millisecond, detail)
+				}
+			}
 			if state["ready"] == true {
 				return attempts, nil
 			}
@@ -312,7 +335,7 @@ func (b *phase3EditorBrowser) Capture(filename string) error {
 // A timed-out WebSocket may have consumed only part of a frame. Diagnostics
 // therefore use a new connection and never reuse the failed RPC stream.
 func (b *phase3EditorBrowser) captureReadinessFailure(cause error) error {
-	dir, err := os.MkdirTemp("", "shimo-phase3-browser-failure-")
+	dir, err := b.newDiagnosticDir("shimo-phase3-browser-failure-")
 	if err != nil {
 		return fmt.Errorf("%w；无法创建浏览器诊断目录：%v", cause, err)
 	}
@@ -355,4 +378,26 @@ func (b *phase3EditorBrowser) captureReadinessFailure(cause error) error {
 		return fmt.Errorf("%w；浏览器诊断保存失败：%v", cause, e)
 	}
 	return fmt.Errorf("%w；浏览器诊断：%s（截图成功=%v）", cause, dir, diagnostic["screenshotCaptured"])
+}
+
+// Keep recovery records active until Close: Capture may still copy them into
+// the command's evidence directory while the browser remains in use.
+func (b *phase3EditorBrowser) newDiagnosticDir(prefix string) (string, error) {
+	dir, err := newManagedEvidenceDir(prefix)
+	if err == nil {
+		b.diagnosticDirs = append(b.diagnosticDirs, dir)
+	}
+	return dir, err
+}
+
+// phase3PresenceReady reports whether the page has already received the server
+// presence list. A page that is collaborating is signed in even if its editor
+// SDK has not been injected yet, so it must keep waiting instead of being
+// declared logged out.
+func phase3PresenceReady(state map[string]any) bool {
+	presence, ok := state["presence"].(map[string]any)
+	if !ok {
+		return false
+	}
+	return presence["ready"] == true && presence["connected"] == true
 }

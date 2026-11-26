@@ -76,7 +76,7 @@ func (a *App) cmdPhase3DocumentGoto() (runErr error) {
 	if !phase3SameOrigin(target, a.Origin) {
 		return fmt.Errorf("目标 origin 不一致")
 	}
-	dir, e := phase3EvidenceDir(a.opt("--out"))
+	dir, e := a.phase3EvidenceDir(a.opt("--out"))
 	if e != nil {
 		return e
 	}

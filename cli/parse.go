@@ -199,7 +199,11 @@ func extractXlsx(path string) (string, error) {
 	if root.Name.Space == xlsxTextStrictNS {
 		relNS = xlsxTextStrictRelNS
 	}
-	var sheets []*zip.File
+	type xlsxTextSheet struct {
+		file *zip.File
+		name string
+	}
+	var sheets []xlsxTextSheet
 	for _, n := range list.children("sheet") {
 		id := ""
 		for _, attr := range n.Attr {
@@ -223,12 +227,12 @@ func extractXlsx(path string) (string, error) {
 			return "", fmt.Errorf("工作表 %s 的命名空间与工作簿不一致", n.attr("name"))
 		}
 		if partType == "worksheet" {
-			sheets = append(sheets, entries[rel.Target])
+			sheets = append(sheets, xlsxTextSheet{file: entries[rel.Target], name: n.attr("name")})
 		}
 	}
 	parts := []string{}
 	for i, s := range sheets {
-		rc, err := s.Open()
+		rc, err := s.file.Open()
 		if err != nil {
 			return "", err
 		}
@@ -305,7 +309,11 @@ func extractXlsx(path string) (string, error) {
 				lines = append(lines, strings.Join(r, "\t"))
 			}
 		}
-		parts = append(parts, fmt.Sprintf("## Sheet %d\n%s", i+1, strings.Join(lines, "\n")))
+		title := strings.TrimSpace(s.name)
+		if title == "" {
+			title = fmt.Sprintf("Sheet %d", i+1)
+		}
+		parts = append(parts, fmt.Sprintf("## %s\n%s", title, strings.Join(lines, "\n")))
 	}
 	return strings.Join(parts, "\n\n"), nil
 }

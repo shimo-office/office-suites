@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -73,7 +72,7 @@ func (b *phase3EditorBrowser) waitInitialReady(readiness string, budget time.Dur
 			return b.WaitReady(check, remaining)
 		},
 		record: func(cause error) error {
-			dir, err := os.MkdirTemp("", "shimo-phase3-startup-")
+			dir, err := b.newDiagnosticDir("shimo-phase3-startup-")
 			if err != nil {
 				return err
 			}

@@ -10,6 +10,15 @@ shimo-net phase3 <文件链接> --action <动作> --payload '<JSON>' --out ./evi
 
 只读检查通常不需要 `--payload`。`--out` 是证据父目录，每次运行生成独立子目录；文稿、幻灯片原地修改仍需已登录的 Chrome。API 优先，浏览器只执行固定的编辑与验证流程，不接受任意 JavaScript。目标链接必须与当前配置的 origin 一致。
 
+临时文件统一按用途管理：
+
+- 未指定 `--out` 时，普通动作仍完成导出、截图及读回验证，成功后清理本次临时证据；结果保留验证结论和计数，不再返回已删除文件的路径。
+- 指定 `--out` 时，该目录内的命令证据由用户保管，不受自动清理策略影响；单独保存的浏览器启动诊断仍按下述规则回收。输出目录不能位于系统临时目录的 `shimo-phase3-*` 自动证据目录内，请另选独立目录（如 `./evidence`），避免与并发清理冲突。
+- 失败证据和浏览器启动诊断暂留用于排查。后续普通 `phase3` 命令开始时回收超过 7 天的已结束记录，并按时间从旧到新将可回收记录控制在 256 MiB 内；尚在写入的记录和本次输入文件不参与回收，`phase3 artifact` 检查不触发回收，本次新增证据在后续命令中处理。这不是后台定时任务，也不是整个临时目录的硬性容量上限。
+- `slide-print-pdf` 的 PDF、`form-results` 的 CSV/JSON 是正式结果，未指定 `--out` 也会保留；建议指定输出目录，便于长期保存。
+
+自动回收只处理新机制明确标记的临时证据，不扫描删除历史未标记目录、用户下载、登录状态或仍在使用的浏览器配置。强制结束进程可能来不及完成清理，遗留目录不保证被自动回收。
+
 ## 文稿
 
 字符、文内表格、图形及本人提及参数见 [文稿命令](phase3-document-commands.md)。布局相关动作如下：
@@ -18,10 +27,10 @@ shimo-net phase3 <文件链接> --action <动作> --payload '<JSON>' --out ./evi
 |---|---|---|
 | `document-layout-inspect` | 无 | 只读导出段落、节及主题结构，取得真实段落号与原文。 |
 | `document-paragraph` | `{"paragraph":2,"text":"精确原段落","attrs":{"firstLineChars":2,"lineMultiple":1.5,"shading":"#EEEEEE"}}` | 段落号从 1 开始；缩进单位为字符，行距为倍数。也支持 `heading:1` 至 `6`、`numbering:"decimal"`。 |
-| `document-page` | `{"marginsCm":{"top":2,"bottom":2,"left":1.5,"right":1.5},"columns":2,"background":"#EAF3FF"}` | 当前仅支持单节文稿；边距必须同时给出四边，单位厘米；分栏 1–4。各组设置可独立使用。 |
+| `document-page` | `{"marginsCm":{"top":2,"bottom":2,"left":1.5,"right":1.5},"columns":2,"background":"#EAF3FF"}` | 当前仅支持单节文稿；边距必须同时给出四边，单位厘米；分栏 1–4。各组设置可独立使用。写入时显式沿用原 `pgMar.header/footer`，不再被编辑器重置为默认值；页面设置重写会显式写出 `cols.sep` 等默认值，验收按等效值判定，只报告真实改动的 `diff`。 |
 | `document-theme` | `{"themeFonts":{"major":{"latin":"Arial","ea":"宋体","cs":"Arial"},"minor":{"latin":"Arial","ea":"宋体","cs":"Arial"}},"resetSupplemental":true}` | 必须完整提供两组字体，并明确允许原生主题重建补充语言映射及 Normal/标题主题继承；显式文字字体不应被误改。 |
 
-`document-replace` 的参数为 `{"find":"旧版测试","replacement":"新版测试","expectedCount":3}`，按精确字面文本及预期次数替换。`document-goto` 使用 `{"page":2}` 验证从 1 开始的物理页面位置，不持久化光标。两者均保留导出与页面证据，不能仅凭工具栏或返回值认定完成。
+`document-replace` 的参数为 `{"find":"旧版测试","replacement":"新版测试","expectedCount":3}`，按精确字面文本及预期次数替换；替换文本继承被替换字符的原有字体、字号、颜色与行内标记（编辑器粘贴为纯文本，写入后按原 `rPr` 回填）。`document-goto` 使用 `{"page":2}` 验证从 1 开始的物理页面位置，不持久化光标。两者均使用导出与页面证据验证，保留规则见上文，不能仅凭工具栏或返回值认定完成。
 
 ## 轻文档
 
@@ -81,13 +90,17 @@ shimo-net editor <链接> --action save-version --payload '{"name":"版本名"}'
 
 先用 `table-inspect` 获取真实数据表、字段、记录和视图 GUID。所有字段键使用 GUID，单选值使用选项 GUID；不得把显示名称当成标识。
 
+`table-inspect` 的每次调用都会给每个数据表附上 `fields`（guid/name/type/isPrimary）、`views`（guid/name/type）与 `recordGuids`（默认前 20 条，`--records-limit` 可加到 500）以及 `recordCount`；指定 `--table` 时再追加该表的完整快照。也就是说，不需要先猜字段名或再跑第二次命令才能拿到 GUID。
+
+每个动作的 payload 契约可以直接向 CLI 查询：`shimo-net schema --action table-record-add`。仅含看板/日历视图（没有 Grid）的数据表也可执行写动作：就绪判定接受任一原生视图渲染，不再空等 5 分钟。
+
 | 动作 | payload 形状 | 约束 |
 |---|---|---|
 | `table-create` | `{"name":"测试表","desc":"合成测试数据"}` | 新建主文本字段、空记录及表格视图。 |
 | `table-update` | `{"tableGuid":"实际GUID","name":"新名称","desc":"新说明"}` | 名称和说明可分别修改。 |
 | `table-duplicate` | `{"tableGuid":"实际GUID","name":"测试副本"}` | 只接受当前可验证的简单字段，保留记录值；拒绝同步、表单关联及不支持的复杂结构。 |
 | `table-delete` | `{"tableGuid":"实际GUID"}` | 拒绝最后一个数据表、被引用目标及同步/表单关联表；其他表必须保持不变。 |
-| `table-field-add` | `{"tableGuid":"实际GUID","fields":[{"name":"优先级","type":"SingleChoice","options":["高","低"]}]}` | 类型支持 `SingleLineText/Number/SingleChoice/Date`。 |
+| `table-field-add` | `{"tableGuid":"实际GUID","fields":[{"name":"优先级","type":"SingleChoice","options":["高","低"]}]}` | 类型支持 `SingleLineText/Number/SingleChoice/Date`。列锚点只提交 Grid 视图；表里同时存在看板/日历视图时不再返回 HTTP 400。 |
 | `table-field-update` | `{"tableGuid":"实际GUID","fieldGuid":"实际字段GUID","name":"新字段名"}` | 当前只改名。 |
 | `table-field-convert` | `{"tableGuid":"实际GUID","fieldGuid":"实际字段GUID","type":"Number"}` | 仅文本与数值无损回转；拒绝会丢失格式的 `001` 等值及依赖字段。 |
 | `table-field-delete` | `{"tableGuid":"实际GUID","fieldGuids":["实际字段GUID"]}` | 拒绝主字段及任何已识别依赖。 |
@@ -100,7 +113,7 @@ shimo-net editor <链接> --action save-version --payload '{"name":"版本名"}'
 
 | 视图与图表动作 | payload 形状 | 约束 |
 |---|---|---|
-| `table-view-create` | `{"tableGuid":"实际GUID","viewGuid":"已有视图GUID","name":"测试看板","type":"Kanban","groupFieldGuid":"单选字段GUID"}` | `viewGuid` 为锚点视图。`Grid` 无额外字段；`Calendar` 需要日期类型的 `startFieldGuid/endFieldGuid`。 |
+| `table-view-create` | `{"tableGuid":"实际GUID","viewGuid":"已有视图GUID","name":"测试看板","type":"Kanban","groupFieldGuid":"单选字段GUID"}` | `viewGuid` 为锚点视图（必须已存在于同一数据表）。`Grid` 无额外字段；`Calendar` 需要日期类型的 `startFieldGuid/endFieldGuid`。原生展示验收按“可见记录子集”核对：每条已渲染记录都必须与独立 API 一致，长表格虚拟化未挂载的行不再判失败，结果用 `virtualized` 与记录数标注。 |
 | `table-view-update` | `{"tableGuid":"实际GUID","viewGuid":"实际视图GUID","name":"新视图名"}` | 还可设置明确的 `filters/groups/sort`；只接受当前可验证结构。 |
 | `table-view-delete` | `{"tableGuid":"实际GUID","viewGuid":"实际视图GUID"}` | 拒绝默认、最后共享、个人/锁定/已共享视图及跨表、仪表盘依赖。 |
 | `table-chart-create` | `{"tableGuid":"实际GUID","fieldGuid":"分组字段GUID","name":"测试计数","type":"Column"}` | 支持 `Column/Line/Bar/Pie` 计数图；拒绝空数据，核对图表身份、来源及真实渲染聚合值。创建默认图表不等于已验收调整样式。 |

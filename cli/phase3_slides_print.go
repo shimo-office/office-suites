@@ -31,7 +31,7 @@ func (a *App) cmdPhase3SlidesPrint() (runErr error) {
 	if str(info, "type") != "presentation" || boolv(info, "isCloudFile") {
 		return fmt.Errorf("打印PDF仅接受在线幻灯片")
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

@@ -52,7 +52,7 @@ func TestReleasePhase2OfficeExtractionPreservesOrderAndSharedText(t *testing.T) 
 		"xl/worksheets/sheet2.xml":  "<worksheet><row><c t=\"s\"><v>0</v></c><c><v>42.5</v></c></row><row><c><v> </v></c></row></worksheet>",
 	}, "xl/worksheets/sheet2.xml", "xl/worksheets/sheet10.xml"), "")
 	got, err = extractXlsx(xlsx)
-	if err != nil || got != "## Sheet 1\nHello 世界\t42.5\n\n## Sheet 2\nSecond" {
+	if err != nil || got != "## Sheet1\nHello 世界\t42.5\n\n## Sheet2\nSecond" {
 		t.Fatal(got, err)
 	}
 }

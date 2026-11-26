@@ -115,7 +115,7 @@ func TestReleaseFileReadProductionPipeline(t *testing.T) {
 					t.Fatalf("incorrect rune truncation: %s", out)
 				}
 			}
-			if expected := map[string]string{"documentPro": "真实导", "spreadsheet": "## Sheet 1\n中文单元格", "presentation": "## 幻灯片 1\n中文幻灯片"}[kind]; expected != "" && got["text"] != expected {
+			if expected := map[string]string{"documentPro": "真实导", "spreadsheet": "## Sheet1\n中文单元格", "presentation": "## 幻灯片 1\n中文幻灯片"}[kind]; expected != "" && got["text"] != expected {
 				t.Fatalf("wrong extracted text: %s", out)
 			}
 			if kind == "cloud-full" && got["text"] != "中文😀边界\n第二行" {

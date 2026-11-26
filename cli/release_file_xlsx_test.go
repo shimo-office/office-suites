@@ -71,7 +71,7 @@ func TestReleaseFileXlsxUsesWorkbookRelationships(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || got != "## Sheet 1\n关系中文" {
+			if err != nil || got != "## Actual\n关系中文" {
 				t.Fatalf("relationship target/order ignored: %q %v", got, err)
 			}
 		})
@@ -133,10 +133,24 @@ func TestReleaseFileXlsxStrictAndChartsheetCompatibility(t *testing.T) {
 					}
 					return
 				}
-				if err != nil || got != "## Sheet 1\n正文中文\t42" {
+				if err != nil || got != "## Sheet1\n正文中文\t42" {
 					t.Fatalf("valid workbook unreadable: %q %v", got, err)
 				}
 			})
 		}
+	}
+}
+
+// The read output heading must be the workbook's own sheet name: users copy it
+// into sheet-values/sheet-update ranges, and "Sheet 1" (index based) does not
+// resolve against the API, which only knows the real name.
+func TestReleaseFileXlsxTextUsesWorkbookSheetName(t *testing.T) {
+	entries := artifactWorkbookEntries(`<worksheet xmlns="` + artifactNS + `"><sheetData><row><c t="inlineStr"><is><t>内容</t></is></c></row></sheetData></worksheet>`)
+	got, err := extractXlsx(artifactTestZip(t, entries))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "## First\nwrong sheet\n\n## Target\n内容" {
+		t.Fatalf("sheet headings must use workbook names: %q", got)
 	}
 }

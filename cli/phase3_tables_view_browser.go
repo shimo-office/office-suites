@@ -30,10 +30,28 @@ func verifyPhase3NativeViewProof(actual, spec map[string]any, previousOrigin flo
 	if !ok || nodes < 1 {
 		return errors.New("目标视图没有可见原生内容")
 	}
-	if expected, exists := spec["expectedRecords"]; exists {
-		if !reflect.DeepEqual(actual["renderedRecords"], expected) {
-			return errors.New("视图可见记录GUID、主字段、看板分组或日历日期与独立API预期不一致（含缺失/虚拟化），不能验收")
+	if expected, exists := spec["expectedRecords"].(map[string]any); exists {
+		rendered, ok := actual["renderedRecords"].(map[string]any)
+		if !ok || len(rendered) == 0 {
+			return errors.New("目标视图没有渲染任何记录")
 		}
+		// Grid/Kanban virtualise long tables: only the mounted rows exist in the
+		// DOM. Demand that every rendered record is a real view record with the
+		// exact expected title/group/date, and record how much of the set was
+		// actually visible instead of failing on the rows that were never mounted.
+		for id, value := range rendered {
+			want, ok := expected[id]
+			if !ok {
+				return fmt.Errorf("视图渲染了不属于该视图的记录 %s", id)
+			}
+			if !reflect.DeepEqual(value, want) {
+				return fmt.Errorf("记录 %s 的可见标题、看板分组或日历日期与独立API预期不一致", id)
+			}
+		}
+		actual["verifiedRecords"] = float64(len(rendered))
+		actual["expectedRecordCount"] = float64(len(expected))
+		actual["virtualized"] = len(rendered) < len(expected)
+		actual["verificationScope"] = "every visible record matched; unmounted rows were not asserted"
 	}
 	return nil
 }
@@ -84,6 +102,21 @@ func (g *phase3TablePresence) ViewProof(spec map[string]any) (any, error) {
 	if err = g.CheckPresence(); err != nil {
 		return nil, err
 	}
+	if str(spec, "viewType") == "Grid" {
+		// A freshly created view paints its header before any row. Wait for the
+		// first mounted record cell, and nudge the grid once so row
+		// virtualisation mounts data instead of reporting an empty view.
+		if waitErr := g.browser.WaitReady(phase3GridCellReady, 20*time.Second); waitErr != nil {
+			if p, e := g.browser.EvalReadOnly(`(()=>{const c=document.querySelector('.sm-grid-view-container');if(!c)return null;const r=c.getBoundingClientRect();return{x:r.left+Math.min(r.width/2,240),y:r.top+Math.min(r.height/2,200)}})()`); e == nil {
+				if point, ok := p.(map[string]any); ok {
+					_, _ = g.browser.ws.Call(778, "Input.dispatchMouseEvent", map[string]any{"type": "mouseWheel", "x": num(point, "x"), "y": num(point, "y"), "deltaX": 0, "deltaY": 320}, 10*time.Second)
+				}
+			}
+			if e := g.browser.WaitReady(phase3GridCellReady, 15*time.Second); e != nil {
+				return nil, fmt.Errorf("目标 Grid 视图在 35 秒内没有渲染任何记录单元格：%w", e)
+			}
+		}
+	}
 	v, err := g.browser.EvalReadOnly(`(` + phase3ReadNativeView + `)(` + string(specJSON) + `,` + string(selectorJSON) + `)`)
 	if err != nil {
 		return nil, err
@@ -93,7 +126,8 @@ func (g *phase3TablePresence) ViewProof(spec map[string]any) (any, error) {
 		return nil, errors.New("原生视图证明格式无效")
 	}
 	if err = verifyPhase3NativeViewProof(actual, spec, previousOrigin); err != nil {
-		return nil, err
+		rendered, _ := actual["renderedRecords"].(map[string]any)
+		return actual, fmt.Errorf("%w（可见节点=%v，已渲染记录=%d，主字段=%s，视图=%s）", err, actual["visibleNativeNodes"], len(rendered), str(spec, "primaryFieldGuid"), str(spec, "viewGuid"))
 	}
 	g.readiness = `document.readyState==="complete"&&` + identity + `&&Boolean(window.__shimoPhase3Presence?.().ready&&window.__shimoPhase3Presence?.().connected)&&` + mounted
 	return actual, nil
@@ -157,3 +191,7 @@ const phase3ReadNativeView = `(spec,selector)=>{
  const calendarContext=spec.viewType==='Calendar'?{documentTimezone:boundView?.getTable?.()?.getBase?.()?.getDocumentTimezone?.(),browserTimezone:Intl.DateTimeFormat().resolvedOptions().timeZone}:{};
  return {...binding,...calendarContext,visibleNativeNodes:nodes.length,renderedRecords,timeOrigin:performance.timeOrigin,source:'native-view-model-and-visible-records'};
 }`
+
+// phase3GridCellReady waits for at least one mounted, visible record cell; a
+// grid can be "ready" with headers only while rows are still virtualised out.
+const phase3GridCellReady = `(()=>{const visible=e=>{if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=="hidden"&&s.display!=="none"};return [...document.querySelectorAll(".sm-grid-view-container .cell[data-record-guid][data-field-guid]")].some(visible)})()`

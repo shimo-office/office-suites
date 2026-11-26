@@ -99,7 +99,7 @@ func openPhase3TableBrowser(target string) (*phase3EditorBrowser, error) {
 
 // These are native grid selectors from the loaded grid-view SDK, not text or
 // generic canvas heuristics. Presence alone can precede the first grid paint.
-const phase3TableGridReady = `(()=>{const p=window.__shimoPhase3Presence?.();if(!p?.ready||!p.connected)return false;const visible=e=>{if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=="hidden"&&s.display!=="none"};return [...document.querySelectorAll('.sm-grid-view-container')].some(grid=>visible(grid)&&!grid.classList.contains('first-paint-pending')&&[...grid.querySelectorAll('.header-field[data-field-guid]')].some(visible))})()`
+const phase3TableGridReady = `(()=>{const p=window.__shimoPhase3Presence?.();if(!p?.ready||!p.connected)return false;const visible=e=>{if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=="hidden"&&s.display!=="none"};const grid=[...document.querySelectorAll('.sm-grid-view-container')].some(g=>visible(g)&&!g.classList.contains('first-paint-pending')&&[...g.querySelectorAll('.header-field[data-field-guid]')].some(visible));if(grid)return true;const kanban=[...document.querySelectorAll('.sm-kanban-item-name')].some(visible);const calendar=[...document.querySelectorAll('.calendar-task-item[data-task-guid] .task-name')].some(visible);return kanban||calendar})()`
 
 func phase3TableTargetURL(target, tableGuid string) (string, error) {
 	u, err := url.Parse(target)

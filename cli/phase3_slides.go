@@ -137,7 +137,7 @@ func (a *App) cmdPhase3SlidesWithOpen(openEditor func(string) (*phase3EditorBrow
 	q.Set("dbg", "1")
 	u.RawQuery = q.Encode()
 	editorURL := u.String()
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}
@@ -521,14 +521,7 @@ func (a *App) cmdPhase3SlidesWithOpen(openEditor func(string) (*phase3EditorBrow
 	if err = phase3WriteEvidence(filepath.Join(dir, "result.json"), result); err != nil {
 		return err
 	}
-	if a.JSON {
-		return a.printJSON(result)
-	}
-	fmt.Printf("幻灯片页面动作验收通过：%s\n证据：%s\n", action, terminalText(dir))
-	if limitation, ok := result["exportLimitation"].(string); ok {
-		fmt.Println(limitation)
-	}
-	return nil
+	return a.printPhase3Result(result, fmt.Sprintf("幻灯片页面动作验收通过：%s", action))
 }
 
 func phase3SlideMutationError(err error, attempted bool, dir string) error {

@@ -54,6 +54,11 @@ func schema() map[string]any {
 		"phase2": editor,
 		"phase3": map[string]any{
 			"status": "accepted-with-deferred-capability", "deferredCapability": "37.2", "acceptanceScope": "historical listed samples; not verification of the current invocation", "requiredScenes": "29–42", "requiredCapabilities": 28,
+			"actions":            phase3ContractNames(),
+			"actionCount":        len(phase3ActionContracts),
+			"actionParams":       phase3ActionContracts,
+			"actionParamsNote":   "每个动作的 payload 契约（必填/可选/枚举/示例）。未列出的参数会被拒绝，不要试错；单看一个动作用 shimo-net schema --action <动作>。",
+			"lightdocActions":    []string{"doc-format", "doc-paragraph", "doc-replace", "doc-table", "doc-image", "doc-page-width"},
 			"readOnlyActions":    []string{"document-layout-inspect", "table-inspect", "form-inspect", "form-draft", "form-results", "slide-inspect", "slide-design-inspect"},
 			"viewActions":        []string{"document-goto", "form-preview", "form-respondent"},
 			"exportActions":      []string{"slide-print-pdf"},
@@ -110,7 +115,7 @@ func helpText() string {
   shimo-net rename <链接> <新名字>                   7 改名
   shimo-net delete / trash / restore                 8 删除（只进回收站）/ 回收站 / 恢复
   shimo-net audit <文件夹|@别名> [--limit 200]        9 权限巡检（默认 200，可能截断）
-  shimo-net share …                                  权限变更已禁用，必须页面人工操作
+  shimo-net share <链接|guid> <private|readonly|commentable|editable|enterprise_*>  7 档分享权限，写完重新读取核对
   shimo-net read <链接> [--max-chars N]              11 读正文
   shimo-net get <链接> [--out <目录>]                13 下载单个文件
   shimo-net fav <list|add|rm|show> …                15 常用文件夹别名（下次直接 @别名）
@@ -134,7 +139,7 @@ func helpText() string {
 场景目录（执行方式与限制以能力源为准）:
 ` + capabilityScenarioHelp + `
 
-  shimo-net schema                                  命令/参数/JSON 结构
+  shimo-net schema [--action 动作]                   命令/参数/JSON 结构；带动作名只看该动作的 payload 契约（必填项、可选枚举、示例）
 
 兼容命令: phase2 是 editor 的兼容别名。
 

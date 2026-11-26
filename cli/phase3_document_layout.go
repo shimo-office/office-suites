@@ -12,16 +12,17 @@ const documentLayoutReadyJS = `typeof window._sdk?.editor?.getParagraphs==='func
 
 func documentLayoutJS(s documentLayoutSpec, before documentLayoutSnapshot) string {
 	request, _ := json.Marshal(s)
+	keep, _ := json.Marshal(documentPagePreserveMargins(s, before))
 	texts := []string{}
 	for _, p := range before.Paragraphs {
 		texts = append(texts, p.Text)
 	}
 	baseline, _ := json.Marshal(texts)
-	return `(async()=>{` + phase3PresenceGuardJS() + `const spec=` + string(request) + `,baseline=` + string(baseline) + `;const e=window._sdk.editor,a=e.docsApi;if(e.config?.mode?.role!=='editor'||a.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'没有已确认文稿编辑权限'};const ps=e.getParagraphs();if(ps.length!==baseline.length)return {ok:false,error:'段落数量已变化，未写入'};for(let i=0;i<ps.length;i++){if((await e.getParagraphRange(ps[i]).getText()).replace(/\r?\n$/,'')!==baseline[i])return {ok:false,error:'正文基线已变化，未写入'}}
+	return `(async()=>{` + phase3PresenceGuardJS() + `const spec=` + string(request) + `,baseline=` + string(baseline) + `,keep=` + string(keep) + `;const e=window._sdk.editor,a=e.docsApi;if(e.config?.mode?.role!=='editor'||a.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'没有已确认文稿编辑权限'};const ps=e.getParagraphs();if(ps.length!==baseline.length)return {ok:false,error:'段落数量已变化，未写入'};for(let i=0;i<ps.length;i++){if((await e.getParagraphRange(ps[i]).getText()).replace(/\r?\n$/,'')!==baseline[i])return {ok:false,error:'正文基线已变化，未写入'}}
  const methods=spec.action==='document-theme'?['setCurThemeFonts']:spec.action==='document-page'?[...(Object.keys(spec.marginsCm||{}).length?['updatePageSettings']:[]),...(spec.columns?['setColumnsProps']:[]),...(spec.background?['setDocPgColor']:[])]:Object.keys(spec.attrs).map(k=>({heading:'applyStyle',firstLineChars:'applyParagraphProperties',lineMultiple:'setLineSpacing',shading:'applyParagraphProperties',numbering:'setParaNumbering'})[k]);for(const m of methods){if(typeof a[m]!=='function')return {ok:false,error:'所需编辑方法未就绪：'+m}};
  const range=e.getParagraphRange(ps[spec.action==='document-paragraph'?spec.paragraph-1:0]);return await e.runSelectionCallback(range,()=>{` + phase3PresenceGuardJS() + `if(e.config?.mode?.role!=='editor'||a.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'编辑权限已变化'};const color=s=>({r:parseInt(s.slice(1,3),16),g:parseInt(s.slice(3,5),16),b:parseInt(s.slice(5,7),16)});
  if(spec.action==='document-paragraph'){for(const [key,value]of Object.entries(spec.attrs)){switch(key){case 'heading':a.applyStyle('Heading '+value);break;case 'firstLineChars':a.applyParagraphProperties({Ind:{FirstLineChars:Math.round(value*100)}});break;case 'lineMultiple':a.setLineSpacing({type:1,value});break;case 'shading':{const c=color(value);a.applyParagraphProperties({Shd:{Value:0,Color:{docOfgetR:()=>c.r,docOfgetG:()=>c.g,docOfgetB:()=>c.b},fill:value.slice(1)}});break}case 'numbering':a.setParaNumbering(1,1);break;default:throw Error('unsupported paragraph property')}}}
- else if(spec.action==='document-theme'){a.setCurThemeFonts(spec.themeFonts)}else{const m=spec.marginsCm||{};if(Object.keys(m).length)a.updatePageSettings({scope:1,margins:{left:m.left*10,top:m.top*10,right:m.right*10,bottom:m.bottom*10}});if(spec.columns)a.setColumnsProps({num:spec.columns,equivalentWidth:true});if(spec.background)a.setDocPgColor(spec.background)}
+ else if(spec.action==='document-theme'){a.setCurThemeFonts(spec.themeFonts)}else{const m=spec.marginsCm||{};if(Object.keys(m).length){const pg={left:m.left*10,top:m.top*10,right:m.right*10,bottom:m.bottom*10};for(const k of Object.keys(keep))pg[k]=keep[k];a.updatePageSettings({scope:1,margins:pg})};if(spec.columns)a.setColumnsProps({num:spec.columns,equivalentWidth:true});if(spec.background)a.setDocPgColor(spec.background)}
  return {ok:true,submitted:true,action:spec.action};});})()`
 }
 
@@ -49,7 +50,7 @@ func (a *App) cmdPhase3DocumentLayout() (runErr error) {
 		return fmt.Errorf("目标 origin 不一致，未写入")
 	}
 	guid := guidFromURL(target)
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}
@@ -114,10 +115,29 @@ func (a *App) cmdPhase3DocumentLayout() (runErr error) {
 	var after documentLayoutSnapshot
 	var afterArtifact ArtifactEvidence
 	var proofErr error
+	keep := documentPagePreserveMargins(spec, before)
+	repaired := false
 	for i := 0; i < 5; i++ {
 		afterArtifact, proofErr = a.phase3OfficeExport(guid, filepath.Join(dir, fmt.Sprintf("after-%d", i)), "docx")
 		if proofErr == nil {
 			after, proofErr = readDocumentLayout(afterArtifact.Path)
+		}
+		if proofErr == nil && len(keep) > 0 && !repaired && documentPageMarginsReset(before, after) {
+			// The editor's page-settings call silently rewrote header/footer
+			// to its own default. Restore the recorded values once, then
+			// re-export so the verdict still rests on the document itself.
+			repaired = true
+			repair, repairErr := b.Eval(documentPagePreserveJS(keep))
+			if repairErr == nil {
+				repairErr = b.waitDocumentSaved()
+			}
+			if repairErr != nil {
+				proofErr = fmt.Errorf("页边距写入连带重置了页眉/页脚距离，自动恢复失败：%w", repairErr)
+			} else {
+				_ = phase3WriteEvidence(filepath.Join(dir, "margin-restore.json"), repair)
+				time.Sleep(time.Second)
+				continue
+			}
 		}
 		if proofErr == nil {
 			proofErr = verifyDocumentLayout(before, after, spec)
@@ -128,6 +148,11 @@ func (a *App) cmdPhase3DocumentLayout() (runErr error) {
 		time.Sleep(time.Second)
 	}
 	if proofErr != nil {
+		diff := documentLayoutDiff(before, after)
+		if len(diff) > 0 {
+			_ = phase3WriteEvidence(filepath.Join(dir, "failure-diff.json"), map[string]any{"ok": false, "diff": diff})
+			return fmt.Errorf("已提交布局写入，但独立DOCX验收失败，禁止重放；差异：%s；%s：%w", strings.Join(diff, "；"), dir, proofErr)
+		}
 		return fmt.Errorf("已提交布局写入，但独立DOCX验收失败，禁止重放；%s：%w", dir, proofErr)
 	}
 	if err = documentLayoutCapture(b, filepath.Join(dir, "after.png")); err != nil {
@@ -163,11 +188,7 @@ func (a *App) cmdPhase3DocumentLayout() (runErr error) {
 	if err = phase3WriteEvidence(filepath.Join(dir, "result.json"), result); err != nil {
 		return err
 	}
-	if a.JSON {
-		return a.printJSON(result)
-	}
-	fmt.Printf("文稿布局动作验收通过：%s\n证据：%s\n", spec.Action, terminalText(dir))
-	return nil
+	return a.printPhase3Result(result, fmt.Sprintf("文稿布局动作验收通过：%s", spec.Action))
 }
 
 // Inspection provides stable one-based paragraph selection inputs without
@@ -183,7 +204,7 @@ func (a *App) cmdPhase3DocumentLayoutInspect() error {
 	if !phase3SameOrigin(target, a.Origin) {
 		return fmt.Errorf("目标 origin 不一致")
 	}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

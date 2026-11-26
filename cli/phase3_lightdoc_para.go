@@ -115,7 +115,7 @@ func (a *App) cmdPhase3LightDocParagraph() error {
 		return errors.New("目标不是轻文档（/docs/）；文稿请用 document-paragraph")
 	}
 	guid := guidFromURL(target)
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}
@@ -434,7 +434,7 @@ func (a *App) cmdPhase3LightDocReplace() error {
 		return errors.New("目标不是轻文档（/docs/）；文稿请用 document-replace")
 	}
 	guid := guidFromURL(target)
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}

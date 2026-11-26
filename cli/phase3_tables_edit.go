@@ -124,6 +124,12 @@ func preparePhase3TableEdit(action string, payload, before map[string]any) (phas
 		return p, errors.New("数据表无可验证视图")
 	}
 	view, _ := views[0].(map[string]any)
+	for _, v := range views {
+		if candidate, ok := v.(map[string]any); ok && str(candidate, "type") == "Grid" {
+			view = candidate
+			break
+		}
+	}
 	viewGuid := str(view, "guid")
 	var err error
 	switch action {
@@ -226,10 +232,30 @@ func preparePhase3TableFields(p *phase3TableEditPlan, payload, before map[string
 	}
 	return p.add("CreateColumn", map[string]any{"tableGuid": p.TableGuid, "viewGuid": viewGuid, "viewTargetGuids": phase3TableAppendTargets(before, "fields", p.CreatedIDs), "cols": cols})
 }
+// phase3TableAppendTargets maps each writable view to the column/row anchors
+// the SDK expects. Only grid views accept a column anchor: submitting a Kanban
+// or Gantt view here makes CreateColumn fail with HTTP 400, so those views are
+// left out instead of poisoning the whole request.
 func phase3TableAppendTargets(table map[string]any, key string, ids []string) map[string]any {
 	out := map[string]any{}
+	all := []map[string]any{}
 	for _, v := range phase3TableRows(table, "views") {
 		view, _ := v.(map[string]any)
+		if view == nil || str(view, "guid") == "" {
+			continue
+		}
+		all = append(all, view)
+	}
+	grid := []map[string]any{}
+	for _, view := range all {
+		if str(view, "type") == "Grid" {
+			grid = append(grid, view)
+		}
+	}
+	if len(grid) == 0 {
+		grid = all
+	}
+	for _, view := range grid {
 		items, _ := view[key].([]any)
 		last := ""
 		if len(items) > 0 {
@@ -599,7 +625,7 @@ func (a *App) cmdPhase3TableEdit() (runErr error) {
 		return err
 	}
 	commandRecord := map[string]any{"argv": os.Args, "targetGuid": s.guid, "tableGuid": tableGuid, "startedUTC": started.UTC().Format(time.RFC3339), "startedShanghai": started.In(time.FixedZone("Asia/Shanghai", 8*3600)).Format(time.RFC3339), "binarySHA256": fmt.Sprintf("%x", sha256.Sum256(binary))}
-	dir, err := phase3EvidenceDir(a.opt("--out"))
+	dir, err := a.phase3EvidenceDir(a.opt("--out"))
 	if err != nil {
 		return err
 	}
