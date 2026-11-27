@@ -65,3 +65,55 @@ func TestPhase3SlidesNonPlaceholderObjectFingerprint(t *testing.T) {
 		t.Fatal("image node mutation missed")
 	}
 }
+
+func TestPhase3SlidesReplacePreservesRenamedThemeMedia(t *testing.T) {
+	fixture := func(after bool, fault string) string {
+		body := strings.ReplaceAll(releaseFlowOriginal, "original", "你好")
+		if after {
+			body = strings.ReplaceAll(body, "你好", "Content Placeholder 2")
+		}
+		entries := releaseMediaEntries(t, releaseFlowPPTX(t, []string{body}, -1))
+		image, bytes := "old-image.png", "unchanged theme image bytes"
+		if after {
+			image = "regenerated-image.png"
+		}
+		if fault == "image-bytes" {
+			bytes = "different image"
+		}
+		entries["ppt/media/"+image] = bytes
+		entries["ppt/slideMasters/master.xml"] = `<p:sldMaster xmlns:p="` + artifactSlideNS + `" xmlns:a="` + artifactDrawingNS + `" xmlns:r="` + artifactOfficeRelNS + `"><p:cSld><p:bg><a:blipFill><a:blip r:embed="image"/></a:blipFill></p:bg></p:cSld></p:sldMaster>`
+		attributes := `Id="image" Type="` + artifactOfficeRelNS + `/image" Target="../media/` + image + `"`
+		switch fault {
+		case "relationship-id":
+			attributes = strings.Replace(attributes, `Id="image"`, `Id="other"`, 1)
+		case "relationship-metadata":
+			attributes += ` changed="true"`
+		case "missing-image":
+			delete(entries, "ppt/media/"+image)
+		}
+		imageRel := `<Relationship ` + attributes + `/>`
+		otherRel := `<Relationship Id="link" Type="` + artifactOfficeRelNS + `/hyperlink" TargetMode="External" Target="https://example.invalid/keep"/>`
+		if fault == "external-link" {
+			otherRel = strings.Replace(otherRel, "/keep", "/changed", 1)
+		}
+		rels := imageRel + otherRel
+		if after {
+			rels = otherRel + imageRel
+		}
+		if fault == "duplicate-id" {
+			rels += imageRel
+		}
+		entries["ppt/slideMasters/_rels/master.xml.rels"] = `<Relationships xmlns="` + artifactRelNS + `">` + rels + `</Relationships>`
+		return artifactTestZip(t, entries)
+	}
+	spec := phase3SlidesSpec{Replace: &phase3SlideReplaceSpec{Old: "你好", New: "Content Placeholder 2", Count: 1, NewCount: 1}}
+	before := fixture(false, "")
+	for _, fault := range []string{"", "image-bytes", "relationship-id", "relationship-metadata", "missing-image", "external-link", "duplicate-id"} {
+		t.Run(fault, func(t *testing.T) {
+			err := verifyPhase3SlideReplaceArtifacts(before, fixture(true, fault), []string{"a"}, []string{"a"}, spec)
+			if (err != nil) != (fault != "") {
+				t.Fatalf("fault=%q error=%v", fault, err)
+			}
+		})
+	}
+}

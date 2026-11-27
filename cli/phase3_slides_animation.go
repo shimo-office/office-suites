@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"unicode/utf8"
 )
 
 type phase3SlideAnimationTarget struct {
@@ -13,12 +14,14 @@ type phase3SlideAnimationTarget struct {
 }
 type phase3SlideAnimationSpec struct {
 	Targets  []phase3SlideAnimationTarget `json:"targets"`
-	FontSize float64                      `json:"fontSize"`
+	FontSize float64                      `json:"fontSize,omitempty"`
 }
 
 func preparePhase3SlideAnimation(p map[string]any) (*phase3SlideAnimationSpec, error) {
-	if len(p) != 2 {
-		return nil, fmt.Errorf("仅接受 targets 与 fontSize；动画固定为单击进入的出现效果")
+	for key := range p {
+		if key != "targets" && key != "fontSize" {
+			return nil, fmt.Errorf("仅接受 targets 与可选 fontSize；动画固定为单击进入的出现效果")
+		}
 	}
 	targets, ok := p["targets"].([]any)
 	if !ok || len(targets) == 0 || len(targets) > 100 {
@@ -35,12 +38,18 @@ func preparePhase3SlideAnimation(p map[string]any) (*phase3SlideAnimationSpec, e
 		if id == "" || len(id) > 200 || strings.ContainsAny(id, " \r\n\t\x00") || seen[id] {
 			return nil, fmt.Errorf("页面 ID 无效或重复")
 		}
-		format, e := preparePhase3SlideFormat(map[string]any{"text": target["text"], "fontSize": p["fontSize"]})
-		if e != nil {
-			return nil, e
+		text, ok := target["text"].(string)
+		if !ok || text == "" || strings.ContainsAny(text, "\r\n") || utf8.RuneCountInString(text) > 100000 {
+			return nil, fmt.Errorf("text 必须精确指定非空标题，不含换行")
 		}
-		s.FontSize = format.Attrs["fontSize"].(float64)
-		s.Targets = append(s.Targets, phase3SlideAnimationTarget{SlideID: id, Text: format.Text})
+		if size, exists := p["fontSize"]; exists {
+			format, e := preparePhase3SlideFormat(map[string]any{"text": text, "fontSize": size})
+			if e != nil {
+				return nil, e
+			}
+			s.FontSize = format.Attrs["fontSize"].(float64)
+		}
+		s.Targets = append(s.Targets, phase3SlideAnimationTarget{SlideID: id, Text: text})
 		seen[id] = true
 	}
 	return s, nil
@@ -116,19 +125,27 @@ func phase3AnimationFilter(ids []string, s phase3SlidesSpec, verify bool) func(i
 		if !verify && timing != nil && len(timing.Children) > 0 {
 			return nil, fmt.Errorf("目标页已有时序数据，禁止覆盖已有动画/媒体时序")
 		}
-		format := phase3SlideFormatSpec{Text: target.Text, Attrs: map[string]any{"fontSize": s.Animation.FontSize}}
+		format := phase3SlideFormatSpec{Text: target.Text, Attrs: map[string]any{}}
+		if s.Animation.FontSize != 0 {
+			format.Attrs["fontSize"] = s.Animation.FontSize
+		}
 		out, e := phase3MapSlideShape(n, func(x *artifactNode) bool { return phase3SlideText(x) == target.Text }, func(x *artifactNode) (*artifactNode, error) {
 			if e := phase3VisibleShape(x); e != nil {
 				return nil, e
 			}
 			if verify {
-				if e := verifyPhase3SlideTextFormatNode(x, format); e != nil {
-					return nil, e
+				if s.Animation.FontSize != 0 {
+					if e := verifyPhase3SlideTextFormatNode(x, format); e != nil {
+						return nil, e
+					}
 				}
 				id := phase3SlideChild(phase3SlideChild(x, artifactSlideNS, "nvSpPr"), artifactSlideNS, "cNvPr")
 				if e := verifyPhase3AppearTiming(timing, id.attr("id")); e != nil {
 					return nil, e
 				}
+			}
+			if s.Animation.FontSize == 0 {
+				return x, nil
 			}
 			return phase3MaskSlideTextFormat(x, format.Attrs), nil
 		})
@@ -183,7 +200,7 @@ func phase3SlideAnimationMutationJS(s phase3SlidesSpec, ids []string) string {
 	raw, _ := json.Marshal(s)
 	list, _ := json.Marshal(ids)
 	return `(()=>{const r=` + string(raw) + `;const expected=` + string(list) + `;` + phase3PresenceGuardJS() + `
- const sdk=window.presentationSDK,wb=sdk?.editor?.workbench,api=sdk?.API?.slides,c=wb?.core,e=wb?.editor;if(wb?.isReady()!==true||typeof wb.permissions?.canEdit!=='function'||wb.permissions.canEdit()!==true)return {ok:false,error:'未确认编辑权限'};if(JSON.stringify(api.getSlides().map(s=>s.id))!==JSON.stringify(expected))return {ok:false,error:'页面已变化'};if(['getSlideAnimation','applySlideAnimation','setTextRange','selectElementByIds','setFontSize'].some(k=>typeof c[k]!=='function'))return {ok:false,error:'缺少对象动画接口'};const resolved=[];for(const t of r.animation.targets){const slide=api.getSlides().find(s=>s.id===t.slideId),shapes=slide?.getShapes().filter(s=>s.textContent===t.text);if(shapes?.length!==1||c.getSlideAnimation(e,slide.getIndex()).length!==0)return {ok:false,error:'标题不唯一或页面已有动画'};resolved.push({slide,shape:shapes[0]})}const results=[];for(const {slide,shape} of resolved){api.setCurrentSlideIndex(slide.id);c.setTextRange(e,null);c.selectElementByIds(e,[shape.id]);c.setFontSize(e,r.animation.fontSize);c.applySlideAnimation(e,[{ShapeId:shape.id,AnimClass:'Entrance',AnimType:1,AnimDelay:0,AnimDuration:1,AnimTriggerType:'ClickEffect'}]);const readback=c.getSlideAnimation(e,slide.getIndex());if(readback.length!==1||readback[0].ShapeId!==shape.id||readback[0].AnimClass!=='Entrance'||readback[0].AnimType!==1)return {ok:false,error:'对象动画读回失败，禁止重放'};results.push({slideId:slide.id,shapeId:shape.id,animations:readback})}return {ok:true,results};})()`
+ const sdk=window.presentationSDK,wb=sdk?.editor?.workbench,api=sdk?.API?.slides,c=wb?.core,e=wb?.editor;if(wb?.isReady()!==true||typeof wb.permissions?.canEdit!=='function'||wb.permissions.canEdit()!==true)return {ok:false,error:'未确认编辑权限'};if(JSON.stringify(api.getSlides().map(s=>s.id))!==JSON.stringify(expected))return {ok:false,error:'页面已变化'};const methods=['getSlideAnimation','applySlideAnimation','setTextRange','selectElementByIds'];if(r.animation.fontSize!==undefined)methods.push('setFontSize');if(methods.some(k=>typeof c[k]!=='function'))return {ok:false,error:'缺少对象动画接口'};const resolved=[];for(const t of r.animation.targets){const slide=api.getSlides().find(s=>s.id===t.slideId),shapes=slide?.getShapes().filter(s=>s.textContent===t.text);if(shapes?.length!==1||c.getSlideAnimation(e,slide.getIndex()).length!==0)return {ok:false,error:'标题不唯一或页面已有动画'};resolved.push({slide,shape:shapes[0]})}const results=[];for(const {slide,shape} of resolved){api.setCurrentSlideIndex(slide.id);c.setTextRange(e,null);c.selectElementByIds(e,[shape.id]);if(r.animation.fontSize!==undefined)c.setFontSize(e,r.animation.fontSize);c.applySlideAnimation(e,[{ShapeId:shape.id,AnimClass:'Entrance',AnimType:1,AnimDelay:0,AnimDuration:1,AnimTriggerType:'ClickEffect'}]);const readback=c.getSlideAnimation(e,slide.getIndex());if(readback.length!==1||readback[0].ShapeId!==shape.id||readback[0].AnimClass!=='Entrance'||readback[0].AnimType!==1)return {ok:false,error:'对象动画读回失败，禁止重放'};results.push({slideId:slide.id,shapeId:shape.id,animations:readback})}return {ok:true,results};})()`
 }
 
 func phase3VerifyReloadedAnimation(b *phase3EditorBrowser, s phase3SlidesSpec) (any, error) {

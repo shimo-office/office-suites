@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 )
@@ -375,7 +374,7 @@ func phase3VerifyThemeDelta(value any, s phase3SlideThemeSpec) error {
 	if e != nil {
 		return e
 	}
-	if !reflect.DeepEqual(phase3ThemeResolvedFonts(master, s.Expected), phase3ThemeResolvedFonts(s.Master, s.Expected)) {
+	if !phase3ThemeDeltaEqual(phase3ThemeResolvedFonts(s.Master, s.Expected), phase3ThemeResolvedFonts(master, s.Expected)) {
 		return fmt.Errorf("重开后的完整母版与官方源码不符")
 	}
 	layouts, ok := m["layouts"].([]any)
@@ -387,7 +386,7 @@ func phase3VerifyThemeDelta(value any, s phase3SlideThemeSpec) error {
 		if e != nil {
 			return e
 		}
-		if !reflect.DeepEqual(phase3ThemeResolvedFonts(canonical, s.Expected), phase3ThemeResolvedFonts(s.Layouts[i], s.Expected)) {
+		if !phase3ThemeDeltaEqual(phase3ThemeResolvedFonts(s.Layouts[i], s.Expected), phase3ThemeResolvedFonts(canonical, s.Expected)) {
 			return fmt.Errorf("重开后的第%d个版式与官方源码不符", i+1)
 		}
 	}

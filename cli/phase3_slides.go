@@ -315,7 +315,7 @@ func (a *App) cmdPhase3SlidesWithOpen(openEditor func(string) (*phase3EditorBrow
 	}
 	if spec.Format != nil {
 		if _, ok := spec.Format.Attrs["outlineColor"]; ok {
-			if err = phase3CheckNewOutlineArtifact(beforeArtifact.Path); err != nil {
+			if err = phase3CheckNewOutlineArtifact(beforeArtifact.Path, beforeIDs, spec); err != nil {
 				return err
 			}
 		}

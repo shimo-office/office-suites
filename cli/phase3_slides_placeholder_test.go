@@ -36,6 +36,40 @@ func TestPhase3SlidePlaceholderTarget(t *testing.T) {
 	}
 }
 
+func TestPhase3SlideContentPlaceholderTypes(t *testing.T) {
+	for _, kind := range []string{"", ` type="obj"`, ` type="body"`, ` type="pic"`, ` type="chart"`, ` type="tbl"`, ` type="dt"`, ` type="sldNum"`} {
+		t.Run(kind, func(t *testing.T) {
+			shape := func(content string) *artifactNode {
+				raw := `<p:sp xmlns:p="` + artifactSlideNS + `" xmlns:a="` + artifactDrawingNS + `"><p:nvSpPr><p:cNvPr id="2" name="Content Placeholder 2"/><p:nvPr><p:ph idx="1"` + kind + `/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p>` + content + `</a:p></p:txBody></p:sp>`
+				n, err := parseArtifactXML([]byte(raw))
+				if err != nil {
+					t.Fatal(err)
+				}
+				return n
+			}
+			s := phase3SlidePlaceholderSpec{Name: "Content Placeholder 2", Text: "正文"}
+			allowed := kind == "" || kind == ` type="obj"` || kind == ` type="body"`
+			for _, verify := range []bool{false, true} {
+				content := ""
+				if verify {
+					content = `<a:r><a:t>正文</a:t></a:r>`
+				}
+				if _, err := phase3PlaceholderTarget(shape(content), s, verify); (err == nil) != allowed {
+					t.Fatalf("verify=%v allowed=%v error=%v", verify, allowed, err)
+				}
+			}
+			if _, err := phase3PlaceholderTarget(shape(`<a:r><a:t>已有文字</a:t></a:r>`), s, false); err == nil {
+				t.Fatal("must not overwrite existing content")
+			}
+			withoutBody := shape("")
+			withoutBody.Children = withoutBody.Children[:2]
+			if _, err := phase3PlaceholderTarget(withoutBody, s, false); err == nil {
+				t.Fatal("must require a text body")
+			}
+		})
+	}
+}
+
 func TestPhase3SlidePlaceholderArtifactPreservesIdentityAndOtherText(t *testing.T) {
 	fixture := func(content, kind, other string) string {
 		return artifactTestZip(t, map[string]string{

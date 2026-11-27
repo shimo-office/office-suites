@@ -1,5 +1,88 @@
 package main
 
+import (
+	"math"
+	"reflect"
+)
+
+// Compare against the official source once. The native outer-shadow parser
+// divides blurRad by 36000, then its serializer multiplies and truncates to a
+// signed 32-bit integer. A value such as 365269 therefore serializes as 365268.
+// Only that exact conversion is accepted, never a symmetric ±1 tolerance.
+func phase3ThemeDeltaEqual(expected, actual any) bool {
+	if reflect.DeepEqual(expected, actual) {
+		return true
+	}
+	switch source := expected.(type) {
+	case []any:
+		value, ok := actual.([]any)
+		if !ok || len(source) != len(value) || (source == nil) != (value == nil) {
+			return false
+		}
+		for i := range source {
+			if !phase3ThemeDeltaEqual(source[i], value[i]) {
+				return false
+			}
+		}
+		return true
+	case map[string]any:
+		value, ok := actual.(map[string]any)
+		if !ok || len(source) != len(value) || (source == nil) != (value == nil) {
+			return false
+		}
+		attrs, _ := source["attributes"].(map[string]any)
+		if source["action"] == "insert" && attrs["opType"] == "spPr" {
+			return reflect.DeepEqual(source, phase3ThemeShadowReadback(source, value))
+		}
+		for key, v := range source {
+			candidate, exists := value[key]
+			if !exists || !phase3ThemeDeltaEqual(v, candidate) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func phase3ThemeShapeEffects(v any) []any {
+	for _, key := range []string{"data", "object", "spPr", "extra", "effects"} {
+		object, _ := v.(map[string]any)
+		v = object[key]
+	}
+	effects, _ := v.(map[string]any)
+	if effects["type"] != "effectLst" {
+		return nil
+	}
+	list, _ := effects["data"].([]any)
+	return list
+}
+
+func phase3ThemeShadowReadback(expected, actual map[string]any) any {
+	out := phase3ThemeCopyJSON(actual)
+	source, target := phase3ThemeShapeEffects(expected), phase3ThemeShapeEffects(out)
+	if len(source) != len(target) {
+		return out
+	}
+	for i, effect := range source {
+		original, _ := effect.(map[string]any)
+		readback, _ := target[i].(map[string]any)
+		if original["name"] != "outerShdw" || readback["name"] != "outerShdw" {
+			continue
+		}
+		radius, ok := original["blurRad"].(float64)
+		if !ok || radius < 0 || radius > 2147483647 || math.Trunc(radius) != radius {
+			continue
+		}
+		millimeters := float64(radius / 36000)
+		serialized := math.Trunc(millimeters * 36000)
+		if serialized >= 0 && serialized <= 2147483647 && math.Abs(serialized-radius) <= 1 && readback["blurRad"] == serialized {
+			readback["blurRad"] = radius
+		}
+	}
+	return out
+}
+
 // These two schema-specific transformations follow the native constructors:
 // GradFill defaults rotateWithShape to true; font references resolve through
 // the selected theme font scheme. Explicit false and all other values remain.

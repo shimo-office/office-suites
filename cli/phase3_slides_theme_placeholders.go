@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 func phase3ThemeShapeID(n *artifactNode) string {
@@ -62,30 +63,7 @@ func phase3ThemeEmptyLayoutClone(n *artifactNode) *artifactNode {
 	return out
 }
 
-// Native mU copies the chosen layout's ph metadata onto matching existing
-// placeholders. Missing placeholders are exact layout clones with reset text,
-// body/list style and inherited geometry. Source order and exact ph identity
-// reproduce native matching while retaining every original object.
-func phase3ReconcileThemePage(before, after, layout *artifactNode, references ...map[string]string) (*artifactNode, *artifactNode, error) {
-	bt, e := phase3ShapeTree(before)
-	if e != nil {
-		return nil, nil, e
-	}
-	at, e := phase3ShapeTree(after)
-	if e != nil {
-		return nil, nil, e
-	}
-	lt, e := phase3ShapeTree(layout)
-	if e != nil {
-		return nil, nil, e
-	}
-	actualRefs, sourceRefs := map[string]string{}, map[string]string{}
-	if len(references) != 0 {
-		if len(references) != 2 {
-			return nil, nil, fmt.Errorf("占位符关系参数无效")
-		}
-		actualRefs, sourceRefs = references[0], references[1]
-	}
+func phase3ThemePlaceholderAssignments(bt, lt *artifactNode) (map[string]*artifactNode, []string, map[string]string, error) {
 	sources := map[string]*artifactNode{}
 	sourceOrder := []string{}
 	for _, n := range lt.Children {
@@ -99,22 +77,10 @@ func phase3ReconcileThemePage(before, after, layout *artifactNode, references ..
 		}
 		key := phase3ThemePlaceholderKey(kind, ph.attr("idx"))
 		if sources[key] != nil {
-			return nil, nil, fmt.Errorf("官方版式占位符身份重复")
+			return nil, nil, nil, fmt.Errorf("官方版式占位符身份重复")
 		}
 		sources[key] = n
 		sourceOrder = append(sourceOrder, key)
-	}
-	old := map[string]*artifactNode{}
-	oldOrder := []string{}
-	for _, n := range bt.Children {
-		id := phase3ThemeShapeID(n)
-		if id != "" {
-			if old[id] != nil {
-				return nil, nil, fmt.Errorf("原页面对象ID重复")
-			}
-			old[id] = n
-			oldOrder = append(oldOrder, id)
-		}
 	}
 	// Native mU visits source placeholders in order. pc prefers exact index,
 	// treats title as index-independent, then uses the first unused same type.
@@ -146,13 +112,53 @@ func phase3ReconcileThemePage(before, after, layout *artifactNode, references ..
 			consumed[match] = true
 		}
 	}
+	return sources, sourceOrder, assigned, nil
+}
+
+// Native mU copies the chosen layout's ph metadata onto matching existing
+// placeholders. Missing placeholders are exact layout clones with reset text,
+// body/list style and inherited geometry. Source order and exact ph identity
+// reproduce native matching while retaining populated and custom-styled objects.
+func phase3ReconcileThemePage(before, after, layout *artifactNode, references ...map[string]string) (*artifactNode, *artifactNode, error) {
+	bt, e := phase3ShapeTree(before)
+	if e != nil {
+		return nil, nil, e
+	}
+	at, e := phase3ShapeTree(after)
+	if e != nil {
+		return nil, nil, e
+	}
+	lt, e := phase3ShapeTree(layout)
+	if e != nil {
+		return nil, nil, e
+	}
+	actualRefs, sourceRefs := map[string]string{}, map[string]string{}
+	if len(references) != 0 {
+		if len(references) != 2 {
+			return nil, nil, fmt.Errorf("占位符关系参数无效")
+		}
+		actualRefs, sourceRefs = references[0], references[1]
+	}
+	sources, sourceOrder, assigned, e := phase3ThemePlaceholderAssignments(bt, lt)
+	if e != nil {
+		return nil, nil, e
+	}
+	old := map[string]*artifactNode{}
+	for _, n := range bt.Children {
+		id := phase3ThemeShapeID(n)
+		if id != "" {
+			if old[id] != nil {
+				return nil, nil, fmt.Errorf("原页面对象ID重复")
+			}
+			old[id] = n
+		}
+	}
 	replacements := map[string]*artifactNode{}
 	added := map[string]bool{}
 	seen := map[string]bool{}
 	usedSources := map[string]bool{}
 	addedOrder := []string{}
 	encounteredOriginal := false
-	actualOldOrder := []string{}
 	for _, n := range at.Children {
 		id := phase3ThemeShapeID(n)
 		if id == "" {
@@ -166,10 +172,19 @@ func phase3ReconcileThemePage(before, after, layout *artifactNode, references ..
 		ph := phase3ThemeShapePlaceholder(n)
 		if prior != nil {
 			encounteredOriginal = true
-			actualOldOrder = append(actualOldOrder, id)
 			oldPH := phase3ThemeShapePlaceholder(prior)
 			if (oldPH == nil) != (ph == nil) {
 				return nil, nil, fmt.Errorf("主题改变原对象占位符类型")
+			}
+			if ph != nil && assigned[id] == "" {
+				// Unmatched content placeholders survive the native layout change.
+				// Their identity and all local content remain subject to exact diff.
+				a, _ := phase3SlideCanonical(ph, map[string]string{})
+				b, _ := phase3SlideCanonical(oldPH, map[string]string{})
+				if !reflect.DeepEqual(a, b) {
+					return nil, nil, fmt.Errorf("未匹配占位符的身份被改变")
+				}
+				continue
 			}
 			if ph != nil {
 				key := phase3ThemePlaceholderKey(ph.attr("type"), ph.attr("idx"))
@@ -227,10 +242,14 @@ func phase3ReconcileThemePage(before, after, layout *artifactNode, references ..
 			expectedAdded = append(expectedAdded, key)
 		}
 	}
-	// 主题切换会按官方版式重排对象层级，原有对象前后顺序变化属于正常副作用；
-	// 只要对象没有被删除（下面的 old/seen 检查）且新增占位符集合正确，就不判失败。
-	if len(actualOldOrder) != len(oldOrder) || !sameStringSet(actualOldOrder, oldOrder) {
-		return nil, nil, fmt.Errorf("主题删除或替换了原有对象")
+	removed := map[string]bool{}
+	for id, prior := range old {
+		if !seen[id] {
+			if assigned[id] != "" || !phase3ThemeEmptyUnmatchedPlaceholder(prior) {
+				return nil, nil, fmt.Errorf("主题删除或替换了原有内容对象")
+			}
+			removed[id] = true
+		}
 	}
 	if !reflect.DeepEqual(addedOrder, expectedAdded) {
 		return nil, nil, fmt.Errorf("新增占位符层级顺序不符合官方版式")
@@ -240,18 +259,13 @@ func phase3ReconcileThemePage(before, after, layout *artifactNode, references ..
 			return nil, nil, fmt.Errorf("缺少官方版式要求的占位符")
 		}
 	}
-	for id := range old {
-		if !seen[id] {
-			return nil, nil, fmt.Errorf("主题删除原有对象")
-		}
-	}
 	apply := func(root *artifactNode, original bool) *artifactNode {
 		out := phase3ThemeCloneNode(root)
 		tree, _ := phase3ShapeTree(out)
 		children := []*artifactNode{}
 		for _, n := range tree.Children {
 			id := phase3ThemeShapeID(n)
-			if !original && added[id] {
+			if !original && added[id] || original && removed[id] {
 				continue
 			}
 			if original && replacements[id] != nil {
@@ -301,7 +315,7 @@ func phase3ThemeReconciledPages(before, after string) ([]*artifactNode, []*artif
 		return nil, nil, e
 	}
 	defer az.Close()
-	b, _, e := phase3ThemePageRoots(be)
+	b, beforeParts, e := phase3ThemePageRoots(be)
 	if e != nil {
 		return nil, nil, e
 	}
@@ -330,7 +344,11 @@ func phase3ThemeReconciledPages(before, after string) ([]*artifactNode, []*artif
 		if e != nil {
 			return nil, nil, e
 		}
-		x, y, e := phase3ReconcileThemePage(b[i], n, layout, pageRefs, layoutRefs)
+		baseline, e := phase3ThemeMaterializedBaseline(be, beforeParts[i], b[i], n, layout)
+		if e != nil {
+			return nil, nil, e
+		}
+		x, y, e := phase3ReconcileThemePage(baseline, n, layout, pageRefs, layoutRefs)
 		if e != nil {
 			return nil, nil, e
 		}
@@ -340,19 +358,144 @@ func phase3ThemeReconciledPages(before, after string) ([]*artifactNode, []*artif
 	return outB, outA, nil
 }
 
-// sameStringSet 比较两个字符串切片是否包含相同元素（元素本身唯一）。
-func sameStringSet(a, b []string) bool {
-	if len(a) != len(b) {
+// Native theme application removes empty unmatched template placeholders. Only
+// accept a bare text placeholder: no drawing, geometry, custom style, links,
+// fields, metadata extensions or user content may disappear with it.
+func phase3ThemeEmptyUnmatchedPlaceholder(n *artifactNode) bool {
+	if n.Name.Space != artifactSlideNS || n.Name.Local != "sp" || phase3ThemeShapePlaceholder(n) == nil {
 		return false
 	}
-	set := make(map[string]struct{}, len(a))
-	for _, v := range a {
-		set[v] = struct{}{}
+	props := phase3SlideChild(n, artifactSlideNS, "spPr")
+	tx := phase3SlideChild(n, artifactSlideNS, "txBody")
+	if props == nil || len(props.Children) != 0 || tx == nil {
+		return false
 	}
-	for _, v := range b {
-		if _, ok := set[v]; !ok {
+	allowed := map[string]string{
+		"p:sp": "", "p:nvSpPr": "", "p:cNvPr": "id name hidden", "p:cNvSpPr": "", "a:spLocks": "noGrp",
+		"p:nvPr": "isPhoto userDrawn", "p:ph": "type idx sz orient hasCustomPrompt", "p:spPr": "bwMode",
+		"p:txBody": "", "a:bodyPr": "", "a:lstStyle": "", "a:p": "", "a:pPr": "", "a:endParaRPr": "lang",
+	}
+	var empty func(*artifactNode) bool
+	empty = func(node *artifactNode) bool {
+		if node.Text != "" {
 			return false
 		}
+		key := phase3TableQualifiedName(node)
+		attrs, ok := allowed[key]
+		if !ok {
+			return false
+		}
+		for _, a := range node.Attr {
+			if a.Name.Space == "xmlns" || a.Name.Local == "xmlns" {
+				continue
+			}
+			if a.Name.Space != "" || !strings.Contains(" "+attrs+" ", " "+a.Name.Local+" ") {
+				return false
+			}
+			switch a.Name.Local {
+			case "hidden", "isPhoto", "userDrawn", "hasCustomPrompt":
+				if a.Value != "0" && a.Value != "false" {
+					return false
+				}
+			case "bwMode":
+				if a.Value != "auto" {
+					return false
+				}
+			}
+		}
+		for _, child := range node.Children {
+			if !empty(child) {
+				return false
+			}
+		}
+		return true
 	}
-	return true
+	return empty(n)
+}
+
+// An unmatched populated placeholder keeps its old effective geometry when a
+// new layout has no matching slot. Prove that materialized transform against
+// the ORIGINAL layout/master before normalizing the local XML comparison.
+func phase3ThemeMaterializedBaseline(entries map[string]*zip.File, part string, before, after, layout *artifactNode) (*artifactNode, error) {
+	bt, e := phase3ShapeTree(before)
+	if e != nil {
+		return nil, e
+	}
+	at, e := phase3ShapeTree(after)
+	if e != nil {
+		return nil, e
+	}
+	lt, e := phase3ShapeTree(layout)
+	if e != nil {
+		return nil, e
+	}
+	_, _, assigned, e := phase3ThemePlaceholderAssignments(bt, lt)
+	if e != nil {
+		return nil, e
+	}
+	actual := map[string]*artifactNode{}
+	for _, n := range at.Children {
+		id := phase3ThemeShapeID(n)
+		if id != "" {
+			if actual[id] != nil {
+				return nil, fmt.Errorf("新页面对象ID重复")
+			}
+			actual[id] = n
+		}
+	}
+	geometry := map[string]*phase3ThemeTransform(nil)
+	out := phase3ThemeCloneNode(before)
+	tree, _ := phase3ShapeTree(out)
+	for i, prior := range bt.Children {
+		id := phase3ThemeShapeID(prior)
+		if assigned[id] != "" {
+			continue
+		}
+		n := actual[id]
+		oldPH := phase3ThemeShapePlaceholder(prior)
+		if n == nil || oldPH == nil || !reflect.DeepEqual(oldPH, phase3ThemeShapePlaceholder(n)) {
+			continue
+		}
+		oldProps := phase3SlideChild(prior, artifactSlideNS, "spPr")
+		xf := phase3SlideChild(phase3SlideChild(n, artifactSlideNS, "spPr"), artifactDrawingNS, "xfrm")
+		if oldProps == nil || phase3SlideChild(oldProps, artifactDrawingNS, "xfrm") != nil || xf == nil {
+			continue
+		}
+		if geometry == nil {
+			layout, err := phase3ThemeRelated(entries, part, "slideLayout")
+			if err != nil {
+				return nil, err
+			}
+			master, err := phase3ThemeRelated(entries, layout, "slideMaster")
+			if err != nil {
+				return nil, err
+			}
+			geometry = map[string]*phase3ThemeTransform{}
+			for _, source := range []struct{ path, kind string }{{master, "sldMaster"}, {layout, "sldLayout"}} {
+				root, err := artifactPart(entries, source.path, artifactSlideNS, source.kind)
+				if err != nil {
+					return nil, err
+				}
+				local, err := phase3ThemeXMLGeometry(root)
+				if err != nil {
+					return nil, err
+				}
+				for key, value := range local {
+					if value != nil {
+						geometry[key] = value
+					}
+				}
+			}
+		}
+		got, err := phase3ThemeXMLTransform(xf)
+		if err != nil {
+			return nil, err
+		}
+		want := geometry[phase3ThemePlaceholderKey(oldPH.attr("type"), oldPH.attr("idx"))]
+		if want != nil && reflect.DeepEqual(got, want) {
+			props := phase3SlideChild(tree.Children[i], artifactSlideNS, "spPr")
+			props.Children = append([]*artifactNode{phase3ThemeCloneNode(xf)}, props.Children...)
+		}
+	}
+	return out, nil
 }

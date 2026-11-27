@@ -43,7 +43,9 @@ func phase3PlaceholderTarget(n *artifactNode, s phase3SlidePlaceholderSpec, veri
 		return nil, fmt.Errorf("目标并非真实占位符")
 	}
 	switch ph.attr("type") {
-	case "title", "ctrTitle", "body", "subTitle":
+	case "title", "ctrTitle", "body", "subTitle", "obj", "":
+		// CT_Placeholder defaults type to obj. Content placeholders with a
+		// text body are editable just like explicitly typed body placeholders.
 	default:
 		return nil, fmt.Errorf("仅填充标题或正文占位符，不处理图片/日期/页码占位符")
 	}

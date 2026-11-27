@@ -259,7 +259,7 @@ var phase3ActionContracts = map[string]actionContract{
 		Transport: "browser",
 		Required:  []string{"slideId", "shapeName", "text"},
 		Example:   `{"slideId":"actual-page-id","shapeName":"actual unique placeholder name","text":"三期验收"}`,
-		Notes:     "只接受空的 title/ctrTitle/body/subTitle；多段用 \\n；已有文本会被拒绝。",
+		Notes:     "接受空的 title/ctrTitle/body/subTitle 及带文本容器的 obj（含省略 type 的内容占位符）；多段用 \\n；已有文本会被拒绝。",
 	},
 	"slide-theme": {
 		Summary:   "整册套用官方主题",
@@ -279,7 +279,7 @@ var phase3ActionContracts = map[string]actionContract{
 		Required:  []string{"slideId", "shapeName"},
 		Optional:  []string{"fillColor", "lineColor", "rotation", "horizontalCenter", "behindName"},
 		Example:   `{"slideId":"actual-page-id","shapeName":"actual unique direct shape name","fillColor":"#0000FF","rotation":45,"horizontalCenter":true}`,
-		Notes:     "至少一项属性；lineColor 需要已有显式线宽且保持不变（无改线宽接口）；rotation 为绝对角度 [0,360)；分组子形状与图片不可作为目标。",
+		Notes:     "至少一项属性；填充、边框颜色、层级可独立修改，无需显式几何；旋转/水平居中仍需显式几何；lineColor 需要已有显式线宽且保持不变（无改线宽接口）；rotation 为绝对角度 [0,360)；分组子形状与图片不可作为目标。",
 	},
 	"slide-table-edit": {
 		Summary:   "幻灯片表格插行、删列、合并、拆分、表头填充与边框",
@@ -300,14 +300,15 @@ var phase3ActionContracts = map[string]actionContract{
 		Transport: "browser",
 		Required:  []string{"old", "new"},
 		Example:   `{"old":"旧版测试","new":"新版测试"}`,
-		Notes:     "区分大小写、不支持正则与换行；old/new 必须不同且不能互相包含；跨格式 run 命中会在写前拒绝。",
+		Notes:     "区分大小写、不支持正则与换行；old/new 必须不同，可互相包含；只做一次字面替换，按预期完整正文及残留旧词计数核验；跨格式 run 命中会在写前拒绝。",
 	},
 	"slide-title-animate": {
 		Summary:   "批量给多个页面的标题加原生 Appear 入场动画",
 		Transport: "browser",
-		Required:  []string{"targets", "fontSize"},
-		Example:   `{"targets":[{"slideId":"page1-id","text":"exact full title1"}],"fontSize":24}`,
-		Notes:     "targets 1–100 个唯一页面，每页一个唯一标题形状；单击触发、时长 1ms；页面已有动画则拒绝；不暴露自定义动画参数。",
+		Required:  []string{"targets"},
+		Optional:  []string{"fontSize"},
+		Example:   `{"targets":[{"slideId":"page1-id","text":"exact full title1"}]}`,
+		Notes:     "targets 1–100 个唯一页面，每页一个唯一标题形状；省略 fontSize 只加动画并保留文字格式；单击触发、时长 1ms；页面已有动画则拒绝；不暴露自定义动画参数。",
 	},
 	"slide-show-settings": {
 		Summary:   "放映设置：循环播放、使用排练计时",

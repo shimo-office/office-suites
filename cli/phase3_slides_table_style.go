@@ -45,7 +45,7 @@ func preparePhase3SlideTableStyle(p map[string]any, s *phase3SlideTableSpec) err
 func phase3MaskTableCellStyle(n *artifactNode, s phase3SlideTableSpec, header bool) *artifactNode {
 	out := *n
 	out.Children = nil
-	for _, c := range n.Children {
+	for i, c := range n.Children {
 		if n.Name.Space == artifactDrawingNS && n.Name.Local == "tcPr" && c.Name.Space == artifactDrawingNS {
 			if header && s.HeaderFillColor != "" && (c.Name.Local == "solidFill" || c.Name.Local == "noFill" || c.Name.Local == "gradFill" || c.Name.Local == "pattFill") {
 				continue
@@ -58,7 +58,14 @@ func phase3MaskTableCellStyle(n *artifactNode, s phase3SlideTableSpec, header bo
 				continue
 			}
 		}
-		out.Children = append(out.Children, phase3MaskTableCellStyle(c, s, header))
+		masked := phase3MaskTableCellStyle(c, s, header)
+		// Setting a previously inherited style can create optional tcPr. Only
+		// normalize an empty remainder on a requested cell in its exact native
+		// position; duplicate, reordered and non-target properties stay visible.
+		if n.Name.Space == artifactDrawingNS && n.Name.Local == "tc" && i == 1 && len(n.Children) == 2 && n.Children[0].Name.Space == artifactDrawingNS && n.Children[0].Name.Local == "txBody" && c.Name.Space == artifactDrawingNS && c.Name.Local == "tcPr" && (header && s.HeaderFillColor != "" || s.BorderColor != "") && phase3EmptyNativeNode(masked) {
+			continue
+		}
+		out.Children = append(out.Children, masked)
 	}
 	return &out
 }
@@ -72,7 +79,7 @@ func verifyPhase3SlideTableStyle(b, a phase3SlideTableGrid, s phase3SlideTableSp
 		}
 		for col, c := range row {
 			pr := phase3SlideChild(c, artifactDrawingNS, "tcPr")
-			if pr == nil {
+			if pr == nil && (r == 0 && s.HeaderFillColor != "" || s.BorderColor != "") {
 				return fmt.Errorf("缺少单元格显式样式")
 			}
 			if r == 0 && s.HeaderFillColor != "" {

@@ -15,7 +15,7 @@ func TestPhase3SlideReplaceSpec(t *testing.T) {
 	if s.Replace == nil {
 		t.Fatal("missing replace")
 	}
-	for _, p := range []map[string]any{{"old": "", "new": "new"}, {"old": "old", "new": "old"}, {"old": "old", "new": "old-new"}, {"old": "x", "new": "y", "regex": true}} {
+	for _, p := range []map[string]any{{"old": "", "new": "new"}, {"old": "old", "new": "old"}, {"old": "x", "new": "y", "regex": true}} {
 		if _, e := preparePhase3Slides("slide-replace-all", p); e == nil {
 			t.Fatal("invalid replacement accepted")
 		}

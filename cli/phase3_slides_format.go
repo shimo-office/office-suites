@@ -256,7 +256,7 @@ func verifyPhase3SlideTextFormatArtifacts(beforePath, afterPath string, beforeID
 		return fmt.Errorf("目标页不存在")
 	}
 	if _, ok := s.Format.Attrs["outlineColor"]; ok {
-		if e := phase3CheckNewOutlineArtifact(beforePath); e != nil {
+		if e := phase3CheckNewOutlineArtifact(beforePath, beforeIDs, s); e != nil {
 			return e
 		}
 	}

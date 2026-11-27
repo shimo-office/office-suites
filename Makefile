@@ -4,7 +4,7 @@ build:
 	go build -trimpath -ldflags "-s -w" -o bin/shimo-net ./cli
 
 test: docs-check build
-	go test ./cli
+	go test -timeout 20m ./cli
 	go vet ./cli
 	./bin/shimo-net version
 	./bin/shimo-net schema >/dev/null

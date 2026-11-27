@@ -2,8 +2,67 @@ package main
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 )
+
+func TestPhase3SlideTableHeaderFillPreservesImplicitBodyStyle(t *testing.T) {
+	cell := func(text, props string) *artifactNode {
+		n, err := parseArtifactXML([]byte(`<a:tc xmlns:a="` + artifactDrawingNS + `"><a:txBody><a:bodyPr/><a:p><a:r><a:t>` + text + `</a:t></a:r></a:p></a:txBody>` + props + `</a:tc>`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	fill := `<a:tcPr><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill></a:tcPr>`
+	before := phase3SlideTableGrid{Rows: [][]*artifactNode{{cell("Header", `<a:tcPr/>`)}, {cell("Body", "")}}, Widths: []int64{100}, Heights: []int64{40, 40}}
+	spec := phase3SlideTableSpec{Operation: "style", HeaderFillColor: "#0000FF"}
+	for _, tc := range []struct {
+		name, headerProps, bodyText, bodyProps string
+		valid                                  bool
+	}{
+		{"untouched-implicit-body", fill, "Body", "", true},
+		{"missing-requested-header-fill", "", "Body", "", false},
+		{"wrong-header-fill", strings.Replace(fill, "0000FF", "FF0000", 1), "Body", "", false},
+		{"changed-body-text", fill, "Changed", "", false},
+		{"changed-body-fill", fill, "Body", fill, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			after := phase3SlideTableGrid{Rows: [][]*artifactNode{{cell("Header", tc.headerProps)}, {cell(tc.bodyText, tc.bodyProps)}}, Widths: before.Widths, Heights: before.Heights}
+			if err := verifyPhase3SlideTableGrid(before, after, spec); (err == nil) != tc.valid {
+				t.Fatalf("valid=%v: %v", tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestPhase3SlideTableFillCreatesOptionalStyle(t *testing.T) {
+	text := `<a:txBody><a:bodyPr/><a:p><a:r><a:t>Keep</a:t></a:r></a:p></a:txBody>`
+	fill := `<a:tcPr><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill></a:tcPr>`
+	grid := func(body string) phase3SlideTableGrid {
+		n, err := parseArtifactXML([]byte(`<a:tc xmlns:a="` + artifactDrawingNS + `" xmlns:z="urn:foreign">` + body + `</a:tc>`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return phase3SlideTableGrid{Rows: [][]*artifactNode{{n}}, Widths: []int64{100}, Heights: []int64{40}}
+	}
+	spec := phase3SlideTableSpec{Operation: "style", HeaderFillColor: "#0000FF"}
+	before := grid(text)
+	if err := verifyPhase3SlideTableStyle(before, grid(text+fill), spec); err != nil {
+		t.Fatalf("adding optional header style failed: %v", err)
+	}
+	for _, bad := range []string{
+		text + fill + `<a:tcPr/>`,
+		text + `<a:tcPr/>` + fill,
+		fill + text,
+		text + strings.Replace(fill, `<a:tcPr>`, `<a:tcPr marL="12">`, 1),
+		text + strings.ReplaceAll(fill, "a:tcPr", "z:tcPr"),
+	} {
+		if err := verifyPhase3SlideTableStyle(before, grid(bad), spec); err == nil {
+			t.Fatalf("non-target, malformed or foreign styles accepted: %s", bad)
+		}
+	}
+}
 
 func TestPhase3SlideTableBorderNativeUnitConversion(t *testing.T) {
 	grid := func(width int64) phase3SlideTableGrid {

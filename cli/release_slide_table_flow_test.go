@@ -75,6 +75,47 @@ func TestReleaseSlideTableFlow(t *testing.T) {
 	}
 }
 
+func TestReleaseSlideTableHeaderFillOnly(t *testing.T) {
+	// A default-styled body cell need not have tcPr. Header fills must neither
+	// require its serialization nor overwrite a distinct existing border style.
+	border := `<a:lnL w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill><a:prstDash val="dash"/></a:lnL>`
+	fill := `<a:solidFill><a:srgbClr val="0000FF"/></a:solidFill>`
+	body := strings.Replace(releaseTableCell("Body", "", ""), `<a:tcPr></a:tcPr>`, "", 1)
+	before := [][]string{{releaseTableCell("Header", border, "")}, {body}}
+	for _, fault := range []string{"", "body-text", "body-fill", "header-border", "missing-fill"} {
+		t.Run(fault, func(t *testing.T) {
+			header := releaseTableCell("Header", fill+border, "")
+			afterBody := body
+			switch fault {
+			case "body-text":
+				afterBody = strings.Replace(body, ">Body<", ">Changed<", 1)
+			case "body-fill":
+				afterBody = releaseTableCell("Body", fill, "")
+			case "header-border":
+				header = strings.Replace(header, `val="dash"`, `val="solid"`, 1)
+			case "missing-fill":
+				header = before[0][0]
+			}
+			after := [][]string{{header}, {afterBody}}
+			f := &releaseSlideFlow{beforeIDs: []string{"s1", "s2"}, afterIDs: []string{"s1", "s2"}, before: releaseFlowPPTX(t, []string{releaseTableFrame(before), releaseFlowOriginal}, -1), after: releaseFlowPPTX(t, []string{releaseTableFrame(after), releaseFlowOriginal}, -1), png: releaseFlowPNG(t)}
+			f.install(t)
+			out, err := issueCapture(t, newApp([]string{"phase3", "https://slide-flow.invalid/presentation/abcdefgh", "--action", "slide-table-edit", "--payload", `{"slideId":"s1","tableName":"Table 1","operation":"style","headerFillColor":"#0000FF"}`, "--out", t.TempDir(), "--json"}).Run)
+			var result map[string]any
+			_ = json.Unmarshal([]byte(out), &result)
+			if fault == "" {
+				if err != nil || result["verified"] != true || f.opens != 2 {
+					t.Fatalf("header-only fill failed: %v %s opens=%d", err, out, f.opens)
+				}
+			} else if err == nil || result["verified"] == true {
+				t.Fatalf("accepted fault %s: %v %s", fault, err, out)
+			}
+			if f.writes.Load() != 1 {
+				t.Fatalf("writes=%d", f.writes.Load())
+			}
+		})
+	}
+}
+
 func TestReleaseSlideTableArtifactsRejectCollateralDamage(t *testing.T) {
 	base := releaseTableBaseline()
 	inserted := [][]string{base[0], {releaseTableCell("", "", ""), releaseTableCell("", "", "")}, base[1]}

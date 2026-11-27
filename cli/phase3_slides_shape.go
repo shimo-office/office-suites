@@ -282,13 +282,16 @@ func phase3PrepareSlideShape(filename string, ids []string, s *phase3SlidesSpec)
 		return e
 	}
 	defer z.Close()
-	root, e := artifactPart(entries, "ppt/presentation.xml", artifactSlideNS, "presentation")
-	if e != nil {
-		return e
-	}
-	width, e := phase3ShapeInteger(phase3SlideChild(root, artifactSlideNS, "sldSz"), "cx")
-	if e != nil {
-		return e
+	var width int64
+	if s.Shape.HorizontalCenter {
+		root, err := artifactPart(entries, "ppt/presentation.xml", artifactSlideNS, "presentation")
+		if err != nil {
+			return err
+		}
+		width, e = phase3ShapeInteger(phase3SlideChild(root, artifactSlideNS, "sldSz"), "cx")
+		if e != nil {
+			return e
+		}
 	}
 	found := false
 	_, e = readPhase3SlideArtifactFiltered(filename, ids, func(i int, n *artifactNode) (*artifactNode, error) {
@@ -313,8 +316,10 @@ func phase3PrepareSlideShape(filename string, ids []string, s *phase3SlidesSpec)
 		}
 		sp := phase3SlideChild(shape, artifactSlideNS, "spPr")
 		xf := phase3SlideChild(sp, artifactDrawingNS, "xfrm")
-		if xf == nil {
-			return nil, fmt.Errorf("需要显式几何，不能猜测母版继承值")
+		// Color and stacking do not use geometry. Placeholders can inherit their
+		// transform while those independent properties are edited and verified.
+		if xf == nil && (s.Shape.Rotation != nil || s.Shape.HorizontalCenter) {
+			return nil, fmt.Errorf("旋转或水平居中需要显式几何，不能猜测母版继承值；仅修改填充、边框颜色或层级无需几何")
 		}
 		if s.Shape.Rotation != nil {
 			r := int64(0)

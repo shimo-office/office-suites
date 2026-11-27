@@ -88,6 +88,39 @@ func TestPhase3SlideShowMutationRequiresUnchangedBaseline(t *testing.T) {
 	}
 }
 
+func TestPhase3SlideShowIndependentSetters(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("optional Node regression runtime")
+	}
+	for _, property := range []string{"loopShow", "useTiming"} {
+		for _, missing := range []string{"unrequested-setter", "requested-setter", "reader"} {
+			t.Run(property+"/"+missing, func(t *testing.T) {
+				s, err := preparePhase3SlideShow(map[string]any{property: property == "loopShow"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				s.NativeBefore = map[string]any{"target": "https://shimo.net/presentation/test", "loopShow": false, "useTiming": true, "nativePresentationPr": map[string]any{}}
+				script := fmt.Sprintf(`
+let writes=0,loop=false,timing=true;
+global.location={origin:'https://shimo.net',pathname:'/presentation/test'};
+const editor={_$collaborationManager$_:{_$currentPptIOData$_:()=>[]},_$ioAdapter$_:{fromOperations:()=>({toJSON:()=>[{attributes:{opType:'presentation'},data:{delta:[]}}]})}};
+const core={isLoopShow:()=>loop,isUseTiming:()=>timing,setLoopShow(e,v){writes++;loop=v},setUseTiming(e,v){writes++;timing=v}};
+const property=%q,missing=%q,requested=property==='loopShow'?'setLoopShow':'setUseTiming',other=property==='loopShow'?'setUseTiming':'setLoopShow';
+delete core[missing==='unrequested-setter'?other:missing==='requested-setter'?requested:'isUseTiming'];
+global.window={__shimoPhase3Presence:()=>({ready:true,connected:true,ids:[1]}),presentationSDK:{editor:{workbench:{isReady:()=>true,permissions:{canEdit:()=>true},context:{getUser:()=>({id:1})},editor,core}},API:{slides:{getSlides:()=>[{id:'a'}]}}}};
+const result=%s;
+if(missing==='unrequested-setter'){
+ if(result.ok!==true||writes!==1||loop!==(property==='loopShow')||timing!==(property==='loopShow'))throw Error(JSON.stringify({result,writes,loop,timing}));
+}else if(result.ok!==false||writes!==0)throw Error(JSON.stringify({result,writes}));`, property, missing, phase3SlideShowMutationJS(phase3SlidesSpec{Show: s}, []string{"a"}))
+				if out, err := exec.Command(node, "-e", script).CombinedOutput(); err != nil {
+					t.Fatalf("%v\n%s", err, out)
+				}
+			})
+		}
+	}
+}
+
 func TestPhase3SlideShowNativeResetUsesSavedState(t *testing.T) {
 	loop, timing := false, true
 	state := map[string]any{"target": "https://shimo.net/presentation/test", "loopShow": true, "useTiming": false, "persistenceSource": "collaboration.PresentationPr", "nativePresentationPr": map[string]any{"showPr": map[string]any{"loop": true, "useTimings": false}}}

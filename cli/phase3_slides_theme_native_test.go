@@ -2,11 +2,66 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
+
+func TestPhase3SlideThemeShadowRoundTripIsSourceBounded(t *testing.T) {
+	part := func(scope, effectType, name string, blur, dist float64, color string) any {
+		raw := fmt.Sprintf(`[{"action":"insert","attributes":{"opType":"spPr"},"data":{"object":{"%s":{"extra":{"effects":{"type":%q,"data":[{"name":%q,"blurRad":%v,"dist":%v,"color":{"color":{"type":1,"val":%q}}}]}}}}}}]`, scope, effectType, name, blur, dist, color)
+		var v any
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	for _, role := range []string{"master", "layout"} {
+		for _, tc := range []struct {
+			name, scope, effectType, shadow string
+			expected, actual, dist          float64
+			color                           string
+			want                            bool
+		}{
+			{"exact", "spPr", "effectLst", "outerShdw", 365269, 365269, 19050, "000000", true},
+			{"native serialization", "spPr", "effectLst", "outerShdw", 365269, 365268, 19050, "000000", true},
+			{"wrong plus one", "spPr", "effectLst", "outerShdw", 365269, 365270, 19050, "000000", false},
+			{"wrong minus one", "spPr", "effectLst", "outerShdw", 365270, 365269, 19050, "000000", false},
+			{"repeated loss", "spPr", "effectLst", "outerShdw", 365269, 365267, 19050, "000000", false},
+			{"reverse normalization", "spPr", "effectLst", "outerShdw", 365268, 365269, 19050, "000000", false},
+			{"wrong scope", "defaultRunPr", "effectLst", "outerShdw", 365269, 365268, 19050, "000000", false},
+			{"wrong effect list", "spPr", "effectDag", "outerShdw", 365269, 365268, 19050, "000000", false},
+			{"wrong effect", "spPr", "effectLst", "innerShdw", 365269, 365268, 19050, "000000", false},
+			{"distance changed", "spPr", "effectLst", "outerShdw", 365269, 365268, 19049, "000000", false},
+			{"color changed", "spPr", "effectLst", "outerShdw", 365269, 365268, 19050, "FFFFFF", false},
+			{"fractional source", "spPr", "effectLst", "outerShdw", 365269.5, 365269, 19050, "000000", false},
+			{"negative source", "spPr", "effectLst", "outerShdw", -1, 0, 19050, "000000", false},
+			{"outside signed range", "spPr", "effectLst", "outerShdw", 2147483648, -2147483648, 19050, "000000", false},
+		} {
+			t.Run(role+"/"+tc.name, func(t *testing.T) {
+				expected := part(tc.scope, tc.effectType, tc.shadow, tc.expected, 19050, "000000")
+				actual := part(tc.scope, tc.effectType, tc.shadow, tc.actual, tc.dist, tc.color)
+				spec := phase3SlideThemeSpec{ID: "theme", LayoutCount: 1, Master: []any{}, Layouts: []any{[]any{}}}
+				native := map[string]any{"masterRef": "m", "themeRef": "t", "layoutRefs": []any{"l"}, "master": []any{}, "layouts": []any{[]any{}}}
+				if role == "master" {
+					spec.Master, native["master"] = expected, actual
+				} else {
+					spec.Layouts, native["layouts"] = []any{expected}, []any{actual}
+				}
+				expectedCopy, actualCopy := phase3ThemeCopyJSON(expected), phase3ThemeCopyJSON(actual)
+				err := phase3VerifyThemeDelta(native, spec)
+				if (err == nil) != tc.want {
+					t.Fatalf("want accepted=%v, got %v", tc.want, err)
+				}
+				if !reflect.DeepEqual(expected, expectedCopy) || !reflect.DeepEqual(actual, actualCopy) {
+					t.Fatal("comparison mutated source or actual tree")
+				}
+			})
+		}
+	}
+}
 
 func TestPhase3SlideThemeNativeDefaultsAreNarrow(t *testing.T) {
 	grad := func(rot any) map[string]any {
@@ -70,7 +125,18 @@ func TestPhase3SlidesRecordedThemeProof(t *testing.T) {
 	if err = json.Unmarshal(raw, &native); err != nil {
 		t.Fatal(err)
 	}
-	ids := []string{"s0000000", "s0000001", "s0000002"}
+	raw, err = os.ReadFile(filepath.Join(source, "before-readback.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pages []phase3SlidePage
+	if err = json.Unmarshal(raw, &pages); err != nil || len(pages) == 0 {
+		t.Fatalf("recorded page IDs missing: %v", err)
+	}
+	ids := make([]string, len(pages))
+	for i, page := range pages {
+		ids[i] = page.ID
+	}
 	if err = phase3VerifySlideThemeNative(native, ids, spec); err != nil {
 		t.Fatal("native", err)
 	}
@@ -81,7 +147,10 @@ func TestPhase3SlidesRecordedThemeProof(t *testing.T) {
 	if err != nil || len(before) != 1 {
 		t.Fatal(err)
 	}
-	after, err := filepath.Glob(filepath.Join(fresh, "fresh", "*.pptx"))
+	after := []string{os.Getenv("SHIMO_PHASE3_SLIDES_THEME_OFFLINE_ARTIFACT")}
+	if after[0] == "" {
+		after, err = filepath.Glob(filepath.Join(fresh, "fresh", "*.pptx"))
+	}
 	if err != nil || len(after) != 1 {
 		t.Fatal(err)
 	}
