@@ -110,7 +110,7 @@ func (a *App) cmdPhase3DocumentGraphic() (runErr error) {
 	if err != nil {
 		return err
 	}
-	warnings, err := verifyDocumentGraphicWithWarnings(beforeArtifact.Path, afterArtifact.Path, spec, false)
+	warnings, err := verifyDocumentGraphicWithWarnings(beforeArtifact.Path, afterArtifact.Path, spec)
 	if err != nil {
 		return err
 	}

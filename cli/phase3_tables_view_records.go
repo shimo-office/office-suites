@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// Prove the complete small set of named fixture records. Blank initial rows are
-// explicitly counted outside this scope; large/virtualized sets fail closed.
+// Derive the complete named record set independently from the saved table.
+// Blank initial rows are identified separately from populated view records.
 func phase3ViewRecordSpec(table, view map[string]any, timezone string, browserTimezone ...string) (map[string]any, error) {
 	primary := ""
 	for id, field := range phase3TableMap(table, "fields") {
@@ -68,6 +68,7 @@ func phase3ViewRecordSpec(table, view map[string]any, timezone string, browserTi
 	}
 	expected := map[string]any{}
 	excluded := 0
+	excludedIDs := map[string]any{}
 	for id, row := range phase3TableMap(table, "records") {
 		values, _ := row["valueMap"].(map[string]any)
 		title, ok := values[primary].(string)
@@ -93,6 +94,7 @@ func phase3ViewRecordSpec(table, view map[string]any, timezone string, browserTi
 				return nil, errors.New("存在主字段为空但其他字段有数据的记录，无法可靠展示定位，拒绝排除")
 			}
 			excluded++
+			excludedIDs[id] = true
 			continue
 		}
 		matches, e := phase3ViewFilterMatches(values, view["filters"])
@@ -133,10 +135,11 @@ func phase3ViewRecordSpec(table, view map[string]any, timezone string, browserTi
 		}
 		expected[id] = record
 	}
-	if len(expected) == 0 || len(expected) > 5000 {
-		return nil, errors.New("视图展示验收要求至少一条非空文本主字段记录，且不超过 5000 条")
+	if len(expected) > 5000 {
+		return nil, errors.New("视图展示验收支持不超过 5000 条非空文本主字段记录")
 	}
 	spec["expectedRecords"], spec["excludedWhollyEmptyRecords"] = expected, excluded
+	spec["excludedWhollyEmptyRecordGuids"] = excludedIDs
 	return spec, nil
 }
 

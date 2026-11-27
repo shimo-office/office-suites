@@ -36,6 +36,8 @@ merge只接受同一行连续2–20个非空、未合并的单元格，endColumn
 
 fill/color只改指定单格；marginCm、align、border作用整张目标表。若表头有多格，分别运行；其他格只传fill/color即可。marginCm>0且≤2厘米，四边相同。align=left/center/right，必须同时明确marginCm，避免SDK默认重置未指定内边距。border为整表外边框单实线，pt范围0.25–12磅且1/8步长。无属性请求与已经符合的请求均拒绝。请求文字色时 expectedCell 不得为空。所有单位已源代码查证，线上验收单独记录。
 
+行列插入或删除后，应按当前表格重新确定 `row/column/expectedCell`。例如在第 2 行前插入空行，原第 2 行的文字会移到第 3 行；旧坐标配原文字应在写前拒绝。本次独立新夹具的单格填充与组合样式均通过保存、重新打开及 DOCX 核验。
+
 ## document-graphic
 
 ```json
@@ -53,3 +55,15 @@ fill/color只改指定单格；marginCm、align、border作用整张目标表。
 ```
 
 仅追加当前users/me本人真实用户提及，禁止传userId或姓名；目标段落已有用户提及则拒绝。提及节点不一定直接挂在段落 `children` 下（编辑器会包一层超链接外壳），回读按模型逐层遍历定位 `atType=1` 节点，取不到时才回退到整篇扫描。刷新后检查真实节点atType=1、atInfo.userId、显示名、nodeId；导出核对追加文本、旧字符属性、包资源与非文本结构保持，仅去除本次追加本人姓名及其精确原生超链接外壳后比较。当前动作不调用独立通知API，不保证平台自身不会产生通知；不支持他人提及。线上验收单独记录。
+
+## 独立设置与格式保留
+
+`document-paragraph` 的 `attrs.align` 支持 `left/center/right/justify`，可单独使用；缩进与行距继续使用 `firstLineChars/lineMultiple`。
+
+`document-page` 设置分栏时保留原分栏间距与分隔线，边距保留页眉/页脚距离；导出未给出这两项时，先只读读取原生有效距离，写前再次核对，并将证据保存为 `native-page-margins-before.json`。仅等效的 OOXML 默认值允许归一化，未请求的实际属性变化仍验收失败。
+
+`document-theme` 使用原生主题更新事务，修改 major/minor 的 latin/ea/cs 字体并清空补充语言映射；不重写标题或 Normal 样式。缺少主题部件会在写入前拒绝。`document-replace` 按原字符保留四种语言字体及各自的主题字体引用，并继续核对字号、颜色、加粗等属性；位于目标之后的超链接不会阻塞前方普通文字定位，目标跨越复杂节点仍拒绝；所需原生格式接口缺失则拒绝写入。
+
+`document-graphic` 对嵌入和浮动图形使用相同的独立派生边界核验；仅接受可计算的旋转/尺寸效果边界，以及 rightArrow 的明确默认调整值序列化。无主题、无文字且效果为空的形状，可精确证明原生补出样式与原显式外观等效；预设实线允许省略默认 `prstDash=solid`。非目标正文、图形位置或样式改变仍拒绝，不能仅凭正文相同就通过。
+
+表格样式仅对目标表已有的六边边框接受缺省 `space` 被写为精确 `0`；继承的非零间距、其他表、额外边框或真实颜色/线型改变仍不接受。

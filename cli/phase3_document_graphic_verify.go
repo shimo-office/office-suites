@@ -261,15 +261,14 @@ func documentGraphicNormalize(root *artifactNode, s documentGraphicSpec) (string
 	return documentTableExactKey(clone), nil
 }
 
-// verifyDocumentGraphic keeps the strict boolean contract used by tests; the
-// warning-aware variant is used by the command so legitimate reflow side
-// effects are reported instead of failing an otherwise correct write.
+// All stages share the same proof: only independently verified, target-local
+// native defaults may differ. Equal text cannot excuse unrelated formatting.
 func verifyDocumentGraphic(beforePath, afterPath string, s documentGraphicSpec) error {
-	_, err := verifyDocumentGraphicWithWarnings(beforePath, afterPath, s, true)
+	_, err := verifyDocumentGraphicWithWarnings(beforePath, afterPath, s)
 	return err
 }
 
-func verifyDocumentGraphicWithWarnings(beforePath, afterPath string, s documentGraphicSpec, strict bool) ([]string, error) {
+func verifyDocumentGraphicWithWarnings(beforePath, afterPath string, s documentGraphicSpec) ([]string, error) {
 	warnings := []string{}
 	before, err := readDocumentGraphic(beforePath)
 	if err != nil {
@@ -307,16 +306,7 @@ func verifyDocumentGraphicWithWarnings(beforePath, afterPath string, s documentG
 		return nil, err
 	}
 	if bk != ak {
-		// 命令路径（strict=false）：文档重排会让非目标图形的锚点/几何与样式快照
-		// 一起变化，正文、资源与目标图形属性才是必须守住的边界；正文一致时把整体
-		// 差异降级为告警。单元测试与基线校验（strict=true）仍要求完全一致。
-		if strict {
-			return nil, fmt.Errorf("图形请求之外的正文、几何或属性改变")
-		}
-		if artifactText(before.Root, "t") != artifactText(after.Root, "t") {
-			return nil, fmt.Errorf("图形请求之外的正文被修改")
-		}
-		warnings = append(warnings, "非目标图形随版式重排发生变化（正文未变）")
+		return nil, fmt.Errorf("图形请求之外的正文、几何或属性改变")
 	}
 	drawing, xfrm, err := documentGraphicTarget(after.Root, s)
 	if err != nil {

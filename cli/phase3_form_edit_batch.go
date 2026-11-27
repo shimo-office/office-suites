@@ -186,12 +186,9 @@ func phase3FormRunOne(b *phase3EditorBrowser, s *phase3SDKSession, dir string, r
 	if before["canEdit"] != true {
 		return nil, false, errors.New("没有编辑权限")
 	}
-	serverBefore, err := s.formDraft(b)
+	before, serverBefore, err := phase3FormSyncedBefore(b, s, dir, before)
 	if err != nil {
 		return nil, false, err
-	}
-	if err = phase3VerifyForm(form, serverBefore); err != nil {
-		return nil, false, errors.New("浏览器草稿与服务端快照不一致；未写入")
 	}
 	expected, err = phase3FormExpected(form, req)
 	if err != nil {
@@ -289,4 +286,41 @@ func phase3FormRunOne(b *phase3EditorBrowser, s *phase3SDKSession, dir string, r
 		return nil, true, err
 	}
 	return expected, true, nil
+}
+
+// On first open the native editor initializes the draft title from the file
+// name. Its asynchronous save may lag behind the rendered editor. Wait only
+// for the unchanged browser baseline to reach the server; never ignore a diff
+// or resubmit an edit. The mutation still checks this returned snapshot/rev.
+func phase3FormSyncedBefore(b *phase3EditorBrowser, s *phase3SDKSession, dir string, before map[string]any) (map[string]any, map[string]any, error) {
+	baseline := before["form"].(map[string]any)
+	for attempt := 0; attempt < 6; attempt++ {
+		server, err := s.formDraft(b)
+		if err != nil {
+			return nil, nil, err
+		}
+		if phase3VerifyForm(baseline, server) == nil {
+			return before, server, nil
+		}
+		if err = phase3WriteEvidence(filepath.Join(dir, "preflight-draft-mismatch.json"), map[string]any{"browser": before, "server": server, "readAttempt": attempt + 1, "mutationAttempted": false}); err != nil {
+			return nil, nil, err
+		}
+		if attempt == 5 {
+			break
+		}
+		if err = b.CheckPresence(); err != nil {
+			return nil, nil, err
+		}
+		time.Sleep(time.Second)
+		current, err := phase3FormSnapshot(b)
+		if err != nil {
+			return nil, nil, err
+		}
+		form, ok := current["form"].(map[string]any)
+		if !ok || str(current, "guid") != s.guid || current["canEdit"] != true || phase3VerifyForm(baseline, form) != nil {
+			return nil, nil, errors.New("等待草稿保存时目标、权限或正文发生变化；未写入")
+		}
+		before = current
+	}
+	return nil, nil, errors.New("等待保存后浏览器草稿与服务端快照仍不一致；未写入；差异见 preflight-draft-mismatch.json")
 }

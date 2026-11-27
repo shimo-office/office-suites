@@ -69,7 +69,14 @@ func preparePhase3TableView(p *phase3TableEditPlan, payload, before map[string]a
 		if str(view, "shareGuid") != "" {
 			return errors.New("已分享视图不能通过此动作删除")
 		}
+		orders, err := phase3DeletedViewOrders(before, id)
+		if err != nil {
+			return err
+		}
 		delete(expected, id)
+		for remaining, order := range orders {
+			expected[remaining].(map[string]any)["order"] = order
+		}
 		p.DeletedViewIDs = []string{id}
 		return p.add("DeleteView", map[string]any{"tableGuid": p.TableGuid, "views": []any{map[string]any{"viewGuid": id, "viewType": str(view, "type")}}})
 	}

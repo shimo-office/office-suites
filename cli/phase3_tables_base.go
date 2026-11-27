@@ -114,11 +114,23 @@ func preparePhase3BaseEdit(action string, payload map[string]any, baseGuid strin
 		if str(source, "formGuid") != "" || source["syncedConfig"] != nil {
 			return p, errors.New("暂不复制关联表单或同步表")
 		}
-		for _, f := range phase3TableMap(source, "fields") {
+		for id, f := range phase3TableMap(source, "fields") {
 			switch str(f, "type") {
-			case "SingleLineText", "Number", "SingleChoice", "LongText", "CheckBox":
+			case "SingleLineText", "Number", "SingleChoice", "LongText", "CheckBox", "Date", "Link":
+				// Dates and links are literal cell values. The native endpoint
+				// duplicates them; the comparator preserves their values and props
+				// exactly while mapping only schema-defined view references.
+			case "Attachment":
+				for rowID, row := range phase3TableMap(source, "records") {
+					values, _ := row["valueMap"].(map[string]any)
+					if value := values[id]; value != nil {
+						if attachments, ok := value.([]any); !ok || len(attachments) != 0 {
+							return p, fmt.Errorf("字段 %q（Attachment）在记录 %s 含附件或未知值结构；当前仅支持复制空附件字段", str(f, "name"), rowID)
+						}
+					}
+				}
 			default:
-				return p, errors.New("复制包含尚未验证的复杂字段类型")
+				return p, fmt.Errorf("字段 %q（%s）尚不支持复制；字段 GUID：%s", str(f, "name"), str(f, "type"), id)
 			}
 		}
 		p.Desc = str(source, "desc")

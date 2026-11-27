@@ -43,10 +43,11 @@ var phase3ActionContracts = map[string]actionContract{
 		Notes:   "paragraph 从 1 起；text 必须是该段完整正文且不含换行；match 必须全文唯一；offset/length 成对、按 Unicode 码点。已符合请求会返回无修改错误，不冒充本次编辑。上下标只在文稿有此入口。",
 	},
 	"document-paragraph": {
-		Summary:   "设置文稿段落属性：标题级别、首行缩进字符、行距倍数、底纹、编号",
+		Summary:   "设置文稿段落属性：对齐、标题级别、首行缩进字符、行距倍数、底纹、编号",
 		Transport: "browser",
 		Required:  []string{"paragraph", "text", "attrs"},
 		Enums: map[string]string{
+			"attrs.align":          "left|center|right|justify",
 			"attrs.heading":        "1|2|3|4|5|6",
 			"attrs.firstLineChars": "0–20，精度 0.01 字符",
 			"attrs.lineMultiple":   "0.5–10（倍数）",
@@ -54,7 +55,7 @@ var phase3ActionContracts = map[string]actionContract{
 			"attrs.numbering":      "decimal（仅编号）",
 		},
 		Example: `{"paragraph":2,"text":"精确原段落","attrs":{"firstLineChars":2,"lineMultiple":1.5,"shading":"#EEEEEE"}}`,
-		Notes:   "attrs 至少一项；只接受上面五类键，align/list/indent/lineHeight 在文稿上会被拒绝（对齐与列表尚未实现，需要时用轻文档 doc-paragraph）。",
+		Notes:   "attrs 至少一项；list/indent/lineHeight 不是文稿参数，请分别使用 numbering/firstLineChars/lineMultiple。",
 	},
 	"document-page": {
 		Summary:   "页面设置：页边距、分栏、页面背景色",
@@ -66,10 +67,9 @@ var phase3ActionContracts = map[string]actionContract{
 	"document-theme": {
 		Summary:   "替换主题字体（major/minor 两语言组）",
 		Transport: "browser",
-		Required:  []string{"themeFonts"},
-		Optional:  []string{"resetSupplemental"},
+		Required:  []string{"themeFonts", "resetSupplemental"},
 		Example:   `{"themeFonts":{"major":{"latin":"Arial","ea":"宋体","cs":"Arial"},"minor":{"latin":"Arial","ea":"宋体","cs":"Arial"}},"resetSupplemental":true}`,
-		Notes:     "必须完整提供两组字体；resetSupplemental 明确允许重建补充语言映射。",
+		Notes:     "必须完整提供两组字体并设置 resetSupplemental:true；清空补充语言映射，保留既有样式和显式字体；原文稿须有主题部件。",
 	},
 	"document-replace": {
 		Summary:   "按精确字面文本替换，并核对预期命中次数",
@@ -359,7 +359,7 @@ var phase3ActionContracts = map[string]actionContract{
 		Summary:   "复制数据表（保留记录值）",
 		Transport: "api",
 		Required:  []string{"tableGuid", "name"},
-		Notes:     "只接受可验证的简单字段；同步、表单关联及不支持的复杂结构会被拒绝。",
+		Notes:     "支持 SingleLineText/LongText/Number/SingleChoice/CheckBox/Date/Link 及全为空的 Attachment，严格保留记录与视图；非空附件、关联、公式、同步及表单关联结构拒绝。",
 	},
 	"table-delete": {
 		Summary:   "删除数据表",

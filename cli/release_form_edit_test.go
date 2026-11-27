@@ -80,7 +80,7 @@ func releaseFormDelta(t *testing.T, title string) any {
 }
 
 func TestReleaseFormSingleOperationEvidence(t *testing.T) {
-	for _, mode := range []string{"success", "wrong-guid", "permission", "stale-server", "no-op", "presence", "mutation-error", "rendered-mismatch"} {
+	for _, mode := range []string{"success", "initial-save-pending", "changed-during-sync", "permission-lost-during-sync", "identity-changed-during-sync", "wrong-guid", "permission", "stale-server", "no-op", "presence", "mutation-error", "rendered-mismatch"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("SHIMO_NET_COOKIE", "sid=synthetic")
 			t.Setenv("SHIMO_NET_DISABLE_HARVEST", "1")
@@ -91,20 +91,22 @@ func TestReleaseFormSingleOperationEvidence(t *testing.T) {
 			after, _ := phase3DecodeFormDelta(afterDelta)
 			writes := 0
 			downloads := 0
+			snapshots := 0
 			b := releaseFormPeer(t, func(expr string) (any, error) {
 				switch {
 				case strings.Contains(expr, "sdkHasUnsavedUnreliable"):
+					snapshots++
 					form := before
-					if writes > 0 && mode != "rendered-mismatch" {
+					if (writes > 0 && mode != "rendered-mismatch") || (mode == "changed-during-sync" && snapshots > 1) {
 						form = after
 					}
 					guid := "abcdefgh"
-					if mode == "wrong-guid" {
+					if mode == "wrong-guid" || (mode == "identity-changed-during-sync" && snapshots > 1) {
 						guid = "different"
 					}
-					return map[string]any{"guid": guid, "form": form, "canEdit": mode != "permission"}, nil
+					return map[string]any{"guid": guid, "form": form, "canEdit": mode != "permission" && !(mode == "permission-lost-during-sync" && snapshots > 1)}, nil
 				case strings.HasPrefix(expr, "new window.modoc.Delta("):
-					if writes > 0 || mode == "stale-server" {
+					if writes > 0 || mode == "stale-server" || mode == "changed-during-sync" || mode == "permission-lost-during-sync" || mode == "identity-changed-during-sync" || (mode == "initial-save-pending" && downloads == 1) {
 						return afterDelta, nil
 					}
 					return beforeDelta, nil
@@ -150,8 +152,12 @@ func TestReleaseFormSingleOperationEvidence(t *testing.T) {
 			}
 			dir := t.TempDir()
 			expected, attempted, err := phase3FormRunOne(b, s, dir, map[string]any{"operation": "meta", "patch": map[string]any{"title": title}})
-			if mode == "success" {
-				if err != nil || !attempted || writes != 1 || downloads != 2 || phase3VerifyForm(after, expected) != nil {
+			if mode == "success" || mode == "initial-save-pending" {
+				wantDownloads := 2
+				if mode == "initial-save-pending" {
+					wantDownloads = 3
+				}
+				if err != nil || !attempted || writes != 1 || downloads != wantDownloads || phase3VerifyForm(after, expected) != nil {
 					t.Fatalf("attempt=%t writes=%d downloads=%d err=%v", attempted, writes, downloads, err)
 				}
 				for _, name := range []string{"request.json", "before-structure.json", "server-before.json", "expected.json", "before.png", "submission.json", "server-after.json", "after-structure.json", "after.png", "step-result.json"} {
@@ -168,6 +174,9 @@ func TestReleaseFormSingleOperationEvidence(t *testing.T) {
 			}
 			if err == nil || attempted != wantAttempt || writes != wantWrites {
 				t.Fatalf("attempt=%t writes=%d error=%v", attempted, writes, err)
+			}
+			if mode == "stale-server" && downloads != 6 {
+				t.Fatalf("preflight retry bound changed: downloads=%d", downloads)
 			}
 			raw, e := os.ReadFile(filepath.Join(dir, "step-failure.json"))
 			if e != nil {

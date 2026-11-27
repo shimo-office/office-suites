@@ -87,3 +87,57 @@ func TestPhase3ViewCreateRejectsAmbiguousOrders(t *testing.T) {
 		})
 	}
 }
+
+func TestPhase3ViewDeletePredictsRemainingOrders(t *testing.T) {
+	for _, deleted := range []string{"v1", "v2", "v3"} {
+		t.Run(deleted, func(t *testing.T) {
+			before := tableFixtureForEdit()
+			first := phase3TableMap(before, "views")["v1"]
+			second, third := phase3TableCopy(first), phase3TableCopy(first)
+			second["guid"], second["order"] = "v2", float64(1)
+			third["guid"], third["order"] = "v3", float64(2)
+			before["views"] = []any{third, first, second}
+			original := phase3TableCopy(before)
+			plan, err := preparePhase3TableEdit("table-view-delete", map[string]any{"tableGuid": "t1", "viewGuid": deleted}, before)
+			if err != nil {
+				t.Fatal(err)
+			}
+			after := phase3TableCopy(before)
+			remaining := []any{}
+			for _, id := range []string{"v1", "v2", "v3"} {
+				if id != deleted {
+					view := phase3TableMap(after, "views")[id]
+					view["order"] = float64(len(remaining))
+					remaining = append(remaining, view)
+				}
+			}
+			after["views"] = remaining
+			if err = verifyPhase3TableEdit(before, after, plan); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(before, original) {
+				t.Fatal("baseline mutated")
+			}
+			for _, raw := range remaining {
+				id := str(raw.(map[string]any), "guid")
+				bad := phase3TableCopy(after)
+				phase3TableMap(bad, "views")[id]["order"] = float64(9)
+				if verifyPhase3TableEdit(before, bad, plan) == nil {
+					t.Fatal("unexpected survivor order accepted", id)
+				}
+			}
+		})
+	}
+}
+
+func TestPhase3ViewDeleteRejectsUnknownOrderLayout(t *testing.T) {
+	for _, order := range []any{nil, "1", float64(0), float64(-1), 0.5, float64(2)} {
+		before := tableFixtureForEdit()
+		second := phase3TableCopy(phase3TableMap(before, "views")["v1"])
+		second["guid"], second["order"] = "v2", order
+		before["views"] = append(before["views"].([]any), second)
+		if _, err := preparePhase3TableEdit("table-view-delete", map[string]any{"tableGuid": "t1", "viewGuid": "v1"}, before); err == nil {
+			t.Fatalf("unknown ordering accepted: %v", order)
+		}
+	}
+}

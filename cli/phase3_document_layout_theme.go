@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"unicode"
 )
 
 type documentThemeFamily struct {
@@ -20,6 +19,7 @@ type documentThemeFonts struct {
 type documentThemeSnapshot struct {
 	StyleDefaults   *documentThemeStyleDefaults `json:"styleDefaults,omitempty"`
 	DirectRunFonts  []string                    `json:"directRunFonts"`
+	StyleFonts      map[string]string           `json:"styleFonts"`
 	Fonts           documentThemeFonts          `json:"fonts"`
 	Supplemental    map[string]string           `json:"supplemental"`
 	NonFontDocument string                      `json:"nonFontDocument"`
@@ -31,7 +31,7 @@ type documentThemeSnapshot struct {
 
 func prepareDocumentTheme(p map[string]any) (*documentThemeFonts, error) {
 	if p["resetSupplemental"] != true {
-		return nil, fmt.Errorf("document-theme 必须明确 resetSupplemental:true：整套主题会重建补充语言映射及 Normal/标题主题继承")
+		return nil, fmt.Errorf("document-theme 必须明确 resetSupplemental:true：整套主题会清空补充语言字体映射，保留现有段落样式与显式字体")
 	}
 	raw, ok := p["themeFonts"].(map[string]any)
 	if !ok || len(raw) != 2 {
@@ -61,6 +61,17 @@ func documentThemeWithoutFonts(n *artifactNode, theme bool) *artifactNode {
 		return nil
 	}
 	c := *n
+	c.Attr = append(c.Attr[:0:0], n.Attr...)
+	// Word hex colors are case insensitive; preserve every non-color attribute.
+	if !theme && n.Name.Space == artifactWordNS {
+		for i, attr := range c.Attr {
+			if attr.Name.Space == artifactWordNS && (attr.Name.Local == "color" || (n.Name.Local == "color" && attr.Name.Local == "val") || (n.Name.Local == "shd" && attr.Name.Local == "fill")) {
+				if hex, err := layoutColor("#" + attr.Value); err == nil {
+					c.Attr[i].Value = strings.TrimPrefix(hex, "#")
+				}
+			}
+		}
+	}
 	c.Children = nil
 	for _, child := range n.Children {
 		if (!theme && child.Name.Space == artifactWordNS && child.Name.Local == "rFonts") || (theme && child.Name.Space == artifactDrawingNS && child.Name.Local == "fontScheme") {
@@ -131,6 +142,7 @@ func readDocumentTheme(parts map[string]*zip.File, root *artifactNode) (*documen
 			return nil, e
 		}
 		out.RawStyles = layoutNodeCanonical(styles)
+		out.StyleFonts = documentThemeStyleFonts(styles)
 		out.NonFontStyles = layoutNodeCanonical(documentThemeWithoutFonts(styles, false))
 		out.StyleDefaults, e = readDocumentThemeStyleDefaults(styles)
 		if e != nil {
@@ -154,6 +166,9 @@ func verifyDocumentTheme(before, after documentLayoutSnapshot, s documentLayoutS
 	}
 	if before.Theme.NonFontDocument != after.Theme.NonFontDocument || before.Theme.NonFontTheme != after.Theme.NonFontTheme {
 		return fmt.Errorf("主题动作产生非字体内容或属性变化")
+	}
+	if err := verifyDocumentThemeStyleFonts(before.Theme.StyleFonts, after.Theme.StyleFonts); err != nil {
+		return err
 	}
 	if before.Theme.NonFontStyles != after.Theme.NonFontStyles {
 		if e := verifyDocumentThemeStyleDefaults(before.Theme.StyleDefaults, after.Theme.StyleDefaults); e != nil {
@@ -199,21 +214,12 @@ func documentThemeCharacterProof(before, after documentLayoutSnapshot) error {
 	if len(before.Text.Paragraphs) != len(after.Text.Paragraphs) {
 		return fmt.Errorf("主题动作正文段落变化")
 	}
-	hasChinese, inheritsChinese := false, false
 	for i, p := range before.Text.Paragraphs {
 		bc, ac := documentExpanded(p), documentExpanded(after.Text.Paragraphs[i])
 		if len(bc) != len(ac) {
 			return fmt.Errorf("主题动作正文长度变化")
 		}
 		for j, c := range bc {
-			for _, r := range c.Text {
-				if unicode.Is(unicode.Han, r) {
-					hasChinese = true
-					if ac[j].Attrs["fontFamily.eastAsiaTheme"] == "minorEastAsia" {
-						inheritsChinese = true
-					}
-				}
-			}
 			if c.Text != ac[j].Text {
 				return fmt.Errorf("主题动作正文变化")
 			}
@@ -232,14 +238,26 @@ func documentThemeCharacterProof(before, after documentLayoutSnapshot) error {
 				}
 			}
 			for key, value := range c.Attrs {
-				if strings.HasPrefix(key, "fontFamily.") && strings.Contains(strings.ToLower(key), "theme") && value != "" && ac[j].Attrs[key] != value {
+				if strings.HasPrefix(key, "fontFamily.") && strings.Contains(strings.ToLower(key), "theme") && value != "" && !documentThemeReferenceEqual(value, ac[j].Attrs[key]) {
 					return fmt.Errorf("第%d段现有主题引用 %s 意外变化", i+1, key)
 				}
 			}
 		}
 	}
-	if hasChinese && !inheritsChinese {
-		return fmt.Errorf("主题定义已变更，但未找到真实继承minorEastAsia主题的中文正文，不能验收生效")
-	}
 	return nil
+}
+
+// Both Latin references resolve to the same family's latin typeface in OOXML.
+// Keep major/minor and all other script assignments distinct.
+func documentThemeReferenceEqual(before, after string) bool {
+	normalize := func(ref string) string {
+		switch ref {
+		case "majorHAnsi":
+			return "majorAscii"
+		case "minorHAnsi":
+			return "minorAscii"
+		}
+		return ref
+	}
+	return normalize(before) == normalize(after)
 }

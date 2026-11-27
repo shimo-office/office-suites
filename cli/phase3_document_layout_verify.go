@@ -45,6 +45,12 @@ func prepareDocumentLayout(action string, p map[string]any) (documentLayoutSpec,
 		}
 		for k, v := range attrs {
 			switch k {
+			case "align":
+				a, ok := v.(string)
+				if !ok || (a != "left" && a != "center" && a != "right" && a != "justify") {
+					return s, fmt.Errorf("align 仅支持 left、center、right、justify")
+				}
+				s.Attrs[k] = a
 			case "heading":
 				n, ok := v.(float64)
 				if !ok || n < 1 || n > 6 || math.Trunc(n) != n {
@@ -157,6 +163,7 @@ type documentLayoutParagraph struct {
 	Values       map[string]string `json:"values"`
 }
 type documentLayoutSnapshot struct {
+	NativePageMargins     map[string]float64        `json:"nativePageMargins,omitempty"`
 	StandardNoteDefaults  map[string]bool           `json:"standardNoteDefaults"`
 	SectionFirstParagraph []int                     `json:"sectionFirstParagraph"`
 	Theme                 *documentThemeSnapshot    `json:"theme,omitempty"`
@@ -356,10 +363,10 @@ func verifyDocumentLayout(before, after documentLayoutSnapshot, s documentLayout
 			if !reflect.DeepEqual(p.Props, q.Props) {
 				return fmt.Errorf("非目标第%d段格式变化", i+1)
 			}
-			// 段落样式（尤其标题）会由导出器重写非目标段落的字符属性快照，
-			// 例如注入 style 定义后把默认 run 属性显式展开。正文与段落属性已逐项比对，
-			// 这里的字符级展开差异不作为失败依据，避免「写入正确却报失败」。
-			if s.Action != "document-paragraph" && i < len(before.Text.Paragraphs) && i < len(after.Text.Paragraphs) && !reflect.DeepEqual(documentExpanded(before.Text.Paragraphs[i]), documentExpanded(after.Text.Paragraphs[i])) {
+			// Applying a heading can expand inherited run attributes on export.
+			// Ordinary paragraph formatting must preserve other paragraphs' fonts.
+			_, changesHeading := s.Attrs["heading"]
+			if !(s.Action == "document-paragraph" && changesHeading) && i < len(before.Text.Paragraphs) && i < len(after.Text.Paragraphs) && !reflect.DeepEqual(documentExpanded(before.Text.Paragraphs[i]), documentExpanded(after.Text.Paragraphs[i])) {
 				return fmt.Errorf("非目标第%d段字符格式变化", i+1)
 			}
 		}
@@ -373,6 +380,12 @@ func verifyDocumentLayout(before, after documentLayoutSnapshot, s documentLayout
 		allowedValues := map[string]bool{}
 		for k, v := range s.Attrs {
 			switch k {
+			case "align":
+				allowed["jc"], allowedValues["jc.val"] = true, true
+				want := map[string]string{"left": "left", "center": "center", "right": "right", "justify": "both"}[v.(string)]
+				if p.Values["jc.val"] != want {
+					return fmt.Errorf("段落对齐未持久化")
+				}
 			case "heading":
 				allowed["pStyle"] = true
 				allowedValues["pStyle.val"] = true
@@ -459,7 +472,7 @@ func verifyDocumentLayout(before, after documentLayoutSnapshot, s documentLayout
 				}
 			}
 			for _, key := range []string{"pgMar.header", "pgMar.footer", "pgMar.gutter"} {
-				if before.SectionValues[section][key] != v[key] {
+				if !documentSectionValueEqual(key, documentPageSectionValues(before)[key], v[key]) {
 					return fmt.Errorf("未请求的页面边距属性 %s 变化", key)
 				}
 			}
@@ -470,7 +483,7 @@ func verifyDocumentLayout(before, after documentLayoutSnapshot, s documentLayout
 				return fmt.Errorf("分栏并非请求的等宽布局")
 			}
 			for _, key := range []string{"cols.space", "cols.sep"} {
-				if before.SectionValues[section][key] != v[key] {
+				if !documentSectionValueEqual(key, documentPageSectionValues(before)[key], v[key]) {
 					return fmt.Errorf("未请求的分栏属性 %s 变化", key)
 				}
 			}
@@ -494,9 +507,14 @@ func verifyDocumentLayout(before, after documentLayoutSnapshot, s documentLayout
 		// (cols.sep="0", pgMar.gutter="0", ...). Accept that only when the
 		// effective value is unchanged; a real change still fails below.
 		if s.Columns == 0 {
-			if e := documentSectionDefaultEffects(before.SectionValues[section], v, s.Margins); e == nil {
+			if e := documentSectionDefaultEffects(documentPageSectionValues(before), v, s.Margins); e == nil {
 				allowed["cols"] = true
 				allowed["pgMar"] = true
+			}
+		}
+		for _, d := range [][3]string{{"pgSz", "orient", "portrait"}, {"docGrid", "type", "default"}, {"pgNumType", "chapSep", "hyphen"}} {
+			if documentSectionLeafDefault(before.Sections[section][d[0]], d[0], d[1], d[2]) == documentSectionLeafDefault(after.Sections[section][d[0]], d[0], d[1], d[2]) {
+				allowed[d[0]] = true
 			}
 		}
 		if !layoutEqualExcept(before.Sections[section], after.Sections[section], allowed) {

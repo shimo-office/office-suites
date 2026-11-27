@@ -78,9 +78,9 @@ func documentStyleMaskBorders(n *artifactNode, zeroSpaceSafe bool, sides ...stri
 	}
 }
 
-// Newly written outer borders serialize the omitted zero-spacing default.
-// Keep exact comparison whenever a style resource supplies spacing or the
-// selected table has a nonzero spacing value that a new cell border could hide.
+// Omitted border spacing may serialize as zero. Keep exact comparison whenever
+// a style resource supplies spacing or the selected table has a nonzero value
+// that an explicit border default could hide.
 func documentStyleZeroSpaceSafe(root *artifactNode, table int, resources map[string]string) bool {
 	for _, key := range resources {
 		if strings.Contains(key, artifactWordNS+"|space=") {
@@ -102,6 +102,54 @@ func documentStyleZeroSpaceSafe(root *artifactNode, table int, resources map[str
 		return true
 	}
 	return safe(documentChildren(root, "tbl")[table-1])
+}
+
+// Saving any cell style can make the target table's existing six borders
+// serialize their omitted zero-spacing default. Normalize only that one added
+// attribute when the whole border otherwise matches its untouched baseline.
+func documentStyleNormalizeTableBorderDefaults(before, after *artifactNode, table int) {
+	child := func(n *artifactNode, name string) *artifactNode {
+		if n == nil || n.Name.Space != artifactWordNS {
+			return nil
+		}
+		var found *artifactNode
+		for _, c := range n.Children {
+			if c.Name.Space == artifactWordNS && c.Name.Local == name {
+				if found != nil {
+					return nil
+				}
+				found = c
+			}
+		}
+		return found
+	}
+	b := child(child(documentChildren(before, "tbl")[table-1], "tblPr"), "tblBorders")
+	a := child(child(documentChildren(after, "tbl")[table-1], "tblPr"), "tblBorders")
+	for _, side := range []string{"top", "left", "bottom", "right", "insideH", "insideV"} {
+		old, next := child(b, side), child(a, side)
+		if old == nil || next == nil {
+			continue
+		}
+		count, originalCount := 0, 0
+		for _, attr := range old.Attr {
+			if attr.Name.Space == artifactWordNS && attr.Name.Local == "space" {
+				originalCount++
+			}
+		}
+		for _, attr := range next.Attr {
+			if attr.Name.Space == artifactWordNS && attr.Name.Local == "space" {
+				count++
+			}
+		}
+		if originalCount != 0 || count != 1 || documentAttr(next, "space") != "0" {
+			continue
+		}
+		candidate := documentStyleClone(next)
+		documentStyleMaskAttrs(candidate, "space")
+		if documentTableExactKey(old) == documentTableExactKey(candidate) {
+			documentStyleMaskAttrs(next, "space")
+		}
+	}
 }
 func documentStyleMaskMargins(n *artifactNode) {
 	for _, side := range []string{"top", "right", "bottom", "left"} {
@@ -233,8 +281,12 @@ func verifyDocumentTableStyle(beforePath, afterPath string, s documentTableStyle
 	if err != nil {
 		return err
 	}
-	zeroSpaceSafe := s.Border != nil && documentStyleZeroSpaceSafe(br, s.Table, before.StyleResources)
-	if documentStyleNormalize(br, s, zeroSpaceSafe) != documentStyleNormalize(ar, s, zeroSpaceSafe) {
+	zeroSpaceSafe := documentStyleZeroSpaceSafe(br, s.Table, before.StyleResources)
+	comparisonAfter := documentStyleClone(ar)
+	if zeroSpaceSafe {
+		documentStyleNormalizeTableBorderDefaults(br, comparisonAfter, s.Table)
+	}
+	if documentStyleNormalize(br, s, zeroSpaceSafe) != documentStyleNormalize(comparisonAfter, s, zeroSpaceSafe) {
 		return fmt.Errorf("表格样式请求之外的结构或属性改变")
 	}
 	table := documentChildren(ar, "tbl")[s.Table-1]

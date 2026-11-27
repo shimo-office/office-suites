@@ -22,6 +22,9 @@ func documentPagePreserveMargins(s documentLayoutSpec, before documentLayoutSnap
 	for _, k := range []string{"header", "footer"} {
 		raw := before.SectionValues[0]["pgMar."+k]
 		if raw == "" {
+			if value, ok := before.NativePageMargins[k]; ok {
+				keep[k] = value
+			}
 			continue
 		}
 		twips, err := strconv.ParseFloat(raw, 64)
@@ -46,7 +49,7 @@ func documentPageMarginsReset(before, after documentLayoutSnapshot) bool {
 		return false
 	}
 	for _, key := range []string{"pgMar.header", "pgMar.footer"} {
-		if before.SectionValues[0][key] != after.SectionValues[0][key] {
+		if documentPageSectionValues(before)[key] != after.SectionValues[0][key] {
 			return true
 		}
 	}
@@ -206,10 +209,7 @@ func trimDiff(lines []string) []string {
 // value explicitly. The page-settings write re-serialises the whole section, so
 // this is a serialisation artefact, not a content change.
 func documentSectionDefaultEffects(before, after map[string]string, requested map[string]float64) error {
-	defaults := map[string]string{
-		"cols.num": "1", "cols.equalWidth": "1", "cols.space": "425", "cols.sep": "0",
-		"pgMar.gutter": "0", "pgSz.orient": "portrait",
-	}
+
 	for _, key := range sortedKeys(before, after) {
 		if !strings.HasPrefix(key, "cols.") && !strings.HasPrefix(key, "pgMar.") && !strings.HasPrefix(key, "pgSz.") {
 			continue
@@ -220,21 +220,60 @@ func documentSectionDefaultEffects(before, after map[string]string, requested ma
 				continue
 			}
 		}
-		b, a := before[key], after[key]
-		if b == a {
-			continue
-		}
-		if def, ok := defaults[key]; ok {
-			if b == "" {
-				b = def
-			}
-			if a == "" {
-				a = def
-			}
-		}
-		if b != a {
+		if !documentSectionValueEqual(key, before[key], after[key]) {
 			return fmt.Errorf("%s 由 %q 变为 %q", key, before[key], after[key])
 		}
 	}
 	return nil
+}
+
+// Normalize only the documented section defaults; header/footer distances have
+// no interchangeable implicit value and must remain exact.
+func documentSectionValueEqual(key, before, after string) bool {
+	defaults := map[string]string{
+		"cols.num": "1", "cols.equalWidth": "1", "cols.space": "425", "cols.sep": "0",
+		"pgMar.gutter": "0", "pgSz.orient": "portrait",
+	}
+	if def, ok := defaults[key]; ok {
+		if before == "" {
+			before = def
+		}
+		if after == "" {
+			after = def
+		}
+	}
+	return before == after
+}
+
+// Compare the canonical leaf node while ignoring only the observed OOXML
+// default attribute. Unknown attributes, children and real values stay exact.
+func documentSectionLeafDefault(raw, name, attribute, value string) string {
+	if raw == "" {
+		return ""
+	}
+	var parts []json.RawMessage
+	if json.Unmarshal([]byte(raw), &parts) != nil || len(parts) != 5 {
+		return raw
+	}
+	var space, local, text string
+	var attrs []string
+	var children []json.RawMessage
+	if json.Unmarshal(parts[0], &space) != nil || json.Unmarshal(parts[1], &local) != nil || json.Unmarshal(parts[2], &attrs) != nil || json.Unmarshal(parts[3], &text) != nil || json.Unmarshal(parts[4], &children) != nil || space != artifactWordNS || local != name || text != "" || len(children) != 0 {
+		return raw
+	}
+	kept := []string{}
+	for _, attr := range attrs {
+		if attr != artifactWordNS+":"+attribute+"="+value {
+			kept = append(kept, attr)
+		}
+	}
+	// A lone chapter separator has no effect without a chapter style/page number setting.
+	if name == "docGrid" && len(kept) == 1 && kept[0] == artifactWordNS+":linePitch=312" {
+		return ""
+	}
+	if name == "pgNumType" && len(kept) == 0 {
+		return ""
+	}
+	normalized, _ := json.Marshal([]any{space, local, kept, text, []string{}})
+	return string(normalized)
 }

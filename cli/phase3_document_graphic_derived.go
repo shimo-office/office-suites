@@ -8,7 +8,8 @@ import (
 // Native source 10621.updateWH derives effectExtent from bounds and half pen
 // width; image.calcPen (88337 -> 94311.eP) uses a 3175 EMU no-fill pen and the
 // image branch doubles its margin. Limit this equivalence to simple, ungrouped
-// rects at right angles, without an inherited theme or any drawing effects.
+// rectangles and default right arrows at right angles, without an inherited
+// theme or any drawing effects. Wrapper layout is verified independently.
 func documentGraphicNoTheme(resources map[string]string) bool {
 	for key, value := range resources {
 		if strings.HasPrefix(key, "part:word/theme/") || strings.HasPrefix(key, "binding:") && strings.Contains(value, "/theme") {
@@ -19,7 +20,7 @@ func documentGraphicNoTheme(resources map[string]string) bool {
 }
 
 func documentGraphicDerivedMargin(d *artifactNode) (int64, bool) {
-	if len(documentGraphicNodes(d, documentDrawingNS, "inline")) != 1 {
+	if _, err := documentGraphicLayoutWrapper(d); err != nil {
 		return 0, false
 	}
 	for _, name := range []string{"effectLst", "effectDag", "scene3d", "sp3d"} {
@@ -27,14 +28,8 @@ func documentGraphicDerivedMargin(d *artifactNode) (int64, bool) {
 			return 0, false
 		}
 	}
-	geom := documentGraphicNodes(d, documentDrawingMainNS, "prstGeom")
-	if len(geom) != 1 || geom[0].attr("prst") != "rect" || len(geom[0].Attr) != 1 {
+	if _, ok := documentGraphicDefaultGeometry(d); !ok {
 		return 0, false
-	}
-	for _, child := range geom[0].Children {
-		if child.Name.Space != documentDrawingMainNS || child.Name.Local != "avLst" || len(child.Attr) != 0 || len(child.Children) != 0 || strings.TrimSpace(child.Text) != "" {
-			return 0, false
-		}
 	}
 	transforms := documentGraphicNodes(d, documentDrawingMainNS, "xfrm")
 	if len(transforms) != 1 {
@@ -120,8 +115,15 @@ func documentGraphicDerivedMargin(d *artifactNode) (int64, bool) {
 		return 0, false
 	}
 	dash := line.children("prstDash")
-	if len(dash) != 1 || dash[0].attr("val") != "solid" || len(dash[0].Attr) != 1 || len(dash[0].Children) != 0 {
+	if len(dash) > 1 || len(dash) == 1 && (dash[0].attr("val") != "solid" || len(dash[0].Attr) != 1 || len(dash[0].Children) != 0) {
 		return 0, false
+	}
+	if len(dash) == 0 {
+		for _, ref := range documentGraphicNodes(d, documentDrawingMainNS, "lnRef") {
+			if ref.attr("idx") != "0" {
+				return 0, false
+			}
+		}
 	}
 	return width / 2, true
 }
@@ -132,12 +134,12 @@ func documentGraphicExactEffect(d *artifactNode, margin int64) (*artifactNode, b
 		return nil, false
 	}
 	n := nodes[0]
-	inline := documentGraphicNodes(d, documentDrawingNS, "inline")
-	if len(inline) != 1 {
+	wrapper, err := documentGraphicLayoutWrapper(d)
+	if err != nil {
 		return nil, false
 	}
 	direct := false
-	for _, child := range inline[0].Children {
+	for _, child := range wrapper.Children {
 		if child == n {
 			direct = true
 		}
@@ -201,6 +203,16 @@ func normalizeDocumentGraphicDerived(before, after *artifactNode, s documentGrap
 	if !bok || !aok {
 		return
 	}
+	if s.Preset == 0 && s.Fill == "" && s.Line == nil {
+		normalizeDocumentGraphicEmptyStyle(bd, ad)
+	}
+	bg, _ := documentGraphicDefaultGeometry(bd)
+	ag, _ := documentGraphicDefaultGeometry(ad)
+	if bg.attr("prst") == "rightArrow" && ag.attr("prst") == "rightArrow" && len(bg.Children[0].Children) == 0 && len(ag.Children[0].Children) == 2 {
+		// Native geometry source initializes rightArrow adj1/adj2 to 50000;
+		// serializing these defaults does not change the arrow's contour.
+		ag.Children[0].Children = nil
+	}
 	bEffects := documentGraphicNodes(bd, documentDrawingNS, "effectExtent")
 	aEffect, aExact := documentGraphicExactEffect(ad, am)
 	if aExact {
@@ -223,8 +235,12 @@ func normalizeDocumentGraphicDerived(before, after *artifactNode, s documentGrap
 	if bl == nil || al == nil {
 		return
 	}
+	// An omitted preset dash is solid in DrawingML; preserve all custom dashes.
+	if len(bl.children("prstDash")) == 0 && len(al.children("prstDash")) == 1 {
+		documentGraphicDropNode(al, al.children("prstDash")[0])
+	}
 	// 94311 native built-in line style uses cap=0(flat), cmpd=1(single),
-	// algn=0(center). Closed solid rectangles have no line-cap endpoints.
+	// algn=0(center). These closed solid shapes have no line-cap endpoints.
 	for name, value := range map[string]string{"cap": "flat", "cmpd": "sng", "algn": "ctr"} {
 		if bl.attr(name) == "" && al.attr(name) == value {
 			documentGraphicMask(al, name)
@@ -239,5 +255,46 @@ func normalizeDocumentGraphicDerived(before, after *artifactNode, s documentGrap
 		if len(node.Attr) == 1 && node.Attr[0].Name.Space == "" && node.Attr[0].Name.Local == "type" && node.Attr[0].Value == "none" && len(node.Children) == 0 && strings.TrimSpace(node.Text) == "" {
 			documentGraphicDropNode(al, node)
 		}
+	}
+}
+
+// Only the source-backed geometry defaults are equivalent. Custom adjustments,
+// unknown guide attributes, formulas and other presets remain exact.
+func documentGraphicDefaultGeometry(d *artifactNode) (*artifactNode, bool) {
+	geometries := documentGraphicNodes(d, documentDrawingMainNS, "prstGeom")
+	if len(geometries) != 1 {
+		return nil, false
+	}
+	g := geometries[0]
+	if len(g.Attr) != 1 || g.Attr[0].Name.Space != "" || g.Attr[0].Name.Local != "prst" || strings.TrimSpace(g.Text) != "" || len(g.Children) != 1 {
+		return nil, false
+	}
+	list := g.Children[0]
+	if list.Name.Space != documentDrawingMainNS || list.Name.Local != "avLst" || len(list.Attr) != 0 || strings.TrimSpace(list.Text) != "" {
+		return nil, false
+	}
+	switch g.attr("prst") {
+	case "rect":
+		return g, len(list.Children) == 0
+	case "rightArrow":
+		if len(list.Children) == 0 {
+			return g, true
+		}
+		if len(list.Children) != 2 {
+			return nil, false
+		}
+		for i, n := range list.Children {
+			if n.Name.Space != documentDrawingMainNS || n.Name.Local != "gd" || len(n.Attr) != 2 || len(n.Children) != 0 || strings.TrimSpace(n.Text) != "" || n.attr("name") != []string{"adj1", "adj2"}[i] || n.attr("fmla") != "val 50000" {
+				return nil, false
+			}
+			for _, a := range n.Attr {
+				if a.Name.Space != "" || a.Name.Local != "name" && a.Name.Local != "fmla" {
+					return nil, false
+				}
+			}
+		}
+		return g, true
+	default:
+		return nil, false
 	}
 }

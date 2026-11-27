@@ -31,7 +31,7 @@ func phase3FormSubmissionAnswers(form, answers map[string]any) ([]any, error) {
 	}
 	for k := range answers {
 		if !known[k] {
-			return nil, fmt.Errorf("未知问题 %s", k)
+			return nil, fmt.Errorf("未知问题 %s：已发布表单中不存在；请用 form-inspect 核对题目 GUID，草稿新增题需先发布，示例 ID 不能直接套用", k)
 		}
 	}
 	hidden := map[string]bool{}

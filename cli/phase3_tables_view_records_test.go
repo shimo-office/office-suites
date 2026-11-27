@@ -1,6 +1,33 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
+
+func TestPhase3ViewRecordSpecEmptyAndLargeViews(t *testing.T) {
+	for _, count := range []int{0, 21} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			table := tableFixtureForEdit()
+			rows := []any{}
+			for i := 0; i < count; i++ {
+				rows = append(rows, map[string]any{"guid": fmt.Sprint(i), "valueMap": map[string]any{"f1": fmt.Sprintf("Row %d", i), "f2": float64(i)}})
+			}
+			table["records"] = rows
+			spec, err := phase3ViewRecordSpec(table, phase3TableMap(table, "views")["v1"], "")
+			if err != nil || len(spec["expectedRecords"].(map[string]any)) != count {
+				t.Fatalf("count=%d: %v %v", count, spec, err)
+			}
+		})
+	}
+	table := tableFixtureForEdit()
+	view := phase3TableCopy(phase3TableMap(table, "views")["v1"])
+	view["filters"] = map[string]any{"conjunction": "And", "conditions": []any{map[string]any{"fieldGuid": "f2", "operator": "GreaterThan", "value": float64(99)}}}
+	spec, err := phase3ViewRecordSpec(table, view, "")
+	if err != nil || len(spec["expectedRecords"].(map[string]any)) != 0 {
+		t.Fatalf("empty filter result: %v %v", spec, err)
+	}
+}
 
 func TestPhase3ViewRecordSpecUsesIndependentFilteredRecords(t *testing.T) {
 	table := tableFixtureForEdit()

@@ -67,16 +67,41 @@ func TestDocumentLayoutThemePreservesExplicitFontOverrides(t *testing.T) {
 	}
 }
 
-func TestDocumentLayoutThemeRequiresActualChineseInheritance(t *testing.T) {
+func TestDocumentLayoutThemeDoesNotRequireInheritedChinese(t *testing.T) {
 	fonts := documentThemeFonts{Major: documentThemeFamily{Latin: "Arial", EA: "黑体", CS: "Arial"}, Minor: documentThemeFamily{Latin: "Arial", EA: "宋体", CS: "Arial"}}
-	before := documentLayoutSnapshot{Theme: &documentThemeSnapshot{}, Text: documentSnapshot{Paragraphs: []documentParagraph{{Text: "正文", Chars: []documentChar{{Text: "正文", Attrs: map[string]string{"fontFamily.eastAsia": "宋体"}}}}}}}
-	after := documentLayoutSnapshot{Theme: &documentThemeSnapshot{Fonts: fonts}, Text: before.Text}
-	spec := documentLayoutSpec{Action: "document-theme", Theme: &fonts}
-	if e := verifyDocumentTheme(before, after, spec); e == nil {
-		t.Fatal("theme definition without inherited Chinese text accepted")
+	for _, tc := range []struct {
+		name, text string
+		attrs      map[string]string
+	}{
+		{"english", "English only", map[string]string{"fontFamily.asciiTheme": "minorAscii"}},
+		{"explicit-chinese", "显式中文", map[string]string{"fontFamily.eastAsia": "仿宋"}},
+		{"empty", "", map[string]string{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			before := documentLayoutSnapshot{Theme: &documentThemeSnapshot{}, Text: documentSnapshot{Paragraphs: []documentParagraph{{Text: tc.text, Chars: []documentChar{{Text: tc.text, Attrs: tc.attrs}}}}}}
+			after := documentLayoutSnapshot{Theme: &documentThemeSnapshot{Fonts: fonts}, Text: before.Text}
+			if err := verifyDocumentTheme(before, after, documentLayoutSpec{Action: "document-theme", Theme: &fonts}); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
-	after.Text = documentSnapshot{Paragraphs: []documentParagraph{{Text: "正文", Chars: []documentChar{{Text: "正文", Attrs: map[string]string{"fontFamily.eastAsiaTheme": "minorEastAsia"}}}}}}
-	if e := verifyDocumentTheme(before, after, spec); e != nil {
-		t.Fatal(e)
+}
+
+func TestDocumentLayoutThemeCharacterPreservation(t *testing.T) {
+	fonts := documentThemeFonts{Major: documentThemeFamily{EA: "黑体"}, Minor: documentThemeFamily{EA: "宋体"}}
+	snapshot := func(attrs map[string]string) documentLayoutSnapshot {
+		return documentLayoutSnapshot{Theme: &documentThemeSnapshot{Fonts: fonts}, Text: documentSnapshot{Paragraphs: []documentParagraph{{Text: "中文", Chars: []documentChar{{Text: "中文", Attrs: attrs}}}}}}
+	}
+	inherited := snapshot(map[string]string{"fontFamily.eastAsiaTheme": "minorEastAsia"})
+	if err := documentThemeCharacterProof(inherited, inherited); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []documentLayoutSnapshot{snapshot(map[string]string{"fontFamily.eastAsiaTheme": "majorEastAsia"}), snapshot(map[string]string{"fontFamily.eastAsiaTheme": "badRef"})} {
+		if documentThemeCharacterProof(inherited, bad) == nil {
+			t.Fatal("inherited mapping corruption accepted")
+		}
+	}
+	if documentThemeCharacterProof(snapshot(map[string]string{"fontFamily.eastAsia": "仿宋"}), snapshot(map[string]string{"fontFamily.eastAsia": "宋体"})) == nil {
+		t.Fatal("explicit font corruption accepted")
 	}
 }

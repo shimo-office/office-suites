@@ -12,17 +12,24 @@ const documentLayoutReadyJS = `typeof window._sdk?.editor?.getParagraphs==='func
 
 func documentLayoutJS(s documentLayoutSpec, before documentLayoutSnapshot) string {
 	request, _ := json.Marshal(s)
+	nativeMargins, _ := json.Marshal(before.NativePageMargins)
 	keep, _ := json.Marshal(documentPagePreserveMargins(s, before))
+	section := map[string]string{}
+	if len(before.SectionValues) == 1 {
+		section = before.SectionValues[0]
+	}
+	rawSection, _ := json.Marshal(section)
 	texts := []string{}
 	for _, p := range before.Paragraphs {
 		texts = append(texts, p.Text)
 	}
 	baseline, _ := json.Marshal(texts)
-	return `(async()=>{` + phase3PresenceGuardJS() + `const spec=` + string(request) + `,baseline=` + string(baseline) + `,keep=` + string(keep) + `;const e=window._sdk.editor,a=e.docsApi;if(e.config?.mode?.role!=='editor'||a.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'没有已确认文稿编辑权限'};const ps=e.getParagraphs();if(ps.length!==baseline.length)return {ok:false,error:'段落数量已变化，未写入'};for(let i=0;i<ps.length;i++){if((await e.getParagraphRange(ps[i]).getText()).replace(/\r?\n$/,'')!==baseline[i])return {ok:false,error:'正文基线已变化，未写入'}}
- const methods=spec.action==='document-theme'?['setCurThemeFonts']:spec.action==='document-page'?[...(Object.keys(spec.marginsCm||{}).length?['updatePageSettings']:[]),...(spec.columns?['setColumnsProps']:[]),...(spec.background?['setDocPgColor']:[])]:Object.keys(spec.attrs).map(k=>({heading:'applyStyle',firstLineChars:'applyParagraphProperties',lineMultiple:'setLineSpacing',shading:'applyParagraphProperties',numbering:'setParaNumbering'})[k]);for(const m of methods){if(typeof a[m]!=='function')return {ok:false,error:'所需编辑方法未就绪：'+m}};
- const range=e.getParagraphRange(ps[spec.action==='document-paragraph'?spec.paragraph-1:0]);return await e.runSelectionCallback(range,()=>{` + phase3PresenceGuardJS() + `if(e.config?.mode?.role!=='editor'||a.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'编辑权限已变化'};const color=s=>({r:parseInt(s.slice(1,3),16),g:parseInt(s.slice(3,5),16),b:parseInt(s.slice(5,7),16)});
- if(spec.action==='document-paragraph'){for(const [key,value]of Object.entries(spec.attrs)){switch(key){case 'heading':a.applyStyle('Heading '+value);break;case 'firstLineChars':a.applyParagraphProperties({Ind:{FirstLineChars:Math.round(value*100)}});break;case 'lineMultiple':a.setLineSpacing({type:1,value});break;case 'shading':{const c=color(value);a.applyParagraphProperties({Shd:{Value:0,Color:{docOfgetR:()=>c.r,docOfgetG:()=>c.g,docOfgetB:()=>c.b},fill:value.slice(1)}});break}case 'numbering':a.setParaNumbering(1,1);break;default:throw Error('unsupported paragraph property')}}}
- else if(spec.action==='document-theme'){a.setCurThemeFonts(spec.themeFonts)}else{const m=spec.marginsCm||{};if(Object.keys(m).length){const pg={left:m.left*10,top:m.top*10,right:m.right*10,bottom:m.bottom*10};for(const k of Object.keys(keep))pg[k]=keep[k];a.updatePageSettings({scope:1,margins:pg})};if(spec.columns)a.setColumnsProps({num:spec.columns,equivalentWidth:true});if(spec.background)a.setDocPgColor(spec.background)}
+	return `(async()=>{` + phase3PresenceGuardJS() + `const nativeMargins=` + string(nativeMargins) + `;const spec=` + string(request) + `,baseline=` + string(baseline) + `,keep=` + string(keep) + `,section=` + string(rawSection) + `;const e=window._sdk.editor,a=e.docsApi;if(e.config?.mode?.role!=='editor'||a.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'没有已确认文稿编辑权限'};const ps=e.getParagraphs();if(ps.length!==baseline.length)return {ok:false,error:'段落数量已变化，未写入'};for(let i=0;i<ps.length;i++){if((await e.getParagraphRange(ps[i]).getText()).replace(/\r?\n$/,'')!==baseline[i])return {ok:false,error:'正文基线已变化，未写入'}}
+ const methods=spec.action==='document-theme'?['startAction','finalizeAction']:spec.action==='document-page'?[...(Object.keys(spec.marginsCm||{}).length?['updatePageSettings']:[]),...(spec.columns?['setColumnsProps']:[]),...(spec.background?['setDocPgColor']:[])]:Object.keys(spec.attrs).map(k=>({align:'setParaAlign',heading:'applyStyle',firstLineChars:'applyParagraphProperties',lineMultiple:'setLineSpacing',shading:'applyParagraphProperties',numbering:'setParaNumbering'})[k]);for(const m of methods){if(typeof a[m]!=='function')return {ok:false,error:'所需编辑方法未就绪：'+m}};
+ const theme=spec.action==='document-theme'?a.controller?.docModel?.getTheme?.():null;if(spec.action==='document-theme'&&typeof theme?.setCustomThemeFont!=='function')return {ok:false,error:'主题原生更新方法未就绪'};
+ const columnProps={num:spec.columns,equivalentWidth:true,Space:Number(section['cols.space']||'425')*25.4/1440,sep:section['cols.sep']==='1'||section['cols.sep']==='true'};if(spec.columns&&(!Number.isFinite(columnProps.Space)||columnProps.Space<0))return {ok:false,error:'原分栏间距不可读取，未写入'};const range=e.getParagraphRange(ps[spec.action==='document-paragraph'?spec.paragraph-1:0]);return await e.runSelectionCallback(range,()=>{` + phase3PresenceGuardJS() + `if(e.config?.mode?.role!=='editor'||a.isViewMode!==false||e.canHandleChanges===false)return {ok:false,error:'编辑权限已变化'};for(const [key,value] of Object.entries(nativeMargins||{})){const section=a.getCurPosSectionPr?.(),method=key==='header'?'getPgMarginHeader':'getPgMarginFooter';if(typeof section?.[method]!=='function'||section[method]()!==value)return {ok:false,error:'页眉/页脚距离已变化，未写入'}};const color=s=>({r:parseInt(s.slice(1,3),16),g:parseInt(s.slice(3,5),16),b:parseInt(s.slice(5,7),16)});
+ if(spec.action==='document-paragraph'){for(const [key,value]of Object.entries(spec.attrs)){switch(key){case 'align':a.setParaAlign({left:1,center:2,right:0,justify:3}[value]);break;case 'heading':a.applyStyle('Heading '+value);break;case 'firstLineChars':a.applyParagraphProperties({Ind:{FirstLineChars:Math.round(value*100)}});break;case 'lineMultiple':a.setLineSpacing({type:1,value});break;case 'shading':{const c=color(value);a.applyParagraphProperties({Shd:{Value:0,Color:{docOfgetR:()=>c.r,docOfgetG:()=>c.g,docOfgetB:()=>c.b},fill:value.slice(1)}});break}case 'numbering':a.setParaNumbering(1,1);break;default:throw Error('unsupported paragraph property')}}}
+ else if(spec.action==='document-theme'){if(a.controller?.docModel?.getTheme?.()!==theme||typeof theme.setCustomThemeFont!=='function')return {ok:false,error:'主题对象已变化，未写入'};a.startAction();try{theme.setCustomThemeFont(spec.themeFonts,false)}finally{a.finalizeAction()}}else{const m=spec.marginsCm||{};if(Object.keys(m).length){const pg={left:m.left*10,top:m.top*10,right:m.right*10,bottom:m.bottom*10};for(const k of Object.keys(keep))pg[k]=keep[k];a.updatePageSettings({scope:1,margins:pg})};if(spec.columns)a.setColumnsProps(columnProps);if(spec.background)a.setDocPgColor(spec.background)}
  return {ok:true,submitted:true,action:spec.action};});})()`
 }
 
@@ -100,6 +107,23 @@ func (a *App) cmdPhase3DocumentLayout() (runErr error) {
 	}
 	if err = documentLayoutCapture(b, filepath.Join(dir, "before.png")); err != nil {
 		return err
+	}
+	if documentNeedsNativeMargins(spec, before) {
+		native, readErr := b.EvalReadOnly(documentNativePageMarginsJS)
+		if readErr != nil {
+			return readErr
+		}
+		if err = phase3WriteEvidence(filepath.Join(dir, "native-page-margins-before.json"), native); err != nil {
+			return err
+		}
+		values, ok := native.(map[string]any)
+		if !ok {
+			return fmt.Errorf("缺省页眉/页脚读取结构无效，未写入")
+		}
+		before, err = documentWithNativeMargins(before, values)
+		if err != nil {
+			return err
+		}
 	}
 	attempted = true
 	submitted, err := b.Eval(documentLayoutJS(spec, before))
@@ -184,7 +208,11 @@ func (a *App) cmdPhase3DocumentLayout() (runErr error) {
 	if err = phase3WriteEvidence(filepath.Join(dir, "target-node-assertions.json"), map[string]any{"verified": true, "before": before, "after": after, "reload": reloadSnapshot}); err != nil {
 		return err
 	}
-	result := map[string]any{"ok": true, "verified": true, "action": spec.Action, "url": target, "beforeArtifact": beforeArtifact, "artifact": afterArtifact, "reloadArtifact": reloadArtifact, "evidenceDir": dir, "verificationScope": "requested document layout properties, unchanged text and non-target paragraphs; not full scenario acceptance"}
+	scope := "requested document layout properties, unchanged text and non-target paragraphs; not full scenario acceptance"
+	if spec.Action == "document-theme" {
+		scope = "all six theme fonts and supplemental reset, inherited character mappings, explicit fonts and non-font content preserved; explicit-font text need not change appearance"
+	}
+	result := map[string]any{"ok": true, "verified": true, "action": spec.Action, "url": target, "beforeArtifact": beforeArtifact, "artifact": afterArtifact, "reloadArtifact": reloadArtifact, "evidenceDir": dir, "verificationScope": scope}
 	if err = phase3WriteEvidence(filepath.Join(dir, "result.json"), result); err != nil {
 		return err
 	}

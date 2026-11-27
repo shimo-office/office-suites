@@ -26,9 +26,9 @@ shimo-net phase3 <文件链接> --action <动作> --payload '<JSON>' --out ./evi
 | 动作 | payload 示例 | 范围 |
 |---|---|---|
 | `document-layout-inspect` | 无 | 只读导出段落、节及主题结构，取得真实段落号与原文。 |
-| `document-paragraph` | `{"paragraph":2,"text":"精确原段落","attrs":{"firstLineChars":2,"lineMultiple":1.5,"shading":"#EEEEEE"}}` | 段落号从 1 开始；缩进单位为字符，行距为倍数。也支持 `heading:1` 至 `6`、`numbering:"decimal"`。 |
+| `document-paragraph` | `{"paragraph":2,"text":"精确原段落","attrs":{"align":"center","firstLineChars":2,"lineMultiple":1.5,"shading":"#EEEEEE"}}` | 段落号从 1 开始；`align` 支持 left/center/right/justify；缩进单位为字符，行距为倍数。也支持 `heading:1` 至 `6`、`numbering:"decimal"`。 |
 | `document-page` | `{"marginsCm":{"top":2,"bottom":2,"left":1.5,"right":1.5},"columns":2,"background":"#EAF3FF"}` | 当前仅支持单节文稿；边距必须同时给出四边，单位厘米；分栏 1–4。各组设置可独立使用。写入时显式沿用原 `pgMar.header/footer`，不再被编辑器重置为默认值；页面设置重写会显式写出 `cols.sep` 等默认值，验收按等效值判定，只报告真实改动的 `diff`。 |
-| `document-theme` | `{"themeFonts":{"major":{"latin":"Arial","ea":"宋体","cs":"Arial"},"minor":{"latin":"Arial","ea":"宋体","cs":"Arial"}},"resetSupplemental":true}` | 必须完整提供两组字体，并明确允许原生主题重建补充语言映射及 Normal/标题主题继承；显式文字字体不应被误改。 |
+| `document-theme` | `{"themeFonts":{"major":{"latin":"Arial","ea":"宋体","cs":"Arial"},"minor":{"latin":"Arial","ea":"宋体","cs":"Arial"}},"resetSupplemental":true}` | 必须完整提供两组字体，且 resetSupplemental:true 明确允许清空补充语言映射；使用原生主题更新，保留既有样式和显式文字字体覆盖。原文稿须有可验证的主题部件。 |
 
 `document-replace` 的参数为 `{"find":"旧版测试","replacement":"新版测试","expectedCount":3}`，按精确字面文本及预期次数替换；替换文本继承被替换字符的原有字体、字号、颜色与行内标记（编辑器粘贴为纯文本，写入后按原 `rPr` 回填）。`document-goto` 使用 `{"page":2}` 验证从 1 开始的物理页面位置，不持久化光标。两者均使用导出与页面证据验证，保留规则见上文，不能仅凭工具栏或返回值认定完成。
 
@@ -98,11 +98,11 @@ shimo-net editor <链接> --action save-version --payload '{"name":"版本名"}'
 |---|---|---|
 | `table-create` | `{"name":"测试表","desc":"合成测试数据"}` | 新建主文本字段、空记录及表格视图。 |
 | `table-update` | `{"tableGuid":"实际GUID","name":"新名称","desc":"新说明"}` | 名称和说明可分别修改。 |
-| `table-duplicate` | `{"tableGuid":"实际GUID","name":"测试副本"}` | 只接受当前可验证的简单字段，保留记录值；拒绝同步、表单关联及不支持的复杂结构。 |
+| `table-duplicate` | `{"tableGuid":"实际GUID","name":"测试副本"}` | 支持 SingleLineText/LongText/Number/SingleChoice/CheckBox/Date/Link 及逐记录证明为空的 Attachment，保留字段属性、记录值和视图引用；非空附件、关联、公式、同步及表单关联结构仍拒绝。 |
 | `table-delete` | `{"tableGuid":"实际GUID"}` | 拒绝最后一个数据表、被引用目标及同步/表单关联表；其他表必须保持不变。 |
 | `table-field-add` | `{"tableGuid":"实际GUID","fields":[{"name":"优先级","type":"SingleChoice","options":["高","低"]}]}` | 类型支持 `SingleLineText/Number/SingleChoice/Date`。列锚点只提交 Grid 视图；表里同时存在看板/日历视图时不再返回 HTTP 400。 |
 | `table-field-update` | `{"tableGuid":"实际GUID","fieldGuid":"实际字段GUID","name":"新字段名"}` | 当前只改名。 |
-| `table-field-convert` | `{"tableGuid":"实际GUID","fieldGuid":"实际字段GUID","type":"Number"}` | 仅文本与数值无损回转；拒绝会丢失格式的 `001` 等值及依赖字段。 |
+| `table-field-convert` | `{"tableGuid":"实际GUID","fieldGuid":"实际字段GUID","type":"Number"}` | 仅 SingleLineText 与 Number 无损回转，不接受 LongText；拒绝会丢失格式的 `001` 等值及依赖字段。 |
 | `table-field-delete` | `{"tableGuid":"实际GUID","fieldGuids":["实际字段GUID"]}` | 拒绝主字段及任何已识别依赖。 |
 | `table-record-add` | `{"tableGuid":"实际GUID","records":[{"实际字段GUID":"合成测试值"}]}` | 支持批量新增；按新增数与逐字段值核验。 |
 | `table-record-update` | `{"tableGuid":"实际GUID","where":{"条件字段GUID":"旧值"},"values":{"目标字段GUID":"新值"}}` | 非空 AND 等值条件；拒绝隐式全表修改和零命中。 |
@@ -113,9 +113,9 @@ shimo-net editor <链接> --action save-version --payload '{"name":"版本名"}'
 
 | 视图与图表动作 | payload 形状 | 约束 |
 |---|---|---|
-| `table-view-create` | `{"tableGuid":"实际GUID","viewGuid":"已有视图GUID","name":"测试看板","type":"Kanban","groupFieldGuid":"单选字段GUID"}` | `viewGuid` 为锚点视图（必须已存在于同一数据表）。`Grid` 无额外字段；`Calendar` 需要日期类型的 `startFieldGuid/endFieldGuid`。原生展示验收按“可见记录子集”核对：每条已渲染记录都必须与独立 API 一致，长表格虚拟化未挂载的行不再判失败，结果用 `virtualized` 与记录数标注。 |
+| `table-view-create` | `{"tableGuid":"实际GUID","viewGuid":"已有视图GUID","name":"测试看板","type":"Kanban","groupFieldGuid":"单选字段GUID"}` | `viewGuid` 为锚点视图（必须已存在于同一数据表）。`Grid` 无额外字段；`Calendar` 需要日期类型的 `startFieldGuid/endFieldGuid`。空表与筛选后为空均可验收，但须绑定到指定表/视图的真实渲染器，并证明原生筛选记录集合；空白容器不算成功。非空视图按“可见记录子集”核对：每条已渲染记录都必须与独立 API 一致，长表格虚拟化未挂载的行不再判失败，结果用 `virtualized` 与记录数标注。 |
 | `table-view-update` | `{"tableGuid":"实际GUID","viewGuid":"实际视图GUID","name":"新视图名"}` | 还可设置明确的 `filters/groups/sort`；只接受当前可验证结构。 |
-| `table-view-delete` | `{"tableGuid":"实际GUID","viewGuid":"实际视图GUID"}` | 拒绝默认、最后共享、个人/锁定/已共享视图及跨表、仪表盘依赖。 |
+| `table-view-delete` | `{"tableGuid":"实际GUID","viewGuid":"实际视图GUID"}` | 拒绝默认、最后共享、个人/锁定/已共享视图及跨表、仪表盘依赖；写前须证明序号连续，删后严格核对后继序号减一及其余属性不变。 |
 | `table-chart-create` | `{"tableGuid":"实际GUID","fieldGuid":"分组字段GUID","name":"测试计数","type":"Column"}` | 支持 `Column/Line/Bar/Pie` 计数图；拒绝空数据，核对图表身份、来源及真实渲染聚合值。创建默认图表不等于已验收调整样式。 |
 | `table-chart-style` | `{"dashboardGuid":"实际仪表盘GUID","componentGuid":"实际组件GUID","themeColor":1}` | 只修改该组件的原生配色方案，范围 0–10；拒绝无变化，核对配置和前后真实渲染颜色。不是任意 RGB 系列颜色接口。 |
 
