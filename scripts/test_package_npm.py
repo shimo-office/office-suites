@@ -312,7 +312,8 @@ if (require('path').basename(process.argv[1] || '') === 'version') {
         self.assertTrue(data['updated'])
         install = next(call for call in self.calls() if call[0] == 'install')
         self.assertIn('--global', install)
-        self.assertEqual(install[install.index('--prefix') + 1], str(self.prefix.resolve()))
+        # Windows may spell the same directory with an 8.3 short path in Node.
+        self.assertTrue(Path(install[install.index('--prefix') + 1]).samefile(self.prefix))
         self.assertIn('shimo-net-cli@1.3.0', install)
         self.assertIn('--registry=https://registry.npmjs.org', install)
         self.assertIn('--ignore-scripts', install)
@@ -332,7 +333,7 @@ if (require('path').basename(process.argv[1] || '') === 'version') {
         self.assertNotIn('--global', install)
         self.assertIn('--global=false', install)
         self.assertIn('--workspaces=false', install)
-        self.assertEqual(install[install.index('--prefix') + 1], str(project.resolve()))
+        self.assertTrue(Path(install[install.index('--prefix') + 1]).samefile(project))
 
     def test_newer_current_version_never_downgrades(self):
         self.env['UPDATE_LATEST'] = '1.2.2'
