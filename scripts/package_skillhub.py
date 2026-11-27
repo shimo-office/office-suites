@@ -11,7 +11,9 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCES = ('docs/install.md', 'docs/scenarios.md', 'docs/cli-reference.md',
-              'SECURITY.md')
+              'SECURITY.md', 'docs/phase3-commands.md',
+              'docs/phase3-document-commands.md', 'docs/phase3-slide-commands.md',
+              'docs/phase3-form-commands.md')
 REFERENCE_PATHS = {name: 'references/' + Path(name).name for name in REFERENCES}
 # Ships with the package so the first run can report its own state offline
 # instead of failing with "command not found".

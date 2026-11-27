@@ -49,6 +49,13 @@ shimo-net phase3 https://shimo.net/docs/<guid> --action doc-format \
 | `doc-replace` | `{"find":"旧文本","replace":"新文本","scope":"all"}` | `scope` 取 `all` 或 `first`；`replace` 必须显式给出，允许空串。 |
 | `doc-page-width` | `{"width":"standard"}` | `standard`（标准）/ `wide`（加宽）/ `full`（自适应）。控件只在标题上方 hover 出现；以纸张容器 `page-width-*` 类验收。 |
 
+在已有段落前后插入内容（不是修改已有表格/图片）：
+
+| 动作 | payload 示例 | 范围 |
+|---|---|---|
+| `doc-table` | `{"paragraph":1,"text":"整段原文","position":"after","values":[["姓名","分数"],["小明","90"]]}` | `position` 为 before/after，默认 after；提供非空二维 values，或 rows/cols 创建空表，单次最多 50 行、20 列。核对新表格节点与导出物，不把已有表格当成插入结果。 |
+| `doc-image` | `{"paragraph":1,"text":"整段原文","position":"after","file":"/absolute/path/image.png"}` | 本地绝对路径，png/jpg/jpeg/gif/webp，最多 4 MiB，图片必须可解码；position 同上。插图不包含裁剪、环绕或任意位置布局。 |
+
 `paragraph` 是从 1 起的段落序号，按正文里所有 `p` 的出现顺序编号，表格单元格内的段落也计入；`text` 必须是该段完整正文，用于写入前核对。字符范围按 Unicode 码点计，`start` 与 `end` 必须同时给出。
 
 全文改写用 `scope":"all"`，不带段落参数：

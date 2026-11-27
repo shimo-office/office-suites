@@ -17,6 +17,8 @@ FORBIDDEN_SUFFIXES = {'.sh', '.ps1', '.bat', '.cmd', '.exe', '.dll', '.so', '.dy
 # WorkBuddy reserves names platform-wide and the personal account already owns
 # the original slug, so only that target ships under the enterprise name.
 WORKBUDDY_PREFIX = 'shimo-net-cli-ent'
+SUITE_MANUALS = ('phase3-commands.md', 'phase3-document-commands.md',
+                 'phase3-slide-commands.md', 'phase3-form-commands.md')
 
 
 def package_prefix(target):
@@ -41,7 +43,7 @@ class SkillHubPackageTests(unittest.TestCase):
         (root / 'LICENSE').write_text('All rights reserved.\n', encoding='utf-8')
         (root / 'credentials.json').write_text('must never be packaged', encoding='utf-8')
         for name in ['docs/install.md', 'docs/scenarios.md', 'docs/cli-reference.md',
-                     'SECURITY.md']:
+                     'SECURITY.md', *('docs/' + name for name in SUITE_MANUALS)]:
             p = root / name
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text('# Reference\n[Commands](cli-reference.md#commands)\n', encoding='utf-8')
@@ -64,6 +66,7 @@ class SkillHubPackageTests(unittest.TestCase):
                                 f'{prefix}/references/scenarios.md',
                                 f'{prefix}/references/cli-reference.md',
                                 f'{prefix}/references/SECURITY.md'}
+                    expected.update(f'{prefix}/references/{name}' for name in SUITE_MANUALS)
                     self.assertEqual(set(z.namelist()), expected)
                     self.assertIsNone(z.testzip())
                     skill = z.read(f'{prefix}/SKILL.md').decode('utf-8')
@@ -85,6 +88,27 @@ class SkillHubPackageTests(unittest.TestCase):
                     self.assertNotIn('http', check)
                 self.assertEqual(packager.build(root, root / 'dist', 'v1.2.3', target).read_bytes(),
                                  first)
+
+    def test_suite_manual_links_work_offline_in_both_packages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root, source = self.fixture(directory)
+            source.write_text(source.read_text() + ''.join(
+                f'[Suite](https://github.com/shimo-office/office-suites/blob/main/docs/{name})\n'
+                for name in SUITE_MANUALS), encoding='utf-8')
+            for name in SUITE_MANUALS:
+                (root / 'docs' / name).write_text(
+                    '[Slides](phase3-slide-commands.md#objects)\n'
+                    '[Source](../cli/schema.go)\n', encoding='utf-8')
+            for target in ('skillhub', 'workbuddy'):
+                prefix = package_prefix(target)
+                archive = packager.build(root, root / 'dist', 'v1.2.3', target)
+                with zipfile.ZipFile(archive) as z:
+                    skill = z.read(f'{prefix}/SKILL.md').decode()
+                    for name in SUITE_MANUALS:
+                        self.assertIn(f'(references/{name})', skill)
+                        manual = z.read(f'{prefix}/references/{name}').decode()
+                        self.assertIn('(phase3-slide-commands.md#objects)', manual)
+                        self.assertIn('/blob/v1.2.3/cli/schema.go)', manual)
 
     def test_no_packaged_file_is_run_by_the_system(self):
         with tempfile.TemporaryDirectory() as directory:

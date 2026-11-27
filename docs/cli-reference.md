@@ -82,13 +82,14 @@ shimo-net version --json         # 核对当前版本
 | `ls <目录> [--since 7d] [--limit 200]` | 列目录；since 按更新时间过滤；注意扫描上限。 |
 | `info <链接>` | 读取类型、权限和可访问路径。 |
 | `upload <本地文件> [--to 位置]` | 原样上传云文件；不提供目标时列出可选位置，确认后另发完整命令。 |
-| `import <本地文件> --to <位置> [--title 名称]` | 转换 md、doc(x)、xls(x)、ppt(x) 为在线格式；必须指定位置，权限变更不包含在命令中。 |
+| `import <本地文件> --to <位置> [--title 名称] [--share 档位]` | 转换 md、doc(x)、xls(x)、ppt(x) 为在线格式；必须指定位置。仅在用户明确指定分享档位时使用 --share，导入后单独设置并读回权限。 |
 | `new <名称> [--type 类型] [--to 位置]` | 新建在线文件；默认 doc，默认位置 desktop。完整类型见下表。 |
 | `mkdir <名称> [--to 父文件夹]` | 新建文件夹，默认 desktop；不使用 `new --type folder`。 |
 | `rename <链接> <新名字>` | 改名后保持原 GUID；批量调用逐项检查。 |
 | `delete <链接>` | 直接移入回收站；不弹确认，不提供 `--yes`。 |
 | `trash` | 列回收站。 |
 | `restore <guid>` | 恢复回收站中的目标。 |
+| `share <链接> <档位>` | 设置 private / readonly / commentable / editable 或企业内三档 enterprise_*，写后独立读取 shareMode 核对；不包含成员授权。 |
 | `audit <目录> [--limit 200]` | 只读权限巡检；未知权限单独分组，未知或截断时非 0 退出，不计作私有。 |
 | `read <链接> [--max-chars 12000]` | 按实际导出格式解析正文；可从 md 回退 docx，回退 PDF 时明确拒绝解析并提示 get。超长内容会截断。表格输出的工作表标题使用工作簿中的真实工作表名（可直接用于 `sheet-values` / `sheet-update` 的 `range`），不再固定显示 `Sheet 1`。 |
 | `get <链接> [--out 目录]` | 附件原样下载，在线文件按类型首选格式导出，失败可回退 PDF；以 `exportType` 和实际扩展名为准。默认 `./shimo-pull`，同名或已有本地目标自动加序号保留，明确拒绝 `--format csv`。 |
@@ -184,7 +185,7 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 
 ## 人工禁用
 
-`share`、`purge`、`import --share` 以及编辑器的锁定、限制编辑、高级权限、成员授权、彻底删除动作都返回拒绝提示。详情由 [安全策略](../SECURITY.md) 唯一维护；`audit` 可以读权限，不能修改。
+`purge` 以及编辑器的锁定、限制编辑、高级权限、成员授权、彻底删除动作都返回拒绝提示。`share` 与 `import --share` 支持用户明确指定的七档文件分享权限变更，不属于此禁用列表。详情由 [安全策略](../SECURITY.md) 唯一维护；`audit` 可以读权限，不能修改。
 
 可读权限值：`private`、`enterprise_readonly`、`enterprise_commentable`、`enterprise_editable`、`readonly`、`commentable`、`editable`。后三档表示公开链接权限；读取这个值不授权 CLI 扩大或收回权限。
 
@@ -196,7 +197,9 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 | 1 | 命令错误、参数无效、权限拒绝或验证失败；带 `--json` 时错误写 stderr，结构为 `{"ok":false,"error":"..."}`。 |
 | 2 | 未知命令；stderr 输出错误，带 `--json` 时同样是单个 JSON 错误。 |
 
-`doctor`、`audit`、`pull` 的失败结果仅在 stderr 输出一个 JSON，包含诊断/分组/manifest，不先在 stdout 打印成功。导入成功而改名失败时，结果保留真实 name/guid/url、`imported:true`、`renamed:false`，禁止重新上传来重试改名。
+成功 JSON 与 stderr 应分别捕获，保留退出码。stderr 也可能包含浏览器诊断或临时目录清理警告，不要把 `2>&1` 的混合内容直接当成单个 JSON。操作成功且 `verified:true` 时，临时浏览器配置清理警告不代表写入失败；其他警告按内容判断，不能为消除警告重放写入。面向用户默认摘要结果、核验范围和正式产物，完整 entries/哈希仅用于排错；未来手动操作可省略 `--json` 看简短输出。
+
+`doctor`、`audit`、`pull` 的失败结果仅在 stderr 输出一个 JSON，包含诊断/分组/manifest，不先在 stdout 打印成功。导入成功而改名失败时，结果保留真实 name/guid/url、`imported:true`、`renamed:false`；分享设置失败会返回 `stage:"share"` 和已导入文件标识。两者都禁止重新上传，应先读取实际状态，再单独处理未完成步骤。
 
 验证失败可能发生在服务端已接受写入之后。保留原命令、构建标识、返回及证据，先只读核对实际内容，再决定恢复步骤；不把新的成功结果覆盖到旧失败记录，也不把追加/删除/发布自动重放当作“重试读取”。
 
