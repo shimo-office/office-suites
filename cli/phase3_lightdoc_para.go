@@ -77,8 +77,8 @@ func prepareLightDocParagraph(payload map[string]any) (lightDocParaSpec, error) 
 			spec.Attrs[key] = n
 		case "lineHeight":
 			v := strings.TrimSpace(fmt.Sprint(value))
-			if v == "" {
-				return spec, errors.New("lineHeight 不能为空")
+			if _, err := lightDocLineMultiple(v); err != nil {
+				return spec, err
 			}
 			spec.Attrs[key] = v
 		default:
@@ -159,11 +159,6 @@ func (a *App) cmdPhase3LightDocParagraph() error {
 	if err = b.assertLightDocPara(spec, afterShape); err != nil {
 		return run.fail(err)
 	}
-	if _, ok := spec.Attrs["lineHeight"]; ok {
-		if str(afterShape, "lineHeight") == str(beforeShape, "lineHeight") {
-			return run.fail(fmt.Errorf("lineHeight 未发生变化（改前 %q，改后 %q）", str(beforeShape, "lineHeight"), str(afterShape, "lineHeight")))
-		}
-	}
 	_ = phase3WriteEvidence(filepath.Join(dir, "shape.json"), map[string]any{"before": beforeShape, "after": afterShape})
 	if err = b.Capture(filepath.Join(dir, "after.png")); err != nil {
 		return run.fail(err)
@@ -185,6 +180,15 @@ func (a *App) cmdPhase3LightDocParagraph() error {
 		return run.fail(err)
 	}
 	result := map[string]any{"ok": true, "verified": true, "action": "doc-paragraph", "target": target, "spec": spec, "before": beforeShape, "after": afterShape, "afterReload": reloadedShape, "evidencedAfterReload": true, "evidenceDir": dir, "verificationScope": "请求的段落属性与段落正文（刷新后复验）"}
+	if value, ok := spec.Attrs["lineHeight"]; ok {
+		proof, e := a.lightDocVerifySavedLineHeight(guid, filepath.Join(dir, "line-height"), spec.Text, fmt.Sprint(value))
+		if e != nil {
+			return run.fail(fmt.Errorf("服务端行距倍率核验失败：%w", e))
+		}
+		proof["domLineHeight"] = str(reloadedShape, "lineHeight")
+		result["lineHeight"] = proof
+		result["verificationScope"] = "请求的段落属性与正文刷新复验；行距倍率由服务端DOCX导出精确核验"
+	}
 	if err = phase3WriteEvidence(filepath.Join(dir, "result.json"), result); err != nil {
 		return err
 	}
@@ -369,7 +373,7 @@ func (b *phase3EditorBrowser) assertLightDocPara(spec lightDocParaSpec, shape ma
 		}
 	}
 	// 行距的 style 数值是编辑器换算后的结果（1.5 倍落成 2.5），
-	// 不与请求值直接比较，改由调用方核对「是否发生变化」与「刷新后是否保持」。
+	// 不与请求值直接比较，由调用方通过服务端 DOCX 的行距倍率精确核验。
 	if _, ok := spec.Attrs["lineHeight"]; ok && str(shape, "lineHeight") == "" {
 		return errors.New("lineHeight 未生效：段落上没有行距标记")
 	}

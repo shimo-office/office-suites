@@ -111,11 +111,19 @@ func verifyPhase3SlidePlaceholderArtifacts(before, after string, ids, next []str
 	if s.Placeholder == nil || !reflect.DeepEqual(ids, next) {
 		return fmt.Errorf("占位符填充不得改变页面列表")
 	}
-	b, e := readPhase3SlideArtifactFiltered(before, ids, phase3PlaceholderFilter(ids, s, false))
+	bf, e := phase3SlideEditedDefaultsFilter(before, ids, s, phase3PlaceholderFilter(ids, s, false))
 	if e != nil {
 		return e
 	}
-	a, e := readPhase3SlideArtifactFiltered(after, next, phase3PlaceholderFilter(next, s, true))
+	af, e := phase3SlideEditedDefaultsFilter(after, next, s, phase3PlaceholderFilter(next, s, true))
+	if e != nil {
+		return e
+	}
+	b, e := readPhase3SlideArtifactFiltered(before, ids, bf)
+	if e != nil {
+		return e
+	}
+	a, e := readPhase3SlideArtifactFiltered(after, next, af)
 	if e != nil {
 		return e
 	}

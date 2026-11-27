@@ -23,15 +23,15 @@ func isBooleanOption(name string) bool {
 func (a *App) validateOptions() error {
 	options := map[string]string{
 		"update": "--check", "init": "--origin --login", "login": "--origin --new",
-		"config": "--origin", "session": "--no-save --no-verify --interval --source --expected-revision --once",
+		"config": "--origin", "session": "--no-save --no-verify --interval --source --expected-revision --once --out",
 		"search": "--limit", "spaces": "--limit", "ls": "--limit --since",
 		"upload": "--to", "import": "--to --title --share",
 		"new": "--type --to", "mkdir": "--to", "audit": "--limit",
 		"read": "--max-chars", "get": "--format --out", "pull": "--out --since --limit",
 		"fav": "--note", "open": "--default",
 		"subscriptions": "--limit --depth --open --default",
-		"editor":        "--action --payload --screenshot --verify --no-verify --no-browser --keep-open --close",
-		"phase2":        "--action --payload --screenshot --verify --no-verify --no-browser --keep-open --close",
+		"editor":        "--action --payload --out --screenshot --verify --no-verify --no-browser --keep-open --close",
+		"phase2":        "--action --payload --out --screenshot --verify --no-verify --no-browser --keep-open --close",
 		"phase3":        "--action --payload --read-range --out --kind --table --records-limit --confirm-text --no-browser --verify",
 		"schema":        "--action",
 	}

@@ -15,7 +15,9 @@ import (
 )
 
 func TestEditorAliasRejectsPageOnlyAndManualActions(t *testing.T) {
-	for _, action := range []string{"find", "replace-all", "sheet-freeze", "sheet-sort", "sheet-filter", "purge"} {
+	// Capabilities that remain page-only or manual must be refused before any
+	// target resolution or network call, with the same message from both aliases.
+	for _, action := range []string{"find", "replace-all", "sheet-sort", "sheet-validation", "comment-add", "purge"} {
 		var messages []string
 		for _, command := range []string{"editor", "phase2"} {
 			a := newApp([]string{command, "not-a-real-guid", "--action", action})
@@ -25,7 +27,7 @@ func TestEditorAliasRejectsPageOnlyAndManualActions(t *testing.T) {
 				continue
 			}
 			err := fn()
-			if err == nil || (!strings.Contains(err.Error(), "页面") && !strings.Contains(err.Error(), "网页")) {
+			if err == nil || (!strings.Contains(err.Error(), "页面") && !strings.Contains(err.Error(), "网页") && !strings.Contains(err.Error(), "人工")) {
 				t.Fatalf("%s %s must reject before target/network access: %v", command, action, err)
 			}
 			messages = append(messages, err.Error())

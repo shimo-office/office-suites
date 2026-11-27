@@ -12,6 +12,7 @@ build/
 /internal/
 bin/
 .omx/
+.idea/
 
 # Local investigation downloads and raw acceptance captures.
 tmp/

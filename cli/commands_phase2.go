@@ -40,15 +40,60 @@ var phase2Actions = map[string]string{
 	"comments-list": "api:comment-list",
 }
 
+// phase2PageOnlyActions lists capabilities that remain page-only after the
+// remediation. Each entry carries the concrete bottleneck instead of a generic
+// "not supported": the answer to "why can't the CLI do this" must be checkable.
 var phase2PageOnlyActions = map[string]string{
 	"comment-add":      "提交评论",
 	"find":             "查找/替换",
 	"replace-all":      "查找/替换",
 	"page-width":       "页面宽度/重排",
-	"sheet-freeze":     "冻结行列",
 	"sheet-sort":       "排序",
-	"sheet-filter":     "筛选",
 	"sheet-validation": "数据验证",
+}
+
+// phase2UnsupportedDetails explains the verified bottleneck for each page-only
+// action: what exists in the page, and what is missing to automate it safely.
+var phase2UnsupportedDetails = map[string]map[string]any{
+	"sheet-sort": {
+		"code": "UNSUPPORTED_SORT_VERIFICATION",
+		"bottleneck": "页面 façade 有 tn.sort/sortCustom/sortSheetByCol，但调用后单元格顺序未变化，也没有可读的排序状态；" +
+			"无法区分「被忽略」与「已排序」，因此不提供会假装成功的命令",
+		"pagePath": "数据 → 升序/降序/自定义排序",
+		"next":     "需要先确认排序 façade 的入参语义（type/by/options）与持久化读取方式，再按重开核验接入",
+	},
+	"sheet-validation": {
+		"code": "UNSUPPORTED_VALIDATION_FACADE",
+		"bottleneck": "数据验证模型在 core.validations 上延迟初始化，同一会话内时有时无；addValidator 的规则对象结构未公开，" +
+			"写入后也没有稳定读回接口，无法证明规则真的生效",
+		"pagePath": "数据 → 数据验证",
+		"next":     "需要先固定规则 schema 与读回接口（getValidators 的返回结构），再接入",
+	},
+	"comment-add": {
+		"code": "UNSUPPORTED_COMMENT_SERVICE",
+		"bottleneck": "评论不是表格网格数据，走云端评论服务并绑定作者身份；网格 façade 上的 remarks 只是单元格批注，" +
+			"不能当评论提交，也不产生评论通知",
+		"pagePath": "单元格右键 → 评论 / 协作评论面板",
+		"next":     "需要评论写入接口与作者身份校验（当前只读接口 comments-list 可用）",
+	},
+	"find": {
+		"code":       "UNSUPPORTED_FIND_PANEL",
+		"bottleneck": "查找/替换是页面面板流程，结果以面板状态为准，没有可编程的匹配集合读回",
+		"pagePath":   "编辑 → 查找/替换",
+		"next":       "轻文档已有 doc-replace；表格侧待固定匹配计数读回方式",
+	},
+	"replace-all": {
+		"code":       "UNSUPPORTED_FIND_PANEL",
+		"bottleneck": "同 find：替换面板没有可读回的命中计数，无法证明替换范围",
+		"pagePath":   "编辑 → 查找/替换",
+		"next":       "同 find",
+	},
+	"page-width": {
+		"code":       "UNSUPPORTED_PAGE_WIDTH",
+		"bottleneck": "页面宽度是轻文档视图状态，没有稳定的命令入口",
+		"pagePath":   "查看 → 页面宽度",
+		"next":       "待固定视图状态读回",
+	},
 }
 
 var phase2ManualOnlyActions = map[string]string{
@@ -86,8 +131,14 @@ func (a *App) cmdPhase2() error {
 	if operation, manualOnly := phase2ManualOnlyActions[action]; manualOnly {
 		return manualOnlyError(operation)
 	}
+	if sheetBrowserAction(action) {
+		return a.withPhase3Evidence(a.runSheetBrowser)
+	}
+	if action == "sheet-export-pdf" {
+		return a.withPhase3Evidence(a.cmdSheetExportPDF)
+	}
 	if label, pageOnly := phase2PageOnlyActions[action]; pageOnly {
-		return fmt.Errorf("%s 需要页面操作（当前 editor SDK 未暴露该能力）；浏览器选择见 docs/scenarios.md#浏览器优先级，本次未执行", label)
+		return phase2PageOnlyError(action, label)
 	}
 	method, ok := phase2Actions[action]
 	if !ok {
@@ -161,7 +212,8 @@ func (a *App) cmdPhase2() error {
 	if err != nil {
 		return err
 	}
-	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value}
+	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value,
+		"view": a.agentView(viewTransportCLIBrowser, target), "auth": a.agentAuth()}
 	if strings.HasPrefix(method, "sdk.") {
 		out["scope"] = "page-sdk"
 		actionVerified := false
@@ -215,6 +267,25 @@ func (a *App) cmdPhase2() error {
 	return nil
 }
 
+// phase2PageOnlyError keeps the reason machine-readable: an agent needs to know
+// whether the gap is a missing API, an unverifiable façade, or a different
+// service, before deciding to fall back to a manual page step.
+func phase2PageOnlyError(action, label string) error {
+	detail, ok := phase2UnsupportedDetails[action]
+	if !ok {
+		return fmt.Errorf("%s 需要页面操作（当前 editor SDK 未暴露该能力）；浏览器选择见 docs/scenarios.md#浏览器优先级，本次未执行", label)
+	}
+	result := map[string]any{"ok": false, "action": action, "mutationAttempted": false, "mayHaveApplied": false}
+	for key, value := range detail {
+		result[key] = value
+	}
+	return &commandError{
+		Message:  fmt.Sprintf("%s 未命令化：%s；页面路径：%s；本次未执行", label, fmt.Sprint(detail["bottleneck"]), fmt.Sprint(detail["pagePath"])),
+		Result:   result,
+		ExitCode: 3,
+	}
+}
+
 func explicitNoBrowser(a *App) bool {
 	if a.has("--no-browser") {
 		return true
@@ -236,8 +307,19 @@ func cliBrowserVerification(a *App) bool {
 	return v == "1" || v == "true" || v == "yes"
 }
 
+// phase2BrowserActions are routed before the SDK/API map is consulted: they run
+// in the page itself (façade calls or menu clicks) and own their verification.
+var phase2BrowserActions = []string{"sheet-freeze", "sheet-filter", "sheet-filter-clear", "sheet-export-pdf"}
+
 func phase2ActionNames() []string {
-	return keys(phase2Actions)
+	names := keys(phase2Actions)
+	for _, action := range phase2BrowserActions {
+		if _, exists := phase2Actions[action]; !exists {
+			names = append(names, action)
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 func (a *App) runPhase2HTTP(guid, method string, args []any) (any, error) {
@@ -512,9 +594,15 @@ func runPhase2Browser(target, method string, args []any, screenshot string) (any
 	// A screenshot taken before the editor mounts is a blank white image and
 	// must not be accepted as visual proof.  Wait for a real document body
 	// before running the action or capturing the result.
-	waitPageReady(ws, 30*time.Second)
-	if (strings.HasPrefix(method, "actions.") || strings.HasPrefix(method, "sdk.")) && !waitEditorReady(ws, 35*time.Second, method) {
-		return nil, errors.New("页面已打开但编辑器未加载完成（等待 35 秒）；未执行页面动作")
+	if strings.HasPrefix(method, "actions.") || strings.HasPrefix(method, "sdk.") {
+		// Focus before readiness: some editor bundles defer mounting while
+		// backgrounded. Reuse the same page and its already-injected session.
+		_, _ = ws.Call(1198, "Page.bringToFront", nil, 5*time.Second)
+		if err := waitEditorReadyDetailed(ws, phase2EditorReadyTimeout, method); err != nil {
+			return nil, fmt.Errorf("页面动作尚未执行：%w", err)
+		}
+	} else {
+		waitPageReady(ws, phase2EditorReadyTimeout)
 	}
 	// 就绪判定命中后布局仍可能在做最后一帧调整；给一帧稳定时间再调用，避免
 	// showSidebar 在 UI 层尚未挂载时被吞掉。
@@ -844,58 +932,13 @@ func waitPageReady(ws *WSConn, timeout time.Duration) {
 	}
 }
 
-// phase2ReadyExpression 针对具体动作判断"它要调的能力"是否已挂载。产品页的
-// __SM__ 会分阶段挂 editor / sdk，不同套件暴露的能力也不同（文稿有 print 但
-// 不一定有 history）。按动作精确等待，避免"有别的能力"就提前放行。
-//
-// 注意：history.show 这类 facade 在 editor 构造时就已存在，远早于界面渲染
-// 完成。若此时调用，showSidebar 会指向尚未挂载的 UI 层而静默失效。因此除了
-// 方法存在，还必须确认 editor.initialized、sdk._rendered 与正文已渲染。
-func phase2ReadyExpression(method string) string {
-	var probe string
-	switch {
-	case strings.HasPrefix(method, "sdk.history."):
-		probe = `!!(sm.editor?.history?.show||sm.sdk?.history?.show)`
-	case strings.HasPrefix(method, "sdk.comments."):
-		probe = `!!(sm.editor?.comments?.show||sm.sdk?.comments?.show)`
-	case method == "sdk.print":
-		probe = `!!(sm.editor?.print||sm.sdk?.print)`
-	case strings.HasPrefix(method, "sdk.version."):
-		probe = `!!(sm.editor?.version?.createRevision||sm.editor?.editor?.createRevision||sm.editor?.createRevision||sm.sdk?.version?.createRevision)`
-	default:
-		probe = `true`
-	}
-	return `(()=>{const sm=window.__SM__;
-if(!sm)return !!(window.smsdk?.__DRIVE_SDK__?.editor)||!!globalThis.sdk;
-const ed=sm.editor;
-if(ed?.initialized===false)return false;
-if(sm.sdk?._rendered===false)return false;
-// 不同套件的"渲染完成"信号不同：文档/文稿是 editor.initialized，
-// 表格是 canvas 首帧。任一成立且页面已有可见文本即视为就绪。
-const rendered=(ed?.initialized===true)||(sm.sdk?._rendered===true)||!!document.querySelector('canvas');
-if(!rendered)return false;
-if(!(document.body?.innerText||'').trim())return false;
-return ` + probe + `})()`
+func waitEditorReady(ws *WSConn, timeout time.Duration, method string) bool {
+	return waitEditorReadyDetailed(ws, timeout, method) == nil
 }
 
-func waitEditorReady(ws *WSConn, timeout time.Duration, method string) bool {
-	deadline := time.Now().Add(timeout)
-	id := 1200
-	expr := phase2ReadyExpression(method)
-	for time.Now().Before(deadline) {
-		res, err := ws.Call(id, "Runtime.evaluate", map[string]any{
-			"expression":    expr,
-			"returnByValue": true,
-		}, 5*time.Second)
-		id++
-		if err == nil {
-			if result, ok := res["result"].(map[string]any); ok && boolv(result, "value") {
-				return true
-			}
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-	return false
+func waitEditorReadyDetailed(ws *WSConn, timeout time.Duration, method string) error {
+	b := &phase3EditorBrowser{ws: ws, nextID: 1200}
+	return b.WaitReady(phase2ReadyExpression(method), timeout)
 }
 
 func screenshotHasContent(path string) bool {

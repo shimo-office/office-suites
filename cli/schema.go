@@ -29,18 +29,18 @@ func schema() map[string]any {
 		{"name": "preview", "usage": "shimo-net preview <链接|guid|@别名>", "desc": "输出 /files/<guid> 预览地址，供内置浏览器打开"},
 		{"name": "fav", "usage": "shimo-net fav <list|add|rm|show> …", "desc": "常用文件夹别名（下次直接说 @别名）"},
 		{"name": "open", "usage": "shimo-net open <链接|guid|@别名> [--default]", "desc": "打开链接；使用独立 open-profile，不注入会话或开启调试端口；--default 选择默认浏览器应用"},
-		{"name": "editor", "usage": "shimo-net editor <链接|guid|@别名> --action <动作> [--payload JSON] [--screenshot PATH] [--verify|--no-verify]", "desc": "调用同源 API 或套件前端 SDK；历史/评论面板、保存版本、打印需 --verify；提交评论仍需页面操作"},
+		{"name": "editor", "usage": "shimo-net editor <链接|guid|@别名> --action <动作> [--payload JSON] [--out 证据目录] [--screenshot PATH] [--verify|--no-verify]", "desc": "调用同源 API 或套件前端 SDK；历史/评论面板、保存版本、打印需 --verify；提交评论仍需页面操作"},
 		{"name": "phase2", "usage": "shimo-net phase2 …", "aliasOf": "editor", "desc": "editor 的兼容命令别名"},
 		{"name": "purge", "usage": "shimo-net purge <链接>", "desc": "按设计拒绝；彻底删除须到网页回收站人工操作"},
 		{"name": "update", "usage": "shimo-net update [--check] [--json]", "desc": "检查或安装最新稳定版；原生程序校验 SHA-256 后替换，npm 安装通过 npm 更新"},
 		{"name": "version", "usage": "shimo-net version [--json]", "desc": "输出 CLI 版本"},
 		{"name": "phase3", "usage": "shimo-net phase3 <链接|guid|@别名> --action <动作> [--payload JSON] [--read-range 工作表!A1:D4] [--out 目录] [--verify]", "desc": "三期列明范围已验收，37.2 关联字段保留；逐项证据另列，artifact 仅检查本地包结构"},
 		{"name": "subscriptions", "usage": "shimo-net subscriptions [--limit 200] [--depth 3] [--open 序号|guid] [--default]", "desc": "limit 限制扫描文件数，仅对扫描到的订阅文件排序；可打开浏览器"},
-		{"name": "session", "usage": "shimo-net session <status|harvest|import|watch|logout> [--no-save] [--no-verify] [--interval 1s] [--once] [--source NAME] [--expected-revision N]", "desc": "查看登录态来源与共享会话；harvest 从本机浏览器复用；import 由宿主写入会话；watch 订阅变化；logout 标记共享退出"},
+		{"name": "session", "usage": "shimo-net session <status|harvest|import|export|watch|logout> [--out 文件] [--no-save] [--no-verify] [--interval 1s] [--once] [--source NAME] [--expected-revision N]", "desc": "查看登录态来源与共享会话；harvest 从本机浏览器复用；import 由宿主写入会话；watch 订阅变化；logout 标记共享退出"},
 		{"name": "whoami", "usage": "shimo-net whoami [--json]", "desc": "当前账号"},
 		{"name": "doctor", "usage": "shimo-net doctor [--json]", "desc": "自检（运行时/Chrome/凭据/origin）"},
 	}
-	editor := map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActionsMeaning": "historically exercised API routes, not verification of the current invocation", "browserRequiredActions": []string{"history-show", "history-hide", "comments-show", "comments-hide", "save-version", "print", "cell-history"}, "verifiedActions": []string{"mentions-list", "comments-list", "history-show", "comments-show", "save-version", "print", "cell-history", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "sheet-append", "sheet-insert", "sheet-delete"}, "pageOnlyActions": keys(phase2PageOnlyActions), "transport": "same-origin-api", "fallback": "按 docs/scenarios.md#浏览器优先级 选择宿主能力；内置浏览器优先，外部浏览器需用户授权"}
+	editor := map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActionsMeaning": "historically exercised API routes, not verification of the current invocation", "browserRequiredActions": []string{"history-show", "history-hide", "comments-show", "comments-hide", "save-version", "print", "cell-history", "sheet-freeze", "sheet-filter", "sheet-filter-clear", "sheet-export-pdf"}, "verifiedActions": []string{"mentions-list", "comments-list", "history-show", "comments-show", "save-version", "print", "cell-history", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "sheet-append", "sheet-insert", "sheet-delete", "sheet-freeze", "sheet-filter", "sheet-filter-clear", "sheet-export-pdf"}, "pageOnlyActions": keys(phase2PageOnlyActions), "transport": "same-origin-api", "fallback": "按 docs/scenarios.md#浏览器优先级 选择宿主能力；内置浏览器优先，外部浏览器需用户授权"}
 	return map[string]any{
 		"name": "shimo-net", "version": version, "transport": "cli", "runtime": "go",
 		"auth":       map[string]any{"login": "shimo-net login", "whoami": "shimo-net whoami", "storage": "macOS Keychain / Windows Credential Manager; fallback: 0600 credentials.json (Linux uses file storage)", "service": keychainService, "envOverride": "SHIMO_NET_COOKIE"},
@@ -102,7 +102,7 @@ func helpText() string {
   shimo-net login [--origin URL] [--new]            登录；--new 全新临时配置，凭据按 origin 隔离
   shimo-net logout                                 退出并删除本机凭据
   shimo-net whoami | doctor                        账号 / 自检
-  shimo-net session status|harvest|import|watch|logout  登录态来源 / 复用浏览器 / 宿主写入 / 订阅变化 / 标记退出
+  shimo-net session status|harvest|import|export|watch|logout  登录态来源 / 复用浏览器 / 宿主写入 / 导出给宿主 / 订阅变化 / 标记退出
   shimo-net search <关键词> [--limit 20]            1 搜索
   shimo-net spaces [--limit 300]                   2 我的空间清单
   shimo-net ls <链接|@别名> [--since 7d]             2/12 列目录
@@ -133,6 +133,9 @@ func helpText() string {
   shimo-net editor <链接> --action sheet-values --payload '{"range":"工作表1!A1:C5"}'
   shimo-net editor <链接> --action sheet-update --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
   shimo-net editor <链接> --action sheet-append --payload '{"range":"工作表1!A1","resource":{"values":[["值"]]}}'
+  shimo-net editor <链接> --action sheet-freeze --payload '{"sheetName":"工作表1","rows":1,"columns":0}'   冻结行列（页面 façade，重开核验）
+  shimo-net editor <链接> --action sheet-filter --payload '{"sheetName":"工作表1","range":"A1:C10"}'       建立筛选区域；sheet-filter-clear 清除
+  shimo-net editor <链接> --action sheet-export-pdf [--out 目录]   表格 PDF 只能走页面菜单（服务端返回 3613），下载落盘后核验
   shimo-net editor <链接> --action mentions-list|comments-list  HTTP 只读，不启动浏览器；输出定位链接，--json 保留原始数据
   shimo-net subscriptions [--limit 200] [--depth 3]   limit 为扫描文件数上限，仅排序扫描结果；--open 序号|guid 后打开
 

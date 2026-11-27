@@ -522,13 +522,14 @@ func (a *App) currentLightDocUserID() (string, error) {
 }
 
 type lightDocRun struct {
-	app      *App
-	target   string
-	guid     string
-	dir      string
-	browser  *phase3EditorBrowser
-	attempt  bool
-	runError error
+	app                 *App
+	target              string
+	guid                string
+	dir                 string
+	browser             *phase3EditorBrowser
+	attempt             bool
+	runError            error
+	completedAttributes map[string]any
 }
 
 func (r *lightDocRun) close() {
@@ -550,8 +551,12 @@ func (r *lightDocRun) fail(err error) error {
 	if r.attempt {
 		state = "写入已尝试，可能已生效；验收未通过，不要自动重放"
 	}
-	_ = phase3WriteEvidence(filepath.Join(r.dir, "failure.json"), map[string]any{"ok": false, "mutationAttempted": r.attempt, "error": err.Error(), "evidenceDir": r.dir})
-	return fmt.Errorf("%s（证据 %s）：%w", state, r.dir, err)
+	details := map[string]any{"ok": false, "mutationAttempted": r.attempt, "mayHaveApplied": r.attempt, "error": err.Error(), "evidenceDir": r.dir}
+	if r.completedAttributes != nil {
+		details["completedAttributes"] = r.completedAttributes
+	}
+	_ = phase3WriteEvidence(filepath.Join(r.dir, "failure.json"), details)
+	return &commandError{Message: fmt.Sprintf("%s（证据 %s）：%v", state, r.dir, err), Result: details, NoReplay: r.attempt}
 }
 
 // doc-format：字体、字号、颜色、高亮、加粗、斜体、下划线、删除线。
@@ -615,6 +620,15 @@ func (a *App) cmdPhase3LightDocFormat() error {
 	if err = b.Capture(filepath.Join(dir, "before.png")); err != nil {
 		return run.fail(err)
 	}
+	if err = b.preflightLightDocAttrs(spec); err != nil {
+		return run.fail(err)
+	}
+	if spec.Scope != lightDocScopeAll {
+		selection, err = b.checkAndSelect(spec)
+		if err != nil {
+			return run.fail(err)
+		}
+	}
 	run.attempt = true
 	var applied map[string]any
 	if spec.Scope == lightDocScopeAll {
@@ -622,6 +636,7 @@ func (a *App) cmdPhase3LightDocFormat() error {
 	} else {
 		applied, err = b.applyLightDocAttrs(spec)
 	}
+	run.completedAttributes = applied
 	if err != nil {
 		_ = phase3WriteEvidence(filepath.Join(dir, "submission.json"), applied)
 		return run.fail(err)

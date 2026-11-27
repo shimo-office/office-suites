@@ -512,11 +512,13 @@ func cookieJarForHost(cookies []browserCookie, host string) string {
 
 func (a *App) cmdSession() error {
 	if len(a.Pos) == 0 {
-		return errors.New("用法：shimo-net session <status|harvest|import|watch|logout> [--no-save]")
+		return errors.New("用法：shimo-net session <status|harvest|import|export|watch|logout> [--no-save] [--out 文件]")
 	}
 	switch a.Pos[0] {
 	case "import":
 		return a.cmdSessionImport()
+	case "export":
+		return a.cmdSessionExport()
 	case "watch":
 		return a.cmdSessionWatch()
 	case "logout":
@@ -536,6 +538,11 @@ func (a *App) cmdSession() error {
 			if k != "origin" {
 				out[k] = v
 			}
+		}
+		out["bridge"] = map[string]any{
+			"inbound":  "宿主已有登录态时：shimo-net session import 读 stdin（cookie 头或 cookies 数组）",
+			"outbound": "宿主需要在自身浏览器打开编辑页时：shimo-net session export --out <文件>，由宿主注入同一 origin 的 cookie",
+			"preview":  "宿主内置浏览器不共享 CLI 会话；不要把「内置预览显示登录页」当成 CLI 登录失效",
 		}
 		if a.JSON {
 			return a.printJSON(out)

@@ -260,11 +260,19 @@ func verifyPhase3SlideTextFormatArtifacts(beforePath, afterPath string, beforeID
 			return e
 		}
 	}
-	before, e := readPhase3SlideArtifactFiltered(beforePath, beforeIDs, phase3SlideTextFormatFilter(beforeIDs, s, false, false))
+	bf, e := phase3SlideEditedDefaultsFilter(beforePath, beforeIDs, s, phase3SlideTextFormatFilter(beforeIDs, s, false, false))
 	if e != nil {
 		return e
 	}
-	after, e := readPhase3SlideArtifactFiltered(afterPath, afterIDs, phase3SlideTextFormatFilter(afterIDs, s, true, false))
+	af, e := phase3SlideEditedDefaultsFilter(afterPath, afterIDs, s, phase3SlideTextFormatFilter(afterIDs, s, true, false))
+	if e != nil {
+		return e
+	}
+	before, e := readPhase3SlideArtifactFiltered(beforePath, beforeIDs, bf)
+	if e != nil {
+		return e
+	}
+	after, e := readPhase3SlideArtifactFiltered(afterPath, afterIDs, af)
 	if e != nil {
 		return e
 	}

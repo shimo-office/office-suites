@@ -41,6 +41,7 @@ shimo-net <command> [位置参数] [--option value] [--json]
 | `session harvest [--no-save]` | 验证并复用浏览器会话；`--no-save` 只验证不保存。 |
 | `session import [--no-verify] [--source NAME] [--expected-revision N]` | 从 stdin 读 cookie 头、`{"cookie":"..."}` 或 `{"cookies":[...]}` 写入共享会话；默认先向 `/users/me` 校验。已有记录时，不带 `--expected-revision` 只允许同一 `sid` 的属性刷新，切号与退出后恢复必须带当前版本。 |
 | `session watch [--interval 1s] [--once]` | 订阅共享会话变化；每次 revision 变化输出一条快照（无 cookie 值）。每轮只 stat 文件（约 3.4 µs），时间戳与大小未变不读取内容，每 30 轮兜底全量读一次。 |
+| `session export [--out 文件]` | 把当前共享会话导出为 JSON（含 cookie 值与账号），供宿主浏览器注入同一 origin；文件 0600、不覆盖已有文件、只打印路径与指纹，绝不把凭据打到 stdout。 |
 | `session logout` | 只标记共享会话已退出；`logout` 会同时清理本地凭据。 |
 | `whoami` | 查询实际当前账号。 |
 | `doctor` | 检查平台运行环境、浏览器、origin 和账号；失败返回非 0。 |
@@ -48,6 +49,23 @@ shimo-net <command> [位置参数] [--option value] [--json]
 | `update [--check] [--json]` | 更新当前安装；`--check` 只检查。npm 安装更新整个包，原生安装校验 GitHub Release 后替换；不降级、不修改登录和配置。旧版需先按[安装说明](install.md)升级一次。 |
 | `version` | 输出本地二进制版本；支持 `--json`。 |
 | `help` / `--help` / `-h` | 输出当前帮助。 |
+
+### 登录态与「内置浏览器显示登录页」
+
+CLI 的编辑器通道使用独立浏览器配置并注入 CLI 会话；宿主的**内置预览浏览器不共享这份 cookie**。因此「内置预览停在登录页」不等于 CLI 登录失效，两者要分开判断：
+
+| 现象 | 含义 | 正确处理 |
+|---|---|---|
+| 命令能读文件、`whoami` 正常，但内置预览显示登录页 | 宿主浏览器没有 CLI 的 cookie | 用命令返回的截图/导出物展示；交互式查看用 `shimo-net open`；确需宿主内查看时先 `session export --out` 再注入 |
+| 命令报 `AUTH_REQUIRED`，`loginRedirect:true`，页面路径为 `/login` | 会话确实失效 | `session status --json` 核对后 `login --new` |
+| 命令报 `EDITOR_NOT_READY`，页面停在骨架屏/资源未加载 | 资源或网络问题，不是鉴权 | 保留现有会话重试；检查静态资源与代理，不要重复登录 |
+
+`preview`、`editor`、`phase3` 的 JSON 结果都带：
+
+- `auth`：`cliSession`、`credentialSource`、`sharedSession`、`authState`、`revision`、`loginRequired`。
+- `view`：`transport`（`cli-browser` / `download` / `artifact`）、`usesCLISession`、`builtInBrowser.usable/reason/workaround`、`openWith`。
+
+Agent 应按 `view.transport` 决定展示方式，不要用内置浏览器打开需要登录的编辑页再判断“登录失效”。
 
 ### 更新 CLI
 
@@ -146,6 +164,19 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 | `mentions-list` | 按动作默认读取目标文件 | 通过 HTTP 读取页面签名和提及列表；不启动浏览器。轻文档输出 `文档地址#atGuid`。 |
 | `comments-list` | 按动作默认读取目标文件 | 通过 HTTP 读取页面签名和评论列表；不启动浏览器。轻文档输出 `文档地址#selectionGuid`，同一位置只输出一个链接。 |
 
+### 表格页面动作（页面 façade / 页面菜单）
+
+| 动作 | payload | 结果与核验 |
+|---|---|---|
+| `sheet-freeze` | `{"sheetName":"工作表1","rows":1,"columns":0}` | 调页面 `activeSheet.setFrozenRowCount/setFrozenColumnCount`，写入后**刷新页面重新读取**冻结行列，并要求导出工作簿的单元格值/样式/合并结构未变；不支持冻结尾行尾列。 |
+| `sheet-filter` | `{"sheetName":"工作表1","range":"A1:C10"}` | 调页面 `tn.addFilter` 建立筛选区域；重开后读取筛选区域比对行列与范围。已有其它筛选区域时要求先 `sheet-filter-clear`。 |
+| `sheet-filter-clear` | `{"sheetName":"工作表1"}` | 清除当前筛选；重开后必须读不到筛选区域。 |
+| `sheet-export-pdf` | `{"sheetName":"工作表1"}`（可省略） | 驱动页面菜单：更多 → 下载 → 纯图PDF → 导出设置（等待「共 N 页」且不再「正在准备导出」）→ 下一步；浏览器下载被限制到临时目录，核验 `%PDF` 信封与大小后才落到 `--out`。服务端导出接口对该类型返回 3613，PDF 只能由页面生成。 |
+
+这三个写入动作的失败结果带 `stage`、`mutationAttempted`、`mayHaveApplied`、`noReplay`：写入已提交但核验失败时禁止整条命令重放。PDF 导出是只读动作，重跑只会多产出一份文件。
+
+`sheet-export-pdf` 的 `settings` 明确记录 `source: current-page-defaults`（A4、当前工作表、显示网格线）：本轮不修改纸张/缩放/边距，若需要自定义版式须在页面上手工设置一次再导出，不在命令里假装已支持。
+
 `mentions-list/comments-list` 使用已有登录态，未登录时提示登录，不自动打开浏览器；显式 `--relogin` 仍按全局规则执行登录。即使传入 `--verify` 或 `--keep-open`，这两个读取动作也不启动浏览器。文本输出条数和去重后的定位链接；空列表或缺少定位字段会明确提示。`--json` 保留 `result.ok` 和 `result.value` 原始数据，并增加 `links`、`count`、`unlocatedCount`；`verified:true` / `verifyWith:"http"` 仅表示 API 读取成功，不表示已验证页面跳转。
 
 定位链接目前仅为 `/docs/` 轻文档生成：提及使用 `#atGuid`（不是 `?mentionAt=`），评论使用 `#selectionGuid`（字段已含 `comment-`，不是 `commentGuid`）。其他套件或缺少有效定位字段时不猜测链接，文本会提示并给出文档地址。建议新标签页打开或刷新链接，让编辑器初始化时执行定位。
@@ -171,7 +202,17 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 
 仅历史/评论的 show/hide 展示动作通过页面 SDK 执行；`--verify` 是这些动作的执行及截图开关，输出 `scope:panel-visibility-only`、`actionVerified:false`。临时浏览器完成截图后关闭，不能用于后续提交。编辑器未加载、方法不可用或截图空白时返回失败。没有可用 SDK 时由宿主按页面菜单操作，不以本地模拟结果代替。
 
-`find`、`replace-all`、`page-width`、`sheet-freeze`、`sheet-sort`、`sheet-filter`、`sheet-validation` **不作为直接可执行 SDK 能力**：调用会提示改用页面操作。工作表改名/隐藏、插删列、公式/名称/透视表也需按页面能力处理。
+仍为页面操作的入口会返回结构化拒绝：`code`、`bottleneck`（已验证的瓶颈）、`pagePath`（页面路径）、`next`（补齐条件），退出码 3，且 `mutationAttempted:false`。
+
+| 动作 | code | 瓶颈（已实测） |
+|---|---|---|
+| `sheet-sort` | `UNSUPPORTED_SORT_VERIFICATION` | façade 有 `tn.sort/sortCustom/sortSheetByCol`，调用后单元格顺序未变化，也没有可读排序状态，无法区分「被忽略」和「已排序」 |
+| `sheet-validation` | `UNSUPPORTED_VALIDATION_FACADE` | 数据验证模型在 `core.validations` 上延迟初始化（同一会话内时有时无），规则对象 schema 未公开、无稳定读回 |
+| `comment-add` | `UNSUPPORTED_COMMENT_SERVICE` | 评论走云端评论服务并绑定作者身份；网格 `remarks` 只是单元格批注，不能当评论提交 |
+| `find` / `replace-all` | `UNSUPPORTED_FIND_PANEL` | 查找替换是页面面板流程，没有可读回的命中集合 |
+| `page-width` | `UNSUPPORTED_PAGE_WIDTH` | 视图状态，无稳定入口 |
+
+数据透视表、工具菜单的重复值/清洗、行列管理与公式名称也仍是页面操作：透视表由页面向导生成并依赖服务端聚合模型，façade 上没有透视表对象；清洗命令依赖当前选区与交互确认，没有可核验的结果读回。**结论：能落到 façade 且能重开核验的（冻结、筛选、PDF 导出）已经命令化；只有调用成功但没有证据的，一律不接。**
 
 ## 打开页面
 

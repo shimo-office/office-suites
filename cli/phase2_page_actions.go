@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 )
 
 // 这一组动作直接调用套件前端 SDK 的根级能力（history / comments / version /
@@ -97,4 +99,40 @@ for(const r of roots){for(const [owner,label] of [[r,'print'],[r.editor,'editor.
 return {ok:false,error:'当前页面没有打印接口（sdk.print / editor.print）'}})()`
 	}
 	return fmt.Sprintf(`(()=>({ok:false,error:%q}))()`, "未知 SDK 动作："+kind)
+}
+
+const phase2EditorReadyTimeout = 60 * time.Second
+
+// Wait for the method that will actually be executed, using the same root list
+// as phase2SDKCallExpression. A different mounted method is not readiness.
+func phase2ReadyExpression(method string) string {
+	var capability string
+	switch method {
+	case "sdk.history.show":
+		capability = `roots.some(r=>typeof r.history?.show==='function')||(!window.__SM__&&roots.some(r=>typeof r.actions?.showViewHistory==='function'||typeof r.editor?.showViewHistory==='function'))`
+	case "sdk.history.hide":
+		capability = `roots.some(r=>typeof r.history?.hide==='function'||typeof r.actions?.hideViewHistory==='function'||typeof r.editor?.hideViewHistory==='function')`
+	case "sdk.comments.show":
+		capability = `roots.some(r=>typeof r.comments?.show==='function'||typeof r.actions?.showViewCommentList==='function'||typeof r.editor?.showComments==='function')`
+	case "sdk.comments.hide":
+		capability = `roots.some(r=>typeof r.comments?.hide==='function'||typeof r.actions?.hideViewCommentList==='function'||typeof r.editor?.hideComments==='function')`
+	case "sdk.print":
+		capability = `roots.some(r=>typeof r.print==='function'||typeof r.editor?.print==='function'||typeof r.docsApi?.print==='function')`
+	case "sdk.version.createRevision":
+		capability = `roots.some(r=>typeof r.editor?.createRevision==='function'||typeof r.version?.createRevision==='function'||typeof r.createRevision==='function')`
+	case "sdk.cellHistory":
+		capability = `Boolean(document.querySelector('canvas'))`
+	default:
+		if !strings.HasPrefix(method, "actions.") {
+			return `false`
+		}
+		raw, _ := json.Marshal(strings.Split(method, "."))
+		capability = `roots.some(r=>{let value=r;for(const key of ` + string(raw) + `){value=value?.[key]}return typeof value==='function'})`
+	}
+	return `(()=>{` + phase2SDKRrootsJS + `
+const ed=window.__SM__?.editor, sdk=window.__SM__?.sdk;
+if(ed?.initialized===false||sdk?._rendered===false)return false;
+const rendered=roots.some(r=>r.initialized===true||r._rendered===true)||Boolean(document.querySelector('canvas,.ProseMirror,[contenteditable="true"],.ql-editor'));
+if(!rendered||!(document.body?.innerText||'').trim())return false;
+return Boolean(` + capability + `);})()`
 }

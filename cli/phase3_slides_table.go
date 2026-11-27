@@ -309,14 +309,7 @@ func phase3SlideTableArtifact(filename string, ids []string, s phase3SlidesSpec)
 			extent := phase3SlideChild(xf, artifactDrawingNS, "ext")
 			cx, ex := phase3ShapeInteger(extent, "cx")
 			cy, ey := phase3ShapeInteger(extent, "cy")
-			width, height := int64(0), int64(0)
-			for _, w := range grid.Widths {
-				width += w
-			}
-			for _, h := range grid.Heights {
-				height += h
-			}
-			if ex != nil || ey != nil || cx != width || cy != height {
+			if ex != nil || ey != nil || !phase3TableExtentMatches(cx, grid.Widths) || !phase3TableExtentMatches(cy, grid.Heights) {
 				return nil, fmt.Errorf("表格框架尺寸与实际行列尺寸不一致")
 			}
 			return phase3MaskTable(frame), nil
@@ -429,4 +422,17 @@ func phase3VerifyTableMetadata(b, a phase3SlideTableGrid, s phase3SlideTableSpec
 		return fmt.Errorf("列元数据变化")
 	}
 	return nil
+}
+
+// The native table sums each row/column in millimetres then truncates to EMU.
+// Accept only that exact round-trip, bounded to one EMU; not a general tolerance.
+func phase3TableExtentMatches(actual int64, dimensions []int64) bool {
+	var exact int64
+	var millimetres float64
+	for _, n := range dimensions {
+		exact += n
+		millimetres += float64(n) / 36000
+	}
+	native := int64(millimetres * 36000)
+	return actual == exact || actual == native && native >= exact-1 && native <= exact+1
 }

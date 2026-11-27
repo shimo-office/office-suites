@@ -63,7 +63,7 @@ func (a *App) cmdPhase3FormEdit() (runErr error) {
 	defer func() {
 		if runErr != nil {
 			_ = phase3WriteEvidence(filepath.Join(dir, "failure.json"), map[string]any{"ok": false, "action": "form-edit", "stage": stage, "completedSteps": completed, "currentStep": currentStep, "currentMayHaveApplied": currentMayHaveApplied, "mayHaveApplied": currentMayHaveApplied || len(completed) > 0, "error": runErr.Error(), "url": s.target})
-			runErr = fmt.Errorf("表单编辑失败（已完成%d步，当前步mayHaveApplied=%t，禁止重放整个批次）；证据 %s：%w", len(completed), currentMayHaveApplied, dir, runErr)
+			runErr = &commandError{Message: fmt.Sprintf("表单编辑失败（已完成%d步，当前步mayHaveApplied=%t，禁止重放整个批次）；证据 %s：%v", len(completed), currentMayHaveApplied, dir, runErr), Result: map[string]any{"stage": stage, "completedSteps": completed, "currentStep": currentStep, "currentMayHaveApplied": currentMayHaveApplied, "mayHaveApplied": currentMayHaveApplied || len(completed) > 0, "evidenceDir": dir}, NoReplay: currentMayHaveApplied || len(completed) > 0}
 		}
 	}()
 	b, err := phase3OpenFormEditor(s.target+"?debug=1", phase3FormReady)
@@ -104,6 +104,29 @@ func (a *App) cmdPhase3FormEdit() (runErr error) {
 	if err = phase3WriteEvidence(filepath.Join(dir, "before-structure.json"), snap); err != nil {
 		return err
 	}
+	// File title and form title are one native product setting. Capture the
+	// metadata baseline before the first draft write for a concurrent-name guard.
+	titleRequested := false
+	for _, request := range requests {
+		patch, _ := request["patch"].(map[string]any)
+		if str(request, "operation") == "meta" && patch["title"] != nil {
+			titleRequested = true
+		}
+	}
+	baselineName := ""
+	if titleRequested {
+		info, e := a.fileInfo(s.guid)
+		if e != nil {
+			return e
+		}
+		if str(info, "type") != "form" {
+			return errors.New("表单标题同步目标不是在线表单；未写入")
+		}
+		// A missing name is not a reason to drop the whole batch: the title is
+		// still written, but the file-name half of the contract is reported as
+		// unverified instead of being silently assumed.
+		baselineName = str(info, "name")
+	}
 	var expected map[string]any
 	for i, r := range requests {
 		currentStep = i + 1
@@ -123,6 +146,17 @@ func (a *App) cmdPhase3FormEdit() (runErr error) {
 		item := map[string]any{"step": i + 1, "operation": r["operation"], "serverVerified": true, "evidenceDir": stepDir}
 		completed = append(completed, item)
 		if err = phase3WriteEvidence(filepath.Join(dir, "progress.json"), map[string]any{"completedSteps": completed, "freshProfileVerified": false}); err != nil {
+			return err
+		}
+	}
+	var titleSync map[string]any
+	if titleRequested {
+		stage = "file-title-sync"
+		titleSync, err = a.phase3SyncFormTitle(s.guid, baselineName, str(expected, "title"))
+		if e := phase3WriteEvidence(filepath.Join(dir, "title-sync.json"), titleSync); e != nil {
+			return e
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -159,6 +193,9 @@ func (a *App) cmdPhase3FormEdit() (runErr error) {
 		return err
 	}
 	result := map[string]any{"ok": true, "action": "form-edit", "url": s.target, "actionVerified": true, "mutationAttempted": true, "completedSteps": completed, "verification": "each operation verified against signed server draft; final complete draft verified in fresh Chrome profile", "evidenceDir": dir, "scope": "requested draft mutations only; publication and respondent branch behavior require separate verification"}
+	if titleSync != nil {
+		result["titleSync"] = titleSync
+	}
 	if len(requests) == 1 {
 		result["operation"] = requests[0]["operation"]
 	}

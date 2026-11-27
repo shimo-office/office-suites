@@ -593,6 +593,32 @@
 
 - `editor --action mentions-list/comments-list` 改为直接 HTTP 读取页面签名与 API，不启动浏览器；轻文档输出提及 `#atGuid` 和评论 `#selectionGuid` 定位链接。JSON 保留原始结果并增加链接与计数，同一评论位置去重；缺少定位信息时明确提示。
 
+## 0.9.40 — 2026-11-27
+
+本轮按 0.9.39 产品评测报告（43 个场景 / 227 次执行 / 14 项问题）修复，重点是「不要把没证据的事说成完成」。
+
+### 新增
+
+- `editor --action sheet-export-pdf`：表格 PDF 只能由页面生成（服务端 `/files/export` 对该类型返回 3613「暂不支持该导出类型」）。命令驱动 更多 → 下载 → 纯图PDF → 导出设置（等「共 N 页」且不再「正在准备导出」）→ 下一步，把浏览器下载限制到临时目录，核验 `%PDF` 信封/大小后再落到 `--out`；同时留 before/menu/dialog/after 四张截图。导出设置显式标注为页面默认值（A4、当前工作表、显示网格线），页数与渲染仍需独立解析。
+- `editor --action sheet-freeze`：走页面 façade（`activeSheet.setFrozenRowCount/setFrozenColumnCount`），写入后刷新页面重新读取冻结行列，并要求导出 XLSX 的单元格值/样式/合并结构未变。
+- `editor --action sheet-filter` / `sheet-filter-clear`：`tn.addFilter` / `deleteFilter`，重开后比对筛选区域行列与范围；已有其它筛选区域时先清理，不静默覆盖。
+- `session export [--out 文件]`：把共享会话导出成 0600 JSON，供宿主浏览器注入同一 origin；不覆盖已有文件，只打印路径与指纹，凭据不进 stdout。
+- JSON 结果新增 `auth` / `view` 契约：`view.transport`、`builtInBrowser.usable/reason/workaround`、`openWith`，让 Agent 按契约选择展示方式，而不是用内置浏览器打开编辑页再误判登录失效。
+
+### 修复
+
+- 未就绪误报登录失效：SDK 缺失宽限 30s→60s；错误码区分 `AUTH_REQUIRED`（页面跳到 `/login`）与 `EDITOR_NOT_READY`（资源/网络问题），信息里给出已等待时长、页面状态、`loginRedirect`、`nextActions`，不再倾倒原始 JSON。
+- 页面动作拒绝改为结构化：`code` + `bottleneck` + `pagePath` + `next`，退出码 3，`mutationAttempted:false`。已实测的瓶颈写进文档：排序调用后顺序不变且无可读状态、数据验证子系统延迟初始化且规则 schema 未公开、评论走云端服务（网格 remarks 只是批注）、清洗/透视依赖页面向导与服务端聚合。
+- 目录拉取的计数：`status:unsupported` 的条目不再回到落盘核验，避免对空路径做 `lstat` 后把「不支持」重复记成「失败」并倒扣成功数；最终状态改为互斥计数，额外给出 `complete`。
+- 表单标题同步：文件名基线缺失时不再整批中止，也不在空基线上盲改名，而是记录 `verified:false` 与 `warning`，其余题型继续执行。
+- 带动画幻灯片的正文提取（`parse` / `read`）：按 XML 元素路径排除 `timing` 子树，不再把动画属性当正文。
+
+### 文档与测试
+
+- 能力矩阵按「原生命令 / 页面 façade / 页面菜单 / 人工」重新标注冻结、筛选、PDF 导出，并把 3613 限制写进限制列；`capabilities.json` 重新生成，能力数 51→52。
+- 新增登录态三态对照表（内置预览无 cookie / `AUTH_REQUIRED` / `EDITOR_NOT_READY`）与替代展示方式。
+- 新增筛选/冻结 payload 校验测试、下载落盘与 PDF 信封测试、`view`/`auth` 契约测试；PDF 导出保留 env 门控的端到端探针（真实夹具）。
+
 ## 0.9.39 — 2026-11-27
 
 - 幻灯片独立动作修复：形状填充、边框颜色与层级不再要求显式几何；表头填充兼容默认/继承单元格样式；普通内容占位符支持 obj/省略 type；文字轮廓检查不再扫描无关页；动画字号可选；单项放映设置不再依赖另一项写接口。新增独立请求与非目标变化回归测试，范围见 [幻灯片命令参考](docs/phase3-slide-commands.md)。

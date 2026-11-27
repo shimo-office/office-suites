@@ -249,6 +249,9 @@ func (a *App) cmdGet() error {
 			if len(allowed) == 0 {
 				return fmt.Errorf("%s 没有可用的导出格式", typeLabel(info))
 			}
+			if typ == "spreadsheet" && format == "pdf" {
+				return fmt.Errorf("电子表格没有 PDF 导出接口：服务端 /files/export 返回 3613「暂不支持该导出类型」；PDF 只能由页面菜单生成，请用 shimo-net editor <链接> --action sheet-export-pdf")
+			}
 			return fmt.Errorf("%s 不支持导出为 %s；可用：%s", typeLabel(info), format, strings.Join(allowed, " / "))
 		}
 	}
@@ -342,7 +345,7 @@ func (a *App) cmdPull() error {
 	// Verify after the entire batch: a later operation may have changed an
 	// earlier result. Only files still present with the recorded size count.
 	for i, file := range manifest {
-		if boolv(file, "skipped") || str(file, "error") != "" {
+		if boolv(file, "skipped") || str(file, "status") == "unsupported" || str(file, "error") != "" {
 			continue
 		}
 		if err := verifyDownloadedFile(file); err != nil {
@@ -360,7 +363,7 @@ func (a *App) cmdPull() error {
 		}
 	}
 	result := map[string]any{"ok": failed == 0, "target": a.Pos[0], "source": a.Pos[0], "dir": outDir, "since": a.opt("--since"), "count": len(manifest), "files": manifest,
-		"recursive": false, "scope": "current-directory", "downloaded": downloaded, "failed": failed, "skipped": skipped, "unsupported": unsupported, "manifest": ""}
+		"recursive": false, "complete": failed == 0 && unsupported == 0 && skipped == 0, "scope": "current-directory", "downloaded": downloaded, "failed": failed, "skipped": skipped, "unsupported": unsupported, "manifest": ""}
 	// A fresh hidden file avoids both remote names and prior run manifests.
 	// CreateTemp reserves exclusively; a hidden prefix alone is not a boundary.
 	manifestFile, err := os.CreateTemp(outDir, ".shimo-pull-manifest-*.json")
@@ -521,7 +524,8 @@ func (a *App) cmdPreview() error {
 	}
 	u := a.originURL("/files/" + url.PathEscape(guid))
 	out := map[string]any{"ok": true, "guid": guid, "name": str(info, "name"), "type": str(info, "type"), "url": u,
-		"note": "预览地址固定为 /files/<guid>，可直接在内置浏览器打开；不产生写入"}
+		"note": "预览地址固定为 /files/<guid>；页面需要登录态，宿主内置浏览器不共享 CLI 会话时会停在登录页（这不代表 CLI 登录失效）",
+		"view": a.agentView(viewTransportCLIBrowser, u), "auth": a.agentAuth()}
 	if a.JSON {
 		return a.printJSON(out)
 	}

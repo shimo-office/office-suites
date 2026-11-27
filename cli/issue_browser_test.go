@@ -69,7 +69,10 @@ func TestIssueAvailableActionsAreExecutable(t *testing.T) {
 	if err == nil {
 		t.Fatal("unknown action accepted")
 	}
-	for _, page := range []string{"find", "replace-all", "page-width", "sheet-freeze", "sheet-sort", "sheet-filter", "sheet-validation", "comment-add"} {
+	// sheet-freeze / sheet-filter / sheet-filter-clear are executable now (page
+	// façade with reload verification), so they must be advertised. The entries
+	// below are still page-only and must not appear in the hint list.
+	for _, page := range []string{"find", "replace-all", "page-width", "sheet-sort", "sheet-validation", "comment-add"} {
 		if strings.Contains(err.Error(), page) {
 			t.Errorf("unsupported %s advertised: %v", page, err)
 		}

@@ -5,7 +5,7 @@ display_name_en: Shimo Office Suite Private Deployment CLI
 description: 使用 shimo-net CLI 操作 shimo.net 或私有部署的文件、轻文档、文稿、电子表格、幻灯片、应用表格与表单；按任务选择命令、查询真实参数和对象标识，并核验结果。适用于石墨在线文件操作及 CLI 排错，不用于一般本地 Office 文件编辑。
 description_zh: 石墨办公套件私有部署 CLI（包名 shimo-net-cli，命令 shimo-net），覆盖文件管理与六类在线套件的读取、编辑和核验；无账号时可查询命令契约并准备任务所需的执行计划。
 description_en: Use shimo-net-cli (command shimo-net) for file management and verified editing of Shimo light documents, rich documents, spreadsheets, slides, application tables and forms on shimo.net or private deployments. Discover action contracts and real object IDs before editing; prepare task-specific plans when sign-in is unavailable.
-version: 0.9.39
+version: 0.9.40
 author: shimo-office
 allowed-tools: Bash, Read, Write, Edit
 examples_zh:
@@ -108,6 +108,28 @@ Agent 可用 `--json` 解析结果；用户手动运行且只想看简短反馈�
 文字内容可以读回核对；颜色、布局、动画、视图与发布状态要用对应结构/页面/服务端核验。`phase3` 已完成的核验可直接引用，不必为形式再写一次或强行用 `read` 验证所有东西。
 
 默认回复只写：**完成了什么、核验结果、目标链接或正式产物、仍需处理的问题**。不贴整份 `artifact/beforeArtifact.entries`、哈希或浏览器日志。用户要排错时再给相关命令、错误片段和证据路径；必要原始记录保留在文件，先去掉凭据。未指定 `--out` 时，成功的临时证据可能已清理，不提供不存在的路径。
+
+### 登录态：内置预览的登录页不是“CLI 登录失效”
+
+内置预览浏览器与 CLI 使用的是不同 cookie：CLI 已登录、`whoami` 正常时，内置预览仍可能显示登录页。按结果字段判断，不要靠页面外观猜。
+
+| 判断依据 | 结论 | 做法 |
+|---|---|---|
+| `auth.cliSession:true`，`view.builtInBrowser.usable:false` | CLI 有会话，宿主没有 | 用 `view.transport` 指向的产物（截图/PDF/导出文件）展示；需要交互查看时用 `view.openWith`（`shimo-net open`） |
+| `code:"AUTH_REQUIRED"`、`loginRedirect:true`、`path:"/login"` | 会话确实失效 | 先 `session status --json` 核对，再 `login --new` |
+| `code:"EDITOR_NOT_READY"`、页面停在骨架屏 | 资源/网络问题 | 保留会话重试，检查静态资源与代理；不要重复登录 |
+
+确需在宿主浏览器里看到已登录页面时：`session export --out <文件>` 导出会话，由宿主把 cookie 注入同一 origin 后再打开；文件含凭据，不要读取内容贴到回复里。反向（宿主已有登录态）用 `session import`。
+
+### 表格的三层执行方式
+
+| 层 | 命令 | 何时用 |
+|---|---|---|
+| API | `sheet-update/append/insert/delete/format/merge/values` | 默认优先；返回 `verified:false` 时必须按手册补读回/导出核验 |
+| 页面 façade | `sheet-freeze`、`sheet-filter`、`sheet-filter-clear` | 冻结行列、筛选区域；写入后命令会刷新页面重读状态并比对导出 XLSX |
+| 页面菜单 | `sheet-export-pdf` | 表格 PDF 只有页面能生成（服务端返回 3613）；命令会等待「共 N 页」再点下一步，核验 `%PDF` 信封 |
+
+`sheet-sort`、`sheet-validation`、`comment-add`、`find`、`replace-all` 会返回 `code` + `bottleneck` + `pagePath` + `next`，退出码 3 且未执行。把这些如实转述给用户（说明卡在哪一层），不要改成“已支持”，也不要用内置浏览器模拟一次再声称完成。透视表、清洗、行列管理同理属于页面操作。
 
 ## 失败与恢复
 

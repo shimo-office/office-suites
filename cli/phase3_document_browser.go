@@ -15,8 +15,8 @@ import (
 const phase3EditorReadyTimeout = 300 * time.Second
 
 // phase3EditorSdkMissingGrace is how long a fully loaded page may stay without
-// an injected editor SDK before the session is declared unusable.
-const phase3EditorSdkMissingGrace = 30 * time.Second
+// an injected editor SDK before reporting loading failure, not auth failure.
+const phase3EditorSdkMissingGrace = 60 * time.Second
 const phase3EditorReadOnlyTimeout = 90 * time.Second
 
 // The editor bridge executes fixed, request-specific operations only. It does
@@ -283,20 +283,17 @@ func phase3PollReady(timeout, interval time.Duration, probe func() (map[string]a
 			}
 			last = state
 			if state["login"] == true {
-				return attempts, errors.New("隔离编辑器未登录；本次就绪检查为只读")
+				return attempts, editorReadinessError("AUTH_REQUIRED", "隔离编辑器已跳转登录页；请先核对当前部署的已有会话，仅在会话确实失效时重新登录", attempts, state)
 			}
-			// A signed-out table/document page can stay blank without ever
-			// navigating to /login, so readiness polls for minutes. Once the
-			// document is complete and no editor SDK was injected, the session
-			// is unusable: fail fast with the action the user needs to take.
-			if state["documentState"] == "complete" && state["sdk"] == "undefined" && state["presentationSDK"] == "undefined" && !phase3PresenceReady(state) {
-				if ms, ok := state["pageElapsedMs"].(float64); ok && ms > float64(phase3EditorSdkMissingGrace/time.Millisecond) {
-					detail, _ := json.Marshal(state)
-					return attempts, fmt.Errorf("页面已加载 %s 但仍未注入编辑器 SDK，判定登录态失效；请先执行 shimo-net login 后重试（last=%s）", time.Duration(ms)*time.Millisecond, detail)
-				}
-			}
+			// The action's own readiness predicate is authoritative. Other
+			// suites may expose a different SDK root than _sdk/presentationSDK.
 			if state["ready"] == true {
 				return attempts, nil
+			}
+			if state["documentState"] == "complete" && state["sdk"] == "undefined" && state["presentationSDK"] == "undefined" && !phase3PresenceReady(state) {
+				if ms, ok := state["pageElapsedMs"].(float64); ok && ms >= float64(phase3EditorSdkMissingGrace/time.Millisecond) {
+					return attempts, editorReadinessError("EDITOR_NOT_READY", fmt.Sprintf("页面已加载 %s 但编辑器或目标方法仍未就绪；未发现明确鉴权失败证据。请检查页面资源、网络和目标能力，保留现有会话", time.Duration(ms)*time.Millisecond), attempts, state)
+				}
 			}
 		}
 		remaining := time.Until(deadline)
@@ -309,8 +306,53 @@ func phase3PollReady(timeout, interval time.Duration, probe func() (map[string]a
 		}
 		time.Sleep(delay)
 	}
-	detail, _ := json.Marshal(last)
-	return attempts, fmt.Errorf("等待编辑器或目标方法超时（%s，%d 次，last=%s）；本次就绪检查为只读", timeout, attempts, detail)
+	return attempts, editorReadinessError("EDITOR_NOT_READY", fmt.Sprintf("等待编辑器或目标方法超时（%s）；这不等于登录失效，请检查页面资源、网络和目标能力", timeout), attempts, last)
+}
+
+// Readiness can run after a mutation. Report only this read-only probe's state,
+// never claim the enclosing command has not written or is safe to replay.
+func editorReadinessError(code, message string, attempts int, state map[string]any) error {
+	elapsed := time.Duration(num(state, "pageElapsedMs")) * time.Millisecond
+	documentState := str(state, "documentState")
+	loginRedirect := boolv(state, "login")
+	path := str(state, "path")
+	hint := "编辑器脚本没有在预算内挂载：常见原因是静态资源被拦截、网络慢或页面停在骨架屏。保留当前会话重试即可，不要重复登录。"
+	stateSummary := compactStateJSON(state)
+	next := []string{"核对页面是否能正常打开该文件（浏览器手工打开一次即可区分资源问题）", "确认网络/代理没有拦截编辑器静态资源", "确认目标动作在本次部署确实存在（docs/internal-capability-matrix.md）"}
+	if code == "AUTH_REQUIRED" || loginRedirect {
+		hint = "页面被重定向到登录页（未登录或会话已失效），这才是会话失效的信号；先确认本机会话状态再登录。"
+		next = []string{"shimo-net session status --json 查看 CLI 会话来源与账号", "确需重新登录时执行 shimo-net login --new"}
+		path = "/login"
+	}
+	result := map[string]any{
+		"code": code, "stage": "editor-readiness", "readinessProbeReadOnly": true,
+		"attempts": attempts, "elapsedMs": int64(elapsed / time.Millisecond),
+		"documentState": documentState, "loginRedirect": loginRedirect,
+		"path": path, "nextActions": next, "lastReadiness": state,
+	}
+	message = fmt.Sprintf("%s；已等待 %s（第 %d 次探测），页面状态 %s，登录跳转 %v，最近一次探测 %s。%s",
+		message, elapsed.Round(time.Second), attempts, documentState, loginRedirect, stateSummary, hint)
+	return &commandError{Message: message, Result: result, ExitCode: 4}
+}
+
+// compactStateJSON keeps the last real probe visible in the message. It drops
+// the internal budget flag so a machine marker cannot be mistaken for a state.
+func compactStateJSON(state map[string]any) string {
+	if len(state) == 0 {
+		return "-"
+	}
+	trimmed := make(map[string]any, len(state))
+	for key, value := range state {
+		if key == "budgetExpired" {
+			continue
+		}
+		trimmed[key] = value
+	}
+	raw, err := json.Marshal(trimmed)
+	if err != nil {
+		return "-"
+	}
+	return truncateRunes(string(raw), 240)
 }
 
 func (b *phase3EditorBrowser) Capture(filename string) error {

@@ -69,11 +69,11 @@ func TestReleasePhase2CookieAndReadinessProtocol(t *testing.T) {
 			}
 			return map[string]any{}, nil
 		case "Runtime.evaluate":
-			if strings.Contains(str(p, "expression"), "document.readyState") {
-				pageQueries++
-			} else {
+			if strings.Contains(str(p, "expression"), "ready:Boolean(") {
 				editorQueries++
+				return map[string]any{"result": map[string]any{"value": map[string]any{"ready": true, "login": false}}}, nil
 			}
+			pageQueries++
 			return map[string]any{"result": map[string]any{"value": true}}, nil
 		default:
 			return nil, errors.New("unexpected method")
@@ -90,7 +90,10 @@ func TestReleasePhase2CookieAndReadinessProtocol(t *testing.T) {
 	if !waitEditorReady(ws, time.Second, "sdk.history.show") || cookieCalls != 1 || pageQueries != 1 || editorQueries != 1 {
 		t.Fatal(cookieCalls, pageQueries, editorQueries)
 	}
-	timeout := releasePhase2Peer(t, func(string, map[string]any) (map[string]any, error) {
+	timeout := releasePhase2Peer(t, func(_ string, p map[string]any) (map[string]any, error) {
+		if strings.Contains(str(p, "expression"), "ready:Boolean(") {
+			return map[string]any{"result": map[string]any{"value": map[string]any{"ready": false, "login": false}}}, nil
+		}
 		return map[string]any{"result": map[string]any{"value": false}}, nil
 	})
 	defer timeout.Close()

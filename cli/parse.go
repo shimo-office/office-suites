@@ -89,6 +89,13 @@ func extractPptx(path string) (string, error) {
 		}
 		dec := xml.NewDecoder(rc)
 		var texts []string
+		inText := false
+		// Slide XML mixes可见正文 with animation metadata. Timing nodes carry
+		// values such as style.visibility as character data, so only text runs
+		// outside the timing tree are document content. Tracking the element
+		// path keeps this independent of namespace prefixes: fixtures and strict
+		// OOXML use different URIs for the same vocabulary.
+		depth, timingDepth := 0, 0
 		for {
 			tok, err := dec.Token()
 			if err == io.EOF {
@@ -98,10 +105,27 @@ func extractPptx(path string) (string, error) {
 				rc.Close()
 				return "", err
 			}
-			if t, ok := tok.(xml.CharData); ok {
-				if x := strings.TrimSpace(string(t)); x != "" {
-					texts = append(texts, x)
+			switch t := tok.(type) {
+			case xml.StartElement:
+				depth++
+				if t.Name.Local == "timing" && timingDepth == 0 {
+					timingDepth = depth
 				}
+				inText = timingDepth == 0 && t.Name.Local == "t"
+			case xml.CharData:
+				if inText {
+					if x := strings.TrimSpace(string(t)); x != "" {
+						texts = append(texts, x)
+					}
+				}
+			case xml.EndElement:
+				if t.Name.Local == "timing" && timingDepth == depth {
+					timingDepth = 0
+				}
+				if t.Name.Local == "t" {
+					inText = false
+				}
+				depth--
 			}
 		}
 		rc.Close()

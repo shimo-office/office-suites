@@ -260,11 +260,19 @@ func verifyPhase3SlideShapeArtifacts(before, after string, ids, next []string, s
 	if s.Shape == nil || !reflect.DeepEqual(ids, next) {
 		return fmt.Errorf("形状格式不得改变页面列表")
 	}
-	b, e := readPhase3SlideArtifactFiltered(before, ids, phase3SlideShapeFilter(ids, s, false))
+	bf, e := phase3SlideEditedDefaultsFilter(before, ids, s, phase3SlideShapeFilter(ids, s, false))
 	if e != nil {
 		return e
 	}
-	a, e := readPhase3SlideArtifactFiltered(after, next, phase3SlideShapeFilter(next, s, true))
+	af, e := phase3SlideEditedDefaultsFilter(after, next, s, phase3SlideShapeFilter(next, s, true))
+	if e != nil {
+		return e
+	}
+	b, e := readPhase3SlideArtifactFiltered(before, ids, bf)
+	if e != nil {
+		return e
+	}
+	a, e := readPhase3SlideArtifactFiltered(after, next, af)
 	if e != nil {
 		return e
 	}
