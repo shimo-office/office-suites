@@ -601,9 +601,12 @@ func phase3ContractNames() []string {
 
 // schemaAction 支持 `shimo-net schema --action <动作>`：只看一个动作的参数契约。
 func schemaAction(name string) (map[string]any, error) {
+	if contract, ok := editorActionContracts[name]; ok {
+		return map[string]any{"ok": true, "action": name, "command": "editor", "contract": contract}, nil
+	}
 	contract, ok := phase3ActionContracts[name]
 	if !ok {
-		return nil, fmt.Errorf("未知 phase3 动作 %q；可用动作见 shimo-net schema 的 phase3.actions", name)
+		return nil, fmt.Errorf("未知动作 %q；可用动作及参数见 shimo-net schema 的 editor.actions / phase3.actions", name)
 	}
 	return map[string]any{"ok": true, "action": name, "contract": contract}, nil
 }

@@ -24,7 +24,7 @@ func (a *App) phase3EvidenceDir(parent string) (string, error) {
 			return "", err
 		}
 	}
-	if parent != "" || a.evidence == nil || action == "slide-print-pdf" || action == "form-results" {
+	if parent != "" || a.evidence == nil || action == "slide-print-pdf" || action == "sheet-export-pdf" || action == "form-results" {
 		return phase3EvidenceDir(parent)
 	}
 	dir, err := newManagedEvidenceDir("shimo-phase3-")

@@ -95,7 +95,7 @@ shimo-net whoami --json --no-browser
 
 Agent 可用 `--json` 解析结果；用户手动运行且只想看简短反馈时可以省略它。**不要为了换输出格式重跑已成功的写操作**。
 
-保留退出码并分别捕获 stdout/stderr。成功 JSON 通常在 stdout，错误 JSON 在 stderr，stderr 还可能有浏览器诊断或清理警告；不要将 `2>&1` 合并内容直接当成单个 JSON。退出码是 0/1/2，HTTP 401/403 不是进程退出码。
+保留退出码并分别捕获 stdout/stderr。成功 JSON 通常在 stdout，错误 JSON 在 stderr，stderr 还可能有浏览器诊断或清理警告；不要将 `2>&1` 合并内容直接当成单个 JSON。退出码除 0/1/2 外，3 表示未实现的页面动作或需要浏览器但已禁止，4 表示会话或编辑器未就绪，具体以 `code` 与阶段为准；HTTP 401/403 不是进程退出码。
 
 | 证据 | 可以报告什么 |
 |---|---|
@@ -115,11 +115,11 @@ Agent 可用 `--json` 解析结果；用户手动运行且只想看简短反馈�
 
 | 判断依据 | 结论 | 做法 |
 |---|---|---|
-| `auth.cliSession:true`，`view.builtInBrowser.usable:false` | CLI 有会话，宿主没有 | 用 `view.transport` 指向的产物（截图/PDF/导出文件）展示；需要交互查看时用 `view.openWith`（`shimo-net open`） |
+| `auth.cliSession:true`，`view.builtInBrowser.authState:unknown` | CLI 有本地凭据，宿主会话尚未验证 | 优先展示真实截图/PDF；宿主内验证账号后再确认可交互。`open` 不注入 CLI 会话 |
 | `code:"AUTH_REQUIRED"`、`loginRedirect:true`、`path:"/login"` | 会话确实失效 | 先 `session status --json` 核对，再 `login --new` |
 | `code:"EDITOR_NOT_READY"`、页面停在骨架屏 | 资源/网络问题 | 保留会话重试，检查静态资源与代理；不要重复登录 |
 
-确需在宿主浏览器里看到已登录页面时：`session export --out <文件>` 导出会话，由宿主把 cookie 注入同一 origin 后再打开；文件含凭据，不要读取内容贴到回复里。反向（宿主已有登录态）用 `session import`。
+确需在宿主浏览器里看到已登录页面时，先确认宿主支持安全 cookie 导入；由适配程序读取 `session export --out <文件>` 的文件，导入同一 origin 后在宿主内验证账号和目标。不要把会话文件读入模型上下文、日志或回复，不能用 `document.cookie` 代替 HttpOnly cookie 导入。宿主仅能打开 URL 时不能保证共享会话，明确返回该限制并展示产物。反向（宿主已有登录态）由适配程序用 `session import`。`auth.cliSession` 仅表示本地凭据存在，`verified:false/loginRequired:null` 不能当作服务端账号已验证。
 
 ### 表格的三层执行方式
 
@@ -127,7 +127,7 @@ Agent 可用 `--json` 解析结果；用户手动运行且只想看简短反馈�
 |---|---|---|
 | API | `sheet-update/append/insert/delete/format/merge/values` | 默认优先；返回 `verified:false` 时必须按手册补读回/导出核验 |
 | 页面 façade | `sheet-freeze`、`sheet-filter`、`sheet-filter-clear` | 冻结行列、筛选区域；写入后命令会刷新页面重读状态并比对导出 XLSX |
-| 页面菜单 | `sheet-export-pdf` | 表格 PDF 只有页面能生成（服务端返回 3613）；命令会等待「共 N 页」再点下一步，核验 `%PDF` 信封 |
+| 页面菜单 | `sheet-export-pdf` 或 `get --format pdf` | 表格 PDF 只有页面能生成（服务端返回 3613）；命令会等待「共 N 页」再点下一步，核验 `%PDF` 信封 |
 
 `sheet-sort`、`sheet-validation`、`comment-add`、`find`、`replace-all` 会返回 `code` + `bottleneck` + `pagePath` + `next`，退出码 3 且未执行。把这些如实转述给用户（说明卡在哪一层），不要改成“已支持”，也不要用内置浏览器模拟一次再声称完成。透视表、清洗、行列管理同理属于页面操作。
 

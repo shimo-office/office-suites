@@ -45,25 +45,25 @@ shimo-net <command> [位置参数] [--option value] [--json]
 | `session logout` | 只标记共享会话已退出；`logout` 会同时清理本地凭据。 |
 | `whoami` | 查询实际当前账号。 |
 | `doctor` | 检查平台运行环境、浏览器、origin 和账号；失败返回非 0。 |
-| `schema [--action 动作]` | 输出命令、类型、动作分类、场景与能力计数；`phase3.actionParams` 给出每个动作的 payload 契约（必填、可选、枚举、示例），带 `--action` 只输出该动作的契约。 |
+| `schema [--action 动作]` | 输出命令、类型、动作分类、场景与能力计数；`phase3.actionParams` 与 `editor.actionParams` 给出各自已列动作的 payload 契约（必填、可选、枚举、示例），带 `--action` 只输出该动作的契约。 |
 | `update [--check] [--json]` | 更新当前安装；`--check` 只检查。npm 安装更新整个包，原生安装校验 GitHub Release 后替换；不降级、不修改登录和配置。旧版需先按[安装说明](install.md)升级一次。 |
 | `version` | 输出本地二进制版本；支持 `--json`。 |
 | `help` / `--help` / `-h` | 输出当前帮助。 |
 
 ### 登录态与「内置浏览器显示登录页」
 
-CLI 的编辑器通道使用独立浏览器配置并注入 CLI 会话；宿主的**内置预览浏览器不共享这份 cookie**。因此「内置预览停在登录页」不等于 CLI 登录失效，两者要分开判断：
+CLI 的编辑器通道使用独立浏览器配置并注入 CLI 会话；宿主的**内置预览浏览器未必共享这份 cookie**。因此「内置预览停在登录页」不等于 CLI 登录失效，两者要分开判断：
 
 | 现象 | 含义 | 正确处理 |
 |---|---|---|
-| 命令能读文件、`whoami` 正常，但内置预览显示登录页 | 宿主浏览器没有 CLI 的 cookie | 用命令返回的截图/导出物展示；交互式查看用 `shimo-net open`；确需宿主内查看时先 `session export --out` 再注入 |
+| 命令能读文件、`whoami` 正常，但内置预览显示登录页 | 宿主浏览器没有 CLI 的 cookie | 用截图/导出物展示；宿主支持安全会话导入时由适配程序导入同一 origin 并验证账号。`open` 使用自身配置，不能保证 CLI 会话 |
 | 命令报 `AUTH_REQUIRED`，`loginRedirect:true`，页面路径为 `/login` | 会话确实失效 | `session status --json` 核对后 `login --new` |
 | 命令报 `EDITOR_NOT_READY`，页面停在骨架屏/资源未加载 | 资源或网络问题，不是鉴权 | 保留现有会话重试；检查静态资源与代理，不要重复登录 |
 
-`preview`、`editor`、`phase3` 的 JSON 结果都带：
+`preview` 及已接入展示契约的 `editor` 结果带以下字段；其他扩展动作仍以自身结果为准：
 
-- `auth`：`cliSession`、`credentialSource`、`sharedSession`、`authState`、`revision`、`loginRequired`。
-- `view`：`transport`（`cli-browser` / `download` / `artifact`）、`usesCLISession`、`builtInBrowser.usable/reason/workaround`、`openWith`。
+- `auth`：`cliSession` 表示本地凭据可用，`credentialSource/sharedSession/authState/revision` 为本地记录；`verified:false`、`loginRequired:null` 表示本摘要未验证服务端账号，不能把凭据存在当作登录成功。
+- `view`：`transport`（`link` / `cli-browser` / `download` / `artifact`）、`usesCLISession`、`browserOpened`。链接的 `builtInBrowser.usable/sessionShared` 为 `null`、`authState:unknown`，由宿主验证后才能声明可用；本地产物可直接展示。URL 的 `openWith` 是便捷命令，`openSessionShared:false` 明确它不注入 CLI 会话。
 
 Agent 应按 `view.transport` 决定展示方式，不要用内置浏览器打开需要登录的编辑页再判断“登录失效”。
 
@@ -175,7 +175,7 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 
 这三个写入动作的失败结果带 `stage`、`mutationAttempted`、`mayHaveApplied`、`noReplay`：写入已提交但核验失败时禁止整条命令重放。PDF 导出是只读动作，重跑只会多产出一份文件。
 
-`sheet-export-pdf` 的 `settings` 明确记录 `source: current-page-defaults`（A4、当前工作表、显示网格线）：本轮不修改纸张/缩放/边距，若需要自定义版式须在页面上手工设置一次再导出，不在命令里假装已支持。
+`get <表格链接> --format pdf [--out 目录]` 自动走同一页面导出流程，不请求不支持的服务端 PDF 导出接口；`--no-browser` 会在启动前拒绝。`sheet-export-pdf` 的 `settings` 记录 `source: current-page-settings`、`modified:false`，以 `dialog.json` 和截图保存实际设置，不假定固定 A4、范围或网格线。未指定 `--out` 时 PDF 也会保留，不能随临时验证证据清理。
 
 `mentions-list/comments-list` 使用已有登录态，未登录时提示登录，不自动打开浏览器；显式 `--relogin` 仍按全局规则执行登录。即使传入 `--verify` 或 `--keep-open`，这两个读取动作也不启动浏览器。文本输出条数和去重后的定位链接；空列表或缺少定位字段会明确提示。`--json` 保留 `result.ok` 和 `result.value` 原始数据，并增加 `links`、`count`、`unlocatedCount`；`verified:true` / `verifyWith:"http"` 仅表示 API 读取成功，不表示已验证页面跳转。
 
@@ -237,6 +237,8 @@ shimo-net editor <链接或guid或@别名> --action <动作>
 | 0 | 当前命令执行成功；仍应查看 `verified`、验证范围和业务断言，不能据此推断全部需求完成。 |
 | 1 | 命令错误、参数无效、权限拒绝或验证失败；带 `--json` 时错误写 stderr，结构为 `{"ok":false,"error":"..."}`。 |
 | 2 | 未知命令；stderr 输出错误，带 `--json` 时同样是单个 JSON 错误。 |
+| 3 | 当前动作未封装，或需要页面浏览器但被禁止；按 `code`、`bottleneck` 与 `mutationAttempted` 判断，不当作已执行成功。 |
+| 4 | 会话或编辑器未就绪；按 `AUTH_REQUIRED`、`EDITOR_NOT_READY`、`SESSION_EMPTY` 等 `code` 区分原因，不一律要求重新登录。 |
 
 成功 JSON 与 stderr 应分别捕获，保留退出码。stderr 也可能包含浏览器诊断或临时目录清理警告，不要把 `2>&1` 的混合内容直接当成单个 JSON。操作成功且 `verified:true` 时，临时浏览器配置清理警告不代表写入失败；其他警告按内容判断，不能为消除警告重放写入。面向用户默认摘要结果、核验范围和正式产物，完整 entries/哈希仅用于排错；未来手动操作可省略 `--json` 看简短输出。
 

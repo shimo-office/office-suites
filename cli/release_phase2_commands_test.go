@@ -69,6 +69,10 @@ func TestReleasePhase2APICommandRequestsAndTruthfulOutput(t *testing.T) {
 			if result["ok"] != true || result["verified"] != false || result["verifyWith"] != "host-browser" || result["screenshot"] != nil {
 				t.Fatal("API response claimed visual acceptance", result)
 			}
+			view := asObj(result["view"])
+			if view["browserOpened"] != false || view["transport"] != viewTransportLink || view["usesCLISession"] != false {
+				t.Fatal("HTTP-only execution must not claim a CLI browser was opened", view)
+			}
 		})
 	}
 }

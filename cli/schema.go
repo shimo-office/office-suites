@@ -25,8 +25,8 @@ func schema() map[string]any {
 		{"name": "restore", "usage": "shimo-net restore <guid>", "desc": "从回收站恢复"},
 		{"name": "read", "usage": "shimo-net read <链接|guid|@别名> [--max-chars 12000]", "desc": "读正文（文档 md；文稿/表格/幻灯片本地解析）"},
 		{"name": "pull", "usage": "shimo-net pull <链接|@别名> [--out <dir>] [--since 7d] [--limit N]", "desc": "下载当前层文件；不支持的导出类型单独计数，不算失败"},
-		{"name": "get", "usage": "shimo-net get <链接|guid|@别名> [--out <dir>] [--format md|docx|wps|pdf|jpg|xlsx|pptx] [--embed-images false]", "desc": "下载单个文件；--format 按文件类型导出（文档 md/docx/pdf/jpg，文稿 docx/wps/pdf，表格 xlsx，幻灯片 pptx/pdf）"},
-		{"name": "preview", "usage": "shimo-net preview <链接|guid|@别名>", "desc": "输出 /files/<guid> 预览地址，供内置浏览器打开"},
+		{"name": "get", "usage": "shimo-net get <链接|guid|@别名> [--out <dir>] [--format md|docx|wps|pdf|jpg|xlsx|pptx] [--embed-images false]", "desc": "下载单个文件；--format 按文件类型导出（文档 md/docx/pdf/jpg，文稿 docx/wps/pdf，表格 xlsx/PDF（PDF通过页面菜单），幻灯片 pptx/pdf）"},
+		{"name": "preview", "usage": "shimo-net preview <链接|guid|@别名>", "desc": "输出预览地址及展示契约；宿主登录状态需独立验证"},
 		{"name": "fav", "usage": "shimo-net fav <list|add|rm|show> …", "desc": "常用文件夹别名（下次直接说 @别名）"},
 		{"name": "open", "usage": "shimo-net open <链接|guid|@别名> [--default]", "desc": "打开链接；使用独立 open-profile，不注入会话或开启调试端口；--default 选择默认浏览器应用"},
 		{"name": "editor", "usage": "shimo-net editor <链接|guid|@别名> --action <动作> [--payload JSON] [--out 证据目录] [--screenshot PATH] [--verify|--no-verify]", "desc": "调用同源 API 或套件前端 SDK；历史/评论面板、保存版本、打印需 --verify；提交评论仍需页面操作"},
@@ -41,6 +41,7 @@ func schema() map[string]any {
 		{"name": "doctor", "usage": "shimo-net doctor [--json]", "desc": "自检（运行时/Chrome/凭据/origin）"},
 	}
 	editor := map[string]any{"status": "api-backed", "actions": phase2ActionNames(), "verifiedActionsMeaning": "historically exercised API routes, not verification of the current invocation", "browserRequiredActions": []string{"history-show", "history-hide", "comments-show", "comments-hide", "save-version", "print", "cell-history", "sheet-freeze", "sheet-filter", "sheet-filter-clear", "sheet-export-pdf"}, "verifiedActions": []string{"mentions-list", "comments-list", "history-show", "comments-show", "save-version", "print", "cell-history", "sheet-format", "sheet-merge", "sheet-values", "sheet-update", "sheet-append", "sheet-insert", "sheet-delete", "sheet-freeze", "sheet-filter", "sheet-filter-clear", "sheet-export-pdf"}, "pageOnlyActions": keys(phase2PageOnlyActions), "transport": "same-origin-api", "fallback": "按 docs/scenarios.md#浏览器优先级 选择宿主能力；内置浏览器优先，外部浏览器需用户授权"}
+	editor["actionParams"] = editorActionContracts
 	return map[string]any{
 		"name": "shimo-net", "version": version, "transport": "cli", "runtime": "go",
 		"auth":       map[string]any{"login": "shimo-net login", "whoami": "shimo-net whoami", "storage": "macOS Keychain / Windows Credential Manager; fallback: 0600 credentials.json (Linux uses file storage)", "service": keychainService, "envOverride": "SHIMO_NET_COOKIE"},

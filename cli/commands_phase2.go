@@ -176,6 +176,7 @@ func (a *App) cmdPhase2() error {
 		shot = absolute
 	}
 	var value any
+	browserOpened := false
 	if strings.HasPrefix(method, "http:") {
 		// An API response proves only that the server accepted the mutation. The
 		// user-facing result also requires a visual check in the real editor.
@@ -194,6 +195,7 @@ func (a *App) cmdPhase2() error {
 			value, err = a.runPhase2HTTP(guid, method, args)
 		}
 		if err == nil && shot != "" && cliBrowserVerification(a) {
+			browserOpened = true
 			_, err = phase2RunBrowser(target, "browser.verify", nil, shot)
 			if err != nil && action != "sheet-values" {
 				return phase2MutationFailure(err, guid, "verify", map[string]any{"action": action, "result": value, "verified": false})
@@ -207,13 +209,18 @@ func (a *App) cmdPhase2() error {
 		if !cliBrowserVerification(a) {
 			return errors.New("页面动作需要 --verify（CLI 本地浏览器）或宿主内置浏览器；本次未执行，不返回成功")
 		}
+		browserOpened = true
 		value, err = phase2RunBrowser(target, method, args, shot)
 	}
 	if err != nil {
 		return err
 	}
+	viewTransport := viewTransportLink
+	if browserOpened {
+		viewTransport = viewTransportCLIBrowser
+	}
 	out := map[string]any{"ok": true, "action": action, "method": method, "url": target, "result": value,
-		"view": a.agentView(viewTransportCLIBrowser, target), "auth": a.agentAuth()}
+		"view": a.agentView(viewTransport, target), "auth": a.agentAuth()}
 	if strings.HasPrefix(method, "sdk.") {
 		out["scope"] = "page-sdk"
 		actionVerified := false

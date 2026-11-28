@@ -42,17 +42,19 @@ func (b *phase3EditorBrowser) uiBodyText() string {
 func (b *phase3EditorBrowser) waitUIText(must, forbid []string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for {
-		expr := `(()=>{const t=(document.body?.innerText||'');return {ok:` + uiTextPredicate(must, forbid) + `,text:t.slice(0,2000)}})()`
+		// A pending condition is data, not an action rejection. EvalReadOnly
+		// treats {ok:false} as an exception and would discard the page text.
+		expr := `(()=>{const t=(document.body?.innerText||'');return {matched:Boolean(` + uiTextPredicate(must, forbid) + `),text:t.slice(0,2000)}})()`
 		v, err := b.EvalReadOnly(expr)
+		if err != nil {
+			return fmt.Errorf("读取页面文字失败：%w", err)
+		}
 		m := asObj(v)
-		if err == nil && boolv(m, "ok") {
+		if boolv(m, "matched") {
 			return nil
 		}
 		if time.Now().After(deadline) {
-			last := ""
-			if err == nil {
-				last = strings.ReplaceAll(str(m, "text"), "\n", "|")
-			}
+			last := strings.ReplaceAll(str(m, "text"), "\n", "|")
 			return fmt.Errorf("等待页面文字超时（%s）：需要 %v，排除 %v；当前页面：%s", timeout, must, forbid, truncateRunes(last, 300))
 		}
 		time.Sleep(400 * time.Millisecond)

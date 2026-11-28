@@ -38,7 +38,7 @@ func (a *App) cmdSheetExportPDF() (runErr error) {
 		return errors.New("用法：shimo-net editor <表格链接> --action sheet-export-pdf [--payload '{\"sheetName\":\"工作表1\"}'] [--out 证据目录] [--json]")
 	}
 	if explicitNoBrowser(a) {
-		return &commandError{Message: "表格 PDF 导出只能走页面菜单（服务端导出接口对该类型返回 3613「暂不支持该导出类型」）；--no-browser 已禁止启动浏览器，本次未导出", ExitCode: 2}
+		return &commandError{Message: "表格 PDF 导出通过页面菜单生成；--no-browser 已禁止启动浏览器，本次未导出", Result: map[string]any{"code": "BROWSER_REQUIRED", "action": "sheet-export-pdf", "mutationAttempted": false}, ExitCode: 3}
 	}
 	payload := map[string]any{}
 	if raw := strings.TrimSpace(a.opt("--payload")); raw != "" {
@@ -82,6 +82,11 @@ func (a *App) cmdSheetExportPDF() (runErr error) {
 	run := &sheetPDFExportRun{sheetName: sheetName, evidence: dir}
 	stage := sheetPDFStagePreflight
 	defer func() {
+		if runErr != nil && run.browser != nil {
+			// Preserve the page where the menu/wizard failed instead of
+			// leaving only the last successful screenshot for diagnosis.
+			_ = run.browser.Capture(filepath.Join(dir, "failure.png"))
+		}
 		if run.browser != nil {
 			run.browser.Close()
 		}
@@ -188,7 +193,7 @@ func (a *App) cmdSheetExportPDF() (runErr error) {
 		"pdf":  published, "bytes": size, "sha256": sha,
 		"pages": run.pages, "sheetName": run.sheetName,
 		"exportMode": "menu-share-download-pdf-image",
-		"settings":   map[string]any{"source": "current-page-defaults", "paper": "A4", "range": "当前工作表", "note": "本轮不修改导出设置，使用页面默认值（A4、当前工作表、显示网格线）"},
+		"settings":   map[string]any{"source": "current-page-settings", "modified": false, "snapshot": filepath.Join(dir, "dialog.json"), "note": "未修改导出设置；页面可能保留此前设置，纸张、范围和网格线以对话框物证为准，不假定固定默认值"},
 		"verified":   true,
 		"verification": map[string]any{
 			"level": "artifact", "scope": "PDF 文件信封、大小与下载路径已核验；页数、文本与渲染需独立解析，不在本命令断言范围",

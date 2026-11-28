@@ -55,11 +55,11 @@ func TestAgentViewSeparatesHostBrowserFromCLISession(t *testing.T) {
 	a := newApp([]string{"preview", "x"})
 	cli := a.agentView(viewTransportCLIBrowser, "https://shimo.net/files/abc")
 	host, _ := cli["builtInBrowser"].(map[string]any)
-	if host == nil || host["usable"] != false {
-		t.Fatalf("host browser must be reported unusable for a login page: %#v", cli)
+	if host == nil || host["usable"] != nil || host["sessionShared"] != nil || host["authState"] != "unknown" {
+		t.Fatalf("CLI cannot infer the host browser's session: %#v", cli)
 	}
-	if !strings.Contains(str(cli, "openWith"), "shimo-net open") {
-		t.Fatalf("missing openWith hint: %#v", cli)
+	if command := str(cli, "openWith"); !strings.Contains(command, "shimo-net open") || strings.Contains(command, "--verify") || cli["openSessionShared"] != false {
+		t.Fatalf("open hint must match the real command and session behavior: %#v", cli)
 	}
 	if cli["usesCLISession"] != true {
 		t.Fatal("cli transport must declare it uses the CLI session")
@@ -69,17 +69,34 @@ func TestAgentViewSeparatesHostBrowserFromCLISession(t *testing.T) {
 	if host == nil || host["usable"] != true {
 		t.Fatalf("artifacts are host-visible: %#v", download)
 	}
+	if _, exists := download["openWith"]; exists {
+		t.Fatal("a local artifact must not be sent to shimo-net open")
+	}
 }
 
-func TestAgentAuthReportsLoginNotRequiredForHostPreview(t *testing.T) {
+func TestAgentAuthDoesNotTreatCredentialsAsVerifiedIdentity(t *testing.T) {
+	t.Setenv("SHIMO_NET_STATE_DIR", t.TempDir())
+	t.Setenv("SHIMO_NET_COOKIE", "sid=synthetic-unverified")
 	a := newApp([]string{"whoami"})
 	auth := a.agentAuth()
-	if auth["loginRequired"] != false {
-		t.Fatalf("preview must not request a second login: %#v", auth)
+	if auth["loginRequired"] != nil || auth["verified"] != false || auth["cliSession"] != true {
+		t.Fatalf("credential presence must not claim successful authentication: %#v", auth)
 	}
 	for _, key := range []string{"cliSession", "credentialSource", "sharedSession", "authState"} {
 		if _, ok := auth[key]; !ok {
 			t.Fatalf("auth contract missing %s: %#v", key, auth)
 		}
+	}
+}
+
+func TestAgentViewForLinkDoesNotClaimBrowserWasOpened(t *testing.T) {
+	a := newApp([]string{"preview", "x"})
+	view := a.agentView("link", "https://shimo.net/files/abc")
+	if view["usesCLISession"] != false || view["browserOpened"] != false {
+		t.Fatalf("preview only returns a link: %#v", view)
+	}
+	host := asObj(view["builtInBrowser"])
+	if host["authState"] != "unknown" || host["usable"] != nil {
+		t.Fatalf("a link cannot prove the host is logged in: %#v", view)
 	}
 }

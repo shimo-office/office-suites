@@ -244,13 +244,21 @@ func (a *App) cmdGet() error {
 			return errors.New("该文件是上传的原始文件（仅预览），只支持原样下载，不参与格式转换；请去掉 --format")
 		}
 		typ := str(info, "type")
+		if typ == "spreadsheet" && format == "pdf" {
+			// Keep the ordinary download intent: route front-end-only PDF
+			// generation through the same menu command and evidence lifecycle.
+			args := []string{"editor", a.urlOf(withGUID(info, guid)), "--action", "sheet-export-pdf", "--out", outDir}
+			child := newApp(args)
+			child.Origin, child.OriginSource, child.JSON = a.Origin, a.OriginSource, a.JSON
+			if explicitNoBrowser(a) {
+				child.Bool["--no-browser"] = true
+			}
+			return child.withPhase3Evidence(child.cmdSheetExportPDF)
+		}
 		if !exportFormatAllowed(typ, format) {
 			allowed := exportFormatOptions[typ]
 			if len(allowed) == 0 {
 				return fmt.Errorf("%s 没有可用的导出格式", typeLabel(info))
-			}
-			if typ == "spreadsheet" && format == "pdf" {
-				return fmt.Errorf("电子表格没有 PDF 导出接口：服务端 /files/export 返回 3613「暂不支持该导出类型」；PDF 只能由页面菜单生成，请用 shimo-net editor <链接> --action sheet-export-pdf")
 			}
 			return fmt.Errorf("%s 不支持导出为 %s；可用：%s", typeLabel(info), format, strings.Join(allowed, " / "))
 		}
@@ -525,7 +533,7 @@ func (a *App) cmdPreview() error {
 	u := a.originURL("/files/" + url.PathEscape(guid))
 	out := map[string]any{"ok": true, "guid": guid, "name": str(info, "name"), "type": str(info, "type"), "url": u,
 		"note": "预览地址固定为 /files/<guid>；页面需要登录态，宿主内置浏览器不共享 CLI 会话时会停在登录页（这不代表 CLI 登录失效）",
-		"view": a.agentView(viewTransportCLIBrowser, u), "auth": a.agentAuth()}
+		"view": a.agentView(viewTransportLink, u), "auth": a.agentAuth()}
 	if a.JSON {
 		return a.printJSON(out)
 	}

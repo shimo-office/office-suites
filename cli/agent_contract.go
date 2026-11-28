@@ -11,51 +11,57 @@ import (
 )
 
 // The agent contract exists because a host preview browser and the CLI browser
-// have different cookie jars: opening an editor link in the host's built-in
-// browser lands on the login page even though the CLI session is valid. Instead
-// of leaving the agent to guess, every result states how the item can be shown.
+// can have different cookie jars. CLI credential presence cannot establish the
+// host's login state; only a host adapter can verify it in that browser.
 
 const (
 	viewTransportCLIBrowser = "cli-browser"
 	viewTransportArtifact   = "artifact"
 	viewTransportDownload   = "download"
+	viewTransportLink       = "link"
 )
 
 // agentView describes where the user can actually see the result.
 func (a *App) agentView(transport, target string) map[string]any {
-	keep := transport == viewTransportCLIBrowser
+	cliBrowser := transport == viewTransportCLIBrowser
+	artifact := transport == viewTransportArtifact || transport == viewTransportDownload
 	out := map[string]any{
 		"transport":      transport,
-		"usesCLISession": keep,
+		"usesCLISession": cliBrowser,
+		"browserOpened":  cliBrowser,
 		"builtInBrowser": map[string]any{
-			"usable": false,
-			"reason": "宿主内置浏览器不共享 CLI 登录态，直接打开编辑页会停在登录页；这与 CLI 会话是否有效无关",
+			"usable": nil, "sessionShared": nil, "authState": "unknown",
+			"reason": "CLI 未检查宿主浏览器的登录态；直接打开链接可能需要该浏览器自己的会话，不能据此判定 CLI 会话失效",
 			"workaround": []string{
 				"使用本命令返回的截图/导出文件作为展示物",
-				"需要交互式查看时执行 shimo-net open <链接>（独立配置，已注入 CLI 会话）",
-				"确需在宿主浏览器内查看时，先用 shimo-net session export --out <文件> 导出会话，再由宿主注入同一 origin 的 cookie",
+				"宿主支持安全会话导入时，由适配程序读取 session export 文件并导入同一 origin，再在宿主中验证账号；不把凭据读入聊天",
+				"宿主只支持打开链接时，CLI 无法自动共享会话；由 Agent 明确展示通道状态",
 			},
 		},
 	}
 	if target != "" {
 		out["target"] = target
-		out["openWith"] = "shimo-net open " + target + " --verify"
+		if !artifact {
+			out["openWith"] = "shimo-net open '" + strings.ReplaceAll(target, "'", "'\"'\"'") + "'"
+			out["openSessionShared"] = false
+			out["openNote"] = "open 不注入 CLI 会话；目标浏览器使用自身登录状态"
+		}
 	}
-	if !keep {
-		out["builtInBrowser"] = map[string]any{"usable": true, "reason": "本结果不依赖编辑器页面，宿主可直接展示产物"}
+	if artifact {
+		out["builtInBrowser"] = map[string]any{"usable": true, "requiresAuth": false, "reason": "本地产物不依赖石墨页面登录，宿主可直接展示"}
 	}
 	return out
 }
 
 func (a *App) agentAuth() map[string]any {
-	_, source, _ := credentialForOrigin(a.Origin)
+	credential, source, err := credentialForOrigin(a.Origin)
 	status := sessionStatusMap(a.Origin)
 	return map[string]any{
-		"origin": a.Origin, "cliSession": source != "none" && source != "",
+		"origin": a.Origin, "cliSession": err == nil && credential != "",
 		"credentialSource": source, "sharedSession": boolv(status, "shared"),
 		"authState": str(status, "authState"), "revision": status["revision"],
-		"loginRequired": false,
-		"note":          "CLI 已登录时不要在宿主浏览器重复登录；宿主预览的登录页只代表它没有 CLI 的 cookie",
+		"loginRequired": nil, "verified": false,
+		"note": "这里只报告本地凭据来源，未调用 whoami 验证账号；宿主登录态另行验证，不因宿主预览登录页要求 CLI 重登",
 	}
 }
 

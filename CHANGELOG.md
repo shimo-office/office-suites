@@ -593,13 +593,20 @@
 
 - `editor --action mentions-list/comments-list` 改为直接 HTTP 读取页面签名与 API，不启动浏览器；轻文档输出提及 `#atGuid` 和评论 `#selectionGuid` 定位链接。JSON 保留原始结果并增加链接与计数，同一评论位置去重；缺少定位信息时明确提示。
 
-## 0.9.40 — 2026-11-27
+## 0.9.40 — 2026-11-28
 
 本轮按 0.9.39 产品评测报告（43 个场景 / 227 次执行 / 14 项问题）修复，重点是「不要把没证据的事说成完成」。
 
+分段实施计划见 [产品验收修复计划](docs/internal/cli-product-remediation.md)。本版本交付第一批修复；宿主会话接入及其余表格能力仍按后续批次推进，不计为本版本已完成能力。
+
+- `get --format pdf` 对在线电子表格自动路由页面菜单；未指定 `--out` 时 PDF 不随临时证据清理。
+- `schema --action` 可查询冻结、筛选和 PDF 页面动作，明确真实 `editor` 入口与参数。
+- 展示契约区分链接、CLI 页面与本地产物；宿主登录状态未知时返回 null/unknown，不把 `open` 描述成已注入会话，也不附不存在的 `--verify`。本地凭据存在与服务端账号验证分开报告。
+- 纯 HTTP 表格动作返回链接展示契约，只有实际进入浏览器执行分支才返回 `browserOpened:true`，避免默认模式或 `--no-browser` 误报已打开浏览器。
+
 ### 新增
 
-- `editor --action sheet-export-pdf`：表格 PDF 只能由页面生成（服务端 `/files/export` 对该类型返回 3613「暂不支持该导出类型」）。命令驱动 更多 → 下载 → 纯图PDF → 导出设置（等「共 N 页」且不再「正在准备导出」）→ 下一步，把浏览器下载限制到临时目录，核验 `%PDF` 信封/大小后再落到 `--out`；同时留 before/menu/dialog/after 四张截图。导出设置显式标注为页面默认值（A4、当前工作表、显示网格线），页数与渲染仍需独立解析。
+- `editor --action sheet-export-pdf`：表格 PDF 只能由页面生成（服务端 `/files/export` 对该类型返回 3613「暂不支持该导出类型」）。命令驱动 更多 → 下载 → 纯图PDF → 导出设置（等「共 N 页」且不再「正在准备导出」）→ 下一步，把浏览器下载限制到临时目录，核验 `%PDF` 信封/大小后再落到 `--out`；同时留 before/menu/dialog/after 四张截图。导出设置以当前对话框物证为准，不假定固定默认值，页数与渲染仍需独立解析。
 - `editor --action sheet-freeze`：走页面 façade（`activeSheet.setFrozenRowCount/setFrozenColumnCount`），写入后刷新页面重新读取冻结行列，并要求导出 XLSX 的单元格值/样式/合并结构未变。
 - `editor --action sheet-filter` / `sheet-filter-clear`：`tn.addFilter` / `deleteFilter`，重开后比对筛选区域行列与范围；已有其它筛选区域时先清理，不静默覆盖。
 - `session export [--out 文件]`：把共享会话导出成 0600 JSON，供宿主浏览器注入同一 origin；不覆盖已有文件，只打印路径与指纹，凭据不进 stdout。
